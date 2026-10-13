@@ -27,6 +27,7 @@ from .models import (
     OutputAction,
     OutputDeviceSpec,
     OutputKind,
+    OutputMode,
 )
 
 SUPPORTED_VERSIONS = frozenset({1})
@@ -339,7 +340,7 @@ class _Validator:
             action = self.action(item, f"{where}[{index}]", outputs)
             if action is None:
                 ok = False
-            elif action in actions:
+            elif any((a.device, a.code) == (action.device, action.code) for a in actions):
                 self.error(
                     f"{where}[{index}]",
                     f"duplicate output {action.device} {codes.code_name(action.code)}",
@@ -352,10 +353,12 @@ class _Validator:
     def action(
         self, raw: object, where: str, outputs: dict[str, OutputDeviceSpec]
     ) -> OutputAction | None:
-        event = self.event(raw, where)
+        event = self.event(raw, where, optional_keys={"mode"})
         if event is None:
             return None
         device, event_type, code = event
+        assert isinstance(raw, dict)
+        mode = self.output_mode(raw.get("mode", OutputMode.HOLD.value), f"{where}.mode")
         spec = outputs.get(device)
         if spec is None:
             self.error(f"{where}.device", self.unknown_device(device, "output", outputs))
@@ -377,9 +380,20 @@ class _Validator:
                 "(e.g. use BTN_SOUTH, BTN_EAST, BTN_START, BTN_DPAD_UP)",
             )
             return None
-        return OutputAction(device=device, code=code)
+        if mode is None:
+            return None
+        return OutputAction(device=device, code=code, mode=mode)
 
-    def event(self, raw: object, where: str) -> tuple[str, str, int | None] | None:
+    def output_mode(self, value: object, where: str) -> OutputMode | None:
+        valid = [mode.value for mode in OutputMode]
+        if value not in valid:
+            self.error(where, f"unknown mode {value!r} (expected one of: {', '.join(valid)})")
+            return None
+        return OutputMode(value)
+
+    def event(
+        self, raw: object, where: str, optional_keys: set[str] | None = None
+    ) -> tuple[str, str, int | None] | None:
         """Validate a {device, type, code} object.
 
         Returns (device, type, code) when device and type are usable; code is
@@ -388,7 +402,8 @@ class _Validator:
         if not self.check_object(raw, where):
             return None
         assert isinstance(raw, dict)
-        self.check_keys(raw, where, _EVENT_KEYS, required=sorted(_EVENT_KEYS))
+        allowed = _EVENT_KEYS | (optional_keys or set())
+        self.check_keys(raw, where, allowed, required=sorted(_EVENT_KEYS))
         device = raw.get("device")
         event_type = raw.get("type")
         if "device" in raw and not isinstance(device, str):

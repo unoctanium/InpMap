@@ -379,6 +379,36 @@ def test_consume_false_not_supported_yet():
     assert "'false' is not supported yet" in problems_of(data)
 
 
+def test_output_mode_defaults_to_hold_and_accepts_tap():
+    from inpmap.models import OutputMode
+
+    data = valid()
+    data["mappings"][0]["outputs"][1]["mode"] = "tap"
+    first, second = parse_config(data).mappings[0].outputs
+    assert first.mode is OutputMode.HOLD
+    assert second.mode is OutputMode.TAP
+
+
+def test_unknown_output_mode():
+    data = valid()
+    data["mappings"][0]["outputs"][0]["mode"] = "toggle"
+    assert "unknown mode 'toggle' (expected one of: hold, tap)" in problems_of(data)
+
+
+def test_mode_not_allowed_on_input():
+    data = valid()
+    data["mappings"][0]["input"]["mode"] = "tap"
+    assert "input: unknown key 'mode'" in problems_of(data)
+
+
+def test_same_output_twice_with_different_modes_rejected():
+    data = valid()
+    data["mappings"][0]["outputs"].append(
+        {"device": "vkbd", "type": "key", "code": "KEY_Y", "mode": "tap"}
+    )
+    assert "duplicate output vkbd KEY_Y" in problems_of(data)
+
+
 def test_description_must_be_string():
     data = valid()
     data["mappings"][0]["description"] = 5

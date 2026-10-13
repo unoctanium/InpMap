@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from . import __version__, codes
 from .config import ConfigError, load_config
 from .input import InputError
-from .models import Config
+from .models import Config, OutputMode
 from .output import OutputError, OutputManager
 from .runtime import CleanupError, Runtime
 
@@ -292,7 +292,9 @@ def describe_config(config: Config) -> str:
     lines.append("mappings:")
     for rule in config.mappings:
         targets = ", ".join(
-            f"{action.device} {codes.code_name(action.code)}" for action in rule.outputs
+            f"{action.device} {codes.code_name(action.code)}"
+            + (f" ({action.mode.value})" if action.mode is not OutputMode.HOLD else "")
+            for action in rule.outputs
         )
         trigger = f"{rule.trigger.device} {codes.code_name(rule.trigger.code)}"
         lines.append(f"  {rule.id}: {trigger} -> {targets}")

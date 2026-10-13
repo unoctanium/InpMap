@@ -250,6 +250,61 @@ def test_led_state_set_on_forwarder_reaches_physical_keyboard():
     assert result.get("reason") is StopReason.STOPPED, result.get("error")
 
 
+@pytest.mark.hardware
+def test_tap_output_released_while_input_still_held():
+    tap_config = parse_config(
+        {
+            "version": 1,
+            "inputs": {"kbd": {"name": PHYSICAL_NAME}},
+            "outputs": {"keyboard": {"type": "keyboard", "name": "InpMap Test E2E Keyboard"}},
+            "mappings": [
+                {
+                    "id": "x",
+                    "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
+                    "outputs": [
+                        {"device": "keyboard", "type": "key", "code": "KEY_Y", "mode": "tap"}
+                    ],
+                }
+            ],
+        }
+    )
+    physical = UInput({ecodes.EV_KEY: [ecodes.KEY_X]}, name=PHYSICAL_NAME, phys="pytest-physical")
+    stop = threading.Event()
+    result: dict = {}
+    vkbd = None
+
+    def run():
+        try:
+            runtime = Runtime(tap_config, LinuxInputBackend(), LinuxOutputBackend())
+            result["reason"] = runtime.run(stop, timeout=20)
+        except BaseException as exc:
+            result["error"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    try:
+        thread.start()
+        vkbd = find_device("InpMap Test E2E Keyboard")
+        vkbd.grab()
+        time.sleep(0.3)
+        emit(physical, ecodes.KEY_X, 1)  # press and keep holding
+        start = time.monotonic()
+        assert read_key_events(vkbd, 2) == [(ecodes.KEY_Y, 1), (ecodes.KEY_Y, 0)]
+        assert time.monotonic() - start < 0.5  # released by the timer, not by the input
+        emit(physical, ecodes.KEY_X, 0)
+        assert read_key_events(vkbd, 1, timeout=0.3) == []  # release of X emits nothing
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        if vkbd is not None:
+            try:
+                vkbd.ungrab()
+            except OSError:
+                pass
+            vkbd.close()
+        physical.close()
+    assert result.get("reason") is StopReason.STOPPED, result.get("error")
+
+
 # -- LinuxInputSource with stand-ins for evdev objects ---------------------
 # (Events on a destroyed uinput device cannot be read back, so cleanup
 # ordering is checked here instead of against real devices.)

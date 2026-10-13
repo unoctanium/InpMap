@@ -104,7 +104,7 @@ class Runtime:
         return reason
 
     def _start_and_loop(self, stop: StopFlag, deadline: float | None) -> StopReason:
-        self._engine = MappingEngine(self._config, self._outputs)
+        self._engine = MappingEngine(self._config, self._outputs, clock=self._clock)
         for device_id, spec in self._config.inputs.items():
             slot = _Slot(spec=spec, codes=self._config.input_codes(device_id))
             self._slots.append(slot)
@@ -116,6 +116,7 @@ class Runtime:
                 return reason
             for slot in self._slots:
                 self._advance(slot)
+            self._engine.tick()  # timed releases (tap outputs)
             self._wait_and_process(deadline)
 
     def _advance(self, slot: _Slot) -> None:
@@ -157,9 +158,12 @@ class Runtime:
         log.info("input '%s' reconnected: %s", slot.spec.id, slot.source.description)
 
     def _wait_and_process(self, deadline: float | None) -> None:
+        assert self._engine is not None
         wait = self._poll_interval
-        if deadline is not None:
-            wait = max(0.0, min(wait, deadline - self._clock()))
+        now = self._clock()
+        for limit in (deadline, self._engine.next_deadline()):
+            if limit is not None:
+                wait = max(0.0, min(wait, limit - now))
         by_source = {id(s.source): s for s in self._slots if s.source is not None}
         sources = [s.source for s in self._slots if s.source is not None]
         for source in self._inputs.wait(sources, wait):

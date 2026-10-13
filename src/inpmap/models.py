@@ -66,15 +66,20 @@ class InputTrigger:
     code: int
 
 
+class OutputMode(Enum):
+    """How an output follows its input."""
+
+    HOLD = "hold"  # pressed while the input is held
+    TAP = "tap"  # pressed briefly when the input is pressed
+
+
 @dataclass(frozen=True)
 class OutputAction:
-    """A key/button on a named virtual output device.
-
-    Held for as long as the triggering input is held.
-    """
+    """A key/button on a named virtual output device."""
 
     device: str
     code: int
+    mode: OutputMode = OutputMode.HOLD
 
 
 @dataclass(frozen=True)

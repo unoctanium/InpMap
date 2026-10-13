@@ -263,3 +263,106 @@ def test_release_all_continues_after_errors(backend):
         assert engine.active_rules() == []
         assert outputs.held("vpad") == set()
         backend.created["vkbd"].fail_writes = False
+
+
+# -- tap outputs -----------------------------------------------------------
+
+TAP_CONFIG = parse_config(
+    {
+        "version": 1,
+        "inputs": {"kbd": {"name": "Kbd"}},
+        "outputs": {"vkbd": {"type": "keyboard"}, "vpad": {"type": "gamepad"}},
+        "mappings": [
+            {
+                "id": "x",
+                "input": key("KEY_X", "kbd"),
+                "outputs": [{**key("KEY_Y"), "mode": "tap"}, button("BTN_SOUTH")],
+            },
+            {"id": "c", "input": key("KEY_C", "kbd"), "outputs": [key("KEY_Y")]},
+        ],
+    }
+)
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 100.0
+
+    def __call__(self):
+        return self.now
+
+
+@pytest.fixture
+def clock():
+    return FakeClock()
+
+
+@pytest.fixture
+def tap_engine(sink, clock):
+    return MappingEngine(TAP_CONFIG, sink, clock=clock)
+
+
+def test_tap_releases_after_duration_independent_of_input(tap_engine, sink, clock):
+    from inpmap.engine import TAP_DURATION
+
+    tap_engine.handle(ev("kbd", "KEY_X", PRESS))
+    assert sink.events == [("vkbd", c("KEY_Y"), True), ("vpad", c("BTN_SOUTH"), True)]
+    assert tap_engine.next_deadline() == pytest.approx(100.0 + TAP_DURATION)
+    tap_engine.tick()  # not due yet
+    assert len(sink.events) == 2
+    clock.now += TAP_DURATION
+    tap_engine.tick()
+    assert sink.events[-1] == ("vkbd", c("KEY_Y"), False)
+    assert tap_engine.next_deadline() is None
+    # the hold output still follows the input
+    assert tap_engine.held_outputs() == {("vpad", c("BTN_SOUTH"))}
+    tap_engine.handle(ev("kbd", "KEY_X", RELEASE))
+    assert sink.events[-1] == ("vpad", c("BTN_SOUTH"), False)
+
+
+def test_tap_with_quick_release_still_lasts_full_duration(tap_engine, sink, clock):
+    tap_engine.handle(ev("kbd", "KEY_X", PRESS))
+    tap_engine.handle(ev("kbd", "KEY_X", RELEASE))
+    assert ("vkbd", c("KEY_Y"), False) not in sink.events
+    clock.now += 1
+    tap_engine.tick()
+    assert sink.events[-1] == ("vkbd", c("KEY_Y"), False)
+
+
+def test_tap_ignores_repeat_and_taps_again_on_next_press(tap_engine, sink, clock):
+    tap_engine.handle(ev("kbd", "KEY_X", PRESS))
+    tap_engine.handle(ev("kbd", "KEY_X", REPEAT))
+    clock.now += 1
+    tap_engine.tick()
+    tap_engine.handle(ev("kbd", "KEY_X", RELEASE))
+    tap_engine.handle(ev("kbd", "KEY_X", PRESS))
+    y_presses = [e for e in sink.events if e == ("vkbd", c("KEY_Y"), True)]
+    assert len(y_presses) == 2
+
+
+def test_tap_does_not_release_key_held_by_another_mapping(tap_engine, sink, clock):
+    tap_engine.handle(ev("kbd", "KEY_C", PRESS))  # holds KEY_Y
+    tap_engine.handle(ev("kbd", "KEY_X", PRESS))  # taps KEY_Y: already down
+    clock.now += 1
+    tap_engine.tick()
+    assert ("vkbd", c("KEY_Y"), False) not in sink.events
+    tap_engine.handle(ev("kbd", "KEY_C", RELEASE))
+    assert sink.events[-1] == ("vkbd", c("KEY_Y"), False)
+
+
+def test_release_all_finishes_pending_taps(tap_engine, sink):
+    tap_engine.handle(ev("kbd", "KEY_X", PRESS))
+    tap_engine.release_all()
+    assert tap_engine.held_outputs() == set()
+    assert tap_engine.next_deadline() is None
+    assert ("vkbd", c("KEY_Y"), False) in sink.events
+
+
+def test_device_loss_lets_pending_tap_finish(tap_engine, sink, clock):
+    tap_engine.handle(ev("kbd", "KEY_X", PRESS))
+    tap_engine.release_device("kbd")
+    assert sink.events[-1] == ("vpad", c("BTN_SOUTH"), False)  # hold output released
+    assert tap_engine.held_outputs() == {("vkbd", c("KEY_Y"))}
+    clock.now += 1
+    tap_engine.tick()
+    assert tap_engine.held_outputs() == set()

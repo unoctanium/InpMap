@@ -137,7 +137,17 @@ Last updated: 2026-10-13
      transparent; the generator + documented commands cover it.
    - Python ≥ 3.11 baseline only statically checked (ruff target py311);
      only 3.14 available on the dev machine.
-4. Tap output mode (`"mode": "hold" | "tap"`), user's idea.
+4. ✅ Tap output mode (user's idea, 2026-10-13): optional per-output
+   `"mode": "hold" | "tap"` (`models.OutputMode`). Tap = output pressed on
+   input press, released by a timer after `engine.TAP_DURATION` (20 ms),
+   independent of the input; shares reference counts with hold outputs
+   (never releases a key another mapping holds). Engine got a non-blocking
+   timer queue (`tick()`, `next_deadline()`), driven by the runtime loop —
+   reusable for V1.1 macros. `release_all()` finishes pending taps;
+   `release_device()` lets them finish. Tests: config, engine (fake clock),
+   runtime, hardware `test_tap_output_released_while_input_still_held`.
+   ⏳ Optional user check: `config/local-tap.json` (git-ignored) = X taps Y
+   + holds BTN_SOUTH; expected one `y` per press however long X is held.
 5. Later: macro spec (V1.1), systemd service (step 9; runtime already
    separate from CLI with signal handling, no unit file yet).
 - Also known on this machine: the user's controller is a Razer Raiju V3 Pro
@@ -162,6 +172,8 @@ Last updated: 2026-10-13
 | Forwarding device copies the original's vendor/product/version/bustype, omits EV_REP | per-device desktop settings and SDL mappings keep working; no double key repeat |
 | SIGHUP handled like SIGINT/SIGTERM in `run` | closing the terminal must still clean up |
 | Machine-specific configs as git-ignored `config/local*.json` | keep personal device paths out of the repo |
+| Tap duration fixed at 20 ms (not configurable yet) | games sampling once per frame (16.7 ms at 60 fps) must see it; Input Remapper uses a similar keystroke delay (10 ms default); timing configuration belongs to the V1.1 macro design |
+| Timed actions via engine timer queue + runtime loop, never sleeping in the event path | CLAUDE.md §8 (no blocking the input loop); foundation for macros |
 | ruff (lint + format), pytest; `hardware` marker excluded by default | small toolchain |
 | Auto-commit at each completed, test-passing step; never push | user decision 2026-10-13 (CLAUDE.md §13, §17) |
 | `OutputManager` tracks held codes per device; reference counting of overlapping mappings belongs to the (future) state manager | separation: output layer guarantees release on close, state manager owns semantics |
@@ -187,8 +199,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 155 passed, 6 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after installation work. Hardware: 6 passed.
+- Unit tests: 166 passed, 7 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after tap mode. Hardware: 7 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

@@ -307,3 +307,34 @@ def test_keyboard_interrupt_cleans_up(h):
         h.run()
     assert h.vkbd_events()[-1] == (KEY_Y, False)
     h.assert_all_cleaned_up()
+
+
+def test_tap_output_is_released_by_the_loop():
+    config = parse_config(
+        {
+            "version": 1,
+            "inputs": {"kbd": {"name": "Kbd"}},
+            "outputs": {"vkbd": {"type": "keyboard"}},
+            "mappings": [
+                {
+                    "id": "x",
+                    "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
+                    "outputs": [{"device": "vkbd", "type": "key", "code": "KEY_Y", "mode": "tap"}],
+                }
+            ],
+        }
+    )
+    stop = threading.Event()
+    kbd = FakeInputSource(config.inputs["kbd"])
+    inputs = FakeInputBackend({"kbd": kbd}, stop=stop)
+    outputs = FakeOutputBackend()
+    now = [0.0]
+
+    def clock():
+        now[0] += 0.005
+        return now[0]
+
+    inputs.script.append(lambda: kbd.queue.extend([key_raw(KEY_X, 1), SYN]))
+    inputs.script += [lambda: None] * 10  # ~10 loop iterations > tap duration
+    Runtime(config, inputs, outputs, clock=clock).run(stop)
+    assert outputs.created["vkbd"].events == [(KEY_Y, True), (KEY_Y, False)]

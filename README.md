@@ -216,8 +216,17 @@ from the `input` group.
   device name) or `path` (absolute, e.g. `/dev/input/by-id/...-event-kbd`).
 - **outputs**: virtual devices to create. `type` is `keyboard` or `gamepad`;
   `name` is optional (default `InpMap <id>`, max 79 bytes, must be unique).
-- **mappings**: each maps one input to one or more outputs held while the input
-  is held.
+- **mappings**: each maps one input to one or more outputs.
+  - Each output has an optional `"mode"`:
+    - `"hold"` (default): the output is held while the input is held. In text
+      fields the desktop's key repeat then types `yyyy`, exactly as for a real
+      held key; games see one continuous press.
+    - `"tap"`: pressing the input presses the output for 20 ms and releases it
+      automatically, giving exactly one keystroke however long the input is
+      held. Releasing the input does nothing. 20 ms is long enough for games
+      that sample keys once per frame at 60 fps.
+  - If several held mappings or taps share an output, it stays pressed until
+    the last of them lets go.
   - `type: "key"` takes `KEY_*` codes, `type: "button"` takes `BTN_*` codes.
   - Keyboard outputs accept `key`, gamepad outputs accept gamepad/joystick
     `button` codes only.
