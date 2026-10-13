@@ -136,3 +136,33 @@ def test_cli(tmp_path: Path, capsys):
     assert main(["macro-trace", str(path), "m", "--hold-ms", "50"]) == EXIT_OK
     assert "keyboard   KEY_A            down" in capsys.readouterr().out
     assert main(["macro-trace", str(path), "x"]) == EXIT_USAGE
+
+
+MODIFIER_CONFIG = """version 1
+input kbd { name = "Demo" }
+output keyboard { type = keyboard }
+map KEY_LEFTBRACE modifiers(ctrl, shift) as combo { tap KEY_ENTER }
+"""
+
+
+def test_trace_holds_required_modifiers_by_default_and_shows_hiding():
+    from inpmap.dsl.compiler import compile_text
+
+    config = compile_text(MODIFIER_CONFIG, "t.inpmap").config
+    lines = texts(trace(config, "combo", hold_ms=50))
+    assert lines[0] == (0.0, ">> holding KEY_LEFTCTRL, KEY_LEFTSHIFT")
+    assert (0.0, ">> desktop: KEY_LEFTCTRL hidden") in lines
+    assert (0.0, "keyboard KEY_ENTER down") in lines
+    assert lines[-1] == (50.0, ">> desktop: KEY_LEFTSHIFT restored (if still held)")
+
+
+def test_trace_modifiers_override():
+    from inpmap.dsl.compiler import compile_text
+
+    config = compile_text(MODIFIER_CONFIG, "t.inpmap").config
+    assert texts(trace(config, "combo", modifiers=[])) == [
+        (0.0, ">> input pressed"),
+        (100.0, ">> input released"),
+    ]
+    with pytest.raises(ValueError, match="unknown modifier 'hyper'"):
+        trace(config, "combo", modifiers=["hyper"])

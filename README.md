@@ -314,7 +314,9 @@ Guarantees: everything a mapping presses or moves is released or re-centred
 when it ends, is cancelled, loses its input device, or the remapper stops;
 outputs shared by several mappings are reference-counted. Errors are
 reported as `FILE:LINE:COLUMN: message`, all of a file at once, before any
-device is touched. Try mappings safely with `inpmap macro-trace`.
+device is touched. Try mappings safely with `inpmap macro-trace`; it holds
+the modifiers a mapping requires (`--modifiers` to choose others) and shows
+when they are hidden from the desktop.
 
 Not supported yet: mouse movement, dual-role keys that hold back other keys
 (`mod_tap`), conditions on other held inputs, named reusable blocks, the

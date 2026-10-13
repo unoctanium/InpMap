@@ -93,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
     trace_cmd.add_argument("--until-ms", type=float, help="simulate up to this time")
     trace_cmd.add_argument("--seed", type=int, default=0, help="seed for random durations")
     trace_cmd.add_argument(
+        "--modifiers",
+        metavar="NAMES",
+        help="comma-separated modifiers held during the simulation, e.g. ctrl,right_shift, "
+        "or 'none' (default: what the mapping requires)",
+    )
+    trace_cmd.add_argument(
         "--led",
         action="append",
         choices=[led.value for led in Led],
@@ -204,12 +210,21 @@ def _cmd_macro_trace(args: argparse.Namespace) -> int:
             until_ms=args.until_ms,
             seed=args.seed,
             leds=frozenset(Led(name) for name in args.led or []),
+            modifiers=_modifier_list(args.modifiers),
         )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
     print(format_trace(lines))
     return EXIT_OK
+
+
+def _modifier_list(text: str | None) -> list[str] | None:
+    if text is None:
+        return None
+    if text == "none":
+        return []
+    return [name.strip() for name in text.split(",") if name.strip()]
 
 
 def _cmd_udev_rules(args: argparse.Namespace) -> int:

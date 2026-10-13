@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from . import codes
 from .engine import MappingEngine
 from .macros import AXIS_NAMES, Led
-from .models import Config, InputEvent, KeyAction
+from .models import MODIFIER_KEYS, Config, InputEvent, KeyAction, Modifier
 
 IDLE_LIMIT_MS = 120_000.0  # stop waiting for macros to finish after this
 
@@ -48,6 +48,13 @@ class _Recorder:
     def set_axis(self, device: str, code: int, value: float) -> None:
         self._add(f"{device:<10} {AXIS_NAMES.get(code, hex(code)):<16} {value:+.3f}")
 
+    # InputControl: show when passed-through modifiers are hidden/restored.
+    def mask(self, device: str, code: int) -> None:
+        self._add(f">> desktop: {codes.code_name(code)} hidden")
+
+    def unmask(self, device: str, code: int) -> None:
+        self._add(f">> desktop: {codes.code_name(code)} restored (if still held)")
+
 
 def trace(
     config: Config,
@@ -59,6 +66,7 @@ def trace(
     until_ms: float | None = None,
     seed: int = 0,
     leds: frozenset[Led] = frozenset(),
+    modifiers: list[str] | None = None,
 ) -> list[TraceLine]:
     """Return the timeline of inputs (marked ``>>``) and outputs.
 
@@ -66,6 +74,8 @@ def trace(
     and released ``hold_ms`` later. ``other_key_at`` presses (and 10 ms later
     releases) some other key, e.g. to exercise ``if_single``. Without
     ``until_ms``, the simulation ends when no macro runs any more.
+    ``modifiers`` (names like ``ctrl`` or ``right_shift``) are held during
+    the whole simulation; by default the mapping's own requirement.
     """
     rule = next((r for r in config.mappings if r.id == mapping_id), None)
     if rule is None:
@@ -74,7 +84,12 @@ def trace(
     clock = _Clock()
     recorder = _Recorder(clock)
     engine = MappingEngine(
-        config, recorder, clock=clock, leds=lambda device: leds, rng=random.Random(seed)
+        config,
+        recorder,
+        clock=clock,
+        leds=lambda device: leds,
+        rng=random.Random(seed),
+        inputs=recorder,
     )
     trigger = (rule.trigger.device, rule.trigger.code)
     other = (rule.trigger.device, _unmapped_code(config, rule.trigger.device))
@@ -87,6 +102,13 @@ def trace(
         script.append((at, len(script), other, KeyAction.PRESS, "other key pressed"))
         script.append((at + 10, len(script), other, KeyAction.RELEASE, "other key released"))
     script.sort()
+
+    held = _modifier_codes(rule, modifiers)
+    if held:
+        names = ", ".join(codes.code_name(code) for code in held)
+        recorder.lines.append(TraceLine(0.0, f">> holding {names}"))
+    for code in held:
+        engine.handle(InputEvent(rule.trigger.device, code, KeyAction.PRESS))
 
     for at, _order, (device, code), action, label in script:
         if until_ms is not None and at > until_ms:
@@ -105,6 +127,24 @@ def trace(
                 break
             _advance(engine, clock, due)
     return recorder.lines
+
+
+def _modifier_codes(rule, names: list[str] | None) -> list[int]:
+    """Key codes to hold: given names, or the mapping's own requirement."""
+    if names is None:
+        names = sorted(r.name for r in rule.trigger.modifiers)
+    result = []
+    for name in names:
+        side, _, group = name.rpartition("_")
+        try:
+            modifier = Modifier(group)
+        except ValueError:
+            raise ValueError(f"unknown modifier '{name}'") from None
+        left, right = MODIFIER_KEYS[modifier]
+        if side not in ("", "left", "right"):
+            raise ValueError(f"unknown modifier '{name}'")
+        result.append(right if side == "right" else left)
+    return result
 
 
 def _advance(engine: MappingEngine, clock: _Clock, target: float) -> None:

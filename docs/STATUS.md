@@ -269,7 +269,7 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 398 passed, 10 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 400 passed, 10 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after DSL step S4. Hardware: 10 passed (S3).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
@@ -343,6 +343,9 @@ Last updated: 2026-10-13
   install step 4, usage, "Configuration" with the example, modifiers,
   guarantees, "Editor support", short "JSON (machine format)");
   `docs/macros.md` points to `docs/dsl.md`.
+  ✅ macro-trace `--modifiers NAMES|none` (default: the mapping's own
+  requirement) and shows when modifiers are hidden/restored; previews of
+  case 1 and 2 match the user's description.
   **DSL implementation complete.** Next: (a) user's real-keyboard test of
   `config/local.inpmap` (case 1 bracket_combo: KDE must see a plain Enter;
   case 2 alternate on the Razer pad; modifiers); (b) user decides whether
