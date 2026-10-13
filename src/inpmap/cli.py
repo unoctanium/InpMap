@@ -17,9 +17,11 @@ from collections.abc import Sequence
 from . import __version__, codes
 from .config import ConfigError, load_config
 from .input import InputError
+from .macros import Led
 from .models import Config, OutputMode
 from .output import OutputError, OutputManager
 from .runtime import CleanupError, Runtime
+from .trace import format_trace, trace
 
 EXIT_OK = 0
 EXIT_CONFIG_ERROR = 1
@@ -59,6 +61,43 @@ def build_parser() -> argparse.ArgumentParser:
     )
     udev_rules.add_argument("config", help="path to the JSON configuration")
     udev_rules.set_defaults(handler=_cmd_udev_rules)
+
+    trace_cmd = commands.add_parser(
+        "macro-trace",
+        help="simulate a mapping and print its output timeline (no devices)",
+        description=(
+            "Run one mapping (macros, taps, axis outputs) on a simulated clock and print "
+            "every output event with its time. No devices are opened or created."
+        ),
+    )
+    trace_cmd.add_argument("config", help="path to the JSON configuration")
+    trace_cmd.add_argument("mapping", help="id of the mapping to simulate")
+    trace_cmd.add_argument(
+        "--hold-ms", type=float, default=100.0, help="how long each press lasts (default 100)"
+    )
+    trace_cmd.add_argument(
+        "--press-at",
+        type=float,
+        action="append",
+        metavar="MS",
+        help="press the input at this time (repeatable; default 0)",
+    )
+    trace_cmd.add_argument(
+        "--other-key-at",
+        type=float,
+        action="append",
+        metavar="MS",
+        help="press another key at this time (repeatable), e.g. for if_single",
+    )
+    trace_cmd.add_argument("--until-ms", type=float, help="simulate up to this time")
+    trace_cmd.add_argument("--seed", type=int, default=0, help="seed for random durations")
+    trace_cmd.add_argument(
+        "--led",
+        action="append",
+        choices=[led.value for led in Led],
+        help="treat this LED as lit on the input device (repeatable)",
+    )
+    trace_cmd.set_defaults(handler=_cmd_macro_trace)
 
     run = commands.add_parser(
         "run",
@@ -145,6 +184,30 @@ def _cmd_devices(args: argparse.Namespace) -> int:
             f"\n{len(unreadable)} event node(s) not readable by this user "
             f"({', '.join(unreadable)}); see README 'Device permissions'."
         )
+    return EXIT_OK
+
+
+def _cmd_macro_trace(args: argparse.Namespace) -> int:
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    try:
+        lines = trace(
+            config,
+            args.mapping,
+            hold_ms=args.hold_ms,
+            press_at=args.press_at,
+            other_key_at=args.other_key_at,
+            until_ms=args.until_ms,
+            seed=args.seed,
+            leds=frozenset(Led(name) for name in args.led or []),
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    print(format_trace(lines))
     return EXIT_OK
 
 

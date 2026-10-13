@@ -193,8 +193,13 @@ Last updated: 2026-10-13
         executes macros and axis outputs. Runtime tests: timed macro +
         if_led through the loop; if_single on another device acts before
         that key is forwarded.
-      - next: E `inpmap macro-trace`, F hardware tests (macro keys + axis
-        ramp on real uinput devices), G README + example config, then user
+      - ✅ E (2026-10-13): `inpmap macro-trace CONFIG MAPPING [--hold-ms]
+        [--press-at MS]... [--other-key-at MS]... [--until-ms] [--seed]
+        [--led NAME]...` (`src/inpmap/trace.py`): real engine on a fake
+        clock with a recording sink; inputs marked `>>`. Tests:
+        `tests/test_trace.py`.
+      - next: F hardware tests (macro keys + axis ramp through the real
+        runtime on uinput devices), G README + example config, then user
         test on the real keyboard.
    License note: Input Remapper is GPL-3.0; we implement independently and
    do not copy code.
@@ -249,8 +254,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 281 passed, 8 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after macro step D. Hardware: 8 passed.
+- Unit tests: 288 passed, 8 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after macro step E. Hardware: 8 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and
