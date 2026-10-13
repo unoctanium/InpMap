@@ -11,10 +11,17 @@ Last updated: 2026-10-13
 
 - Milestone: **V1** (Linux, no GUI)
 - Spec steps (`project_spec.md` §11): 1 ✅ environment · 2 ✅ skeleton + JSON
-  validation · 3 ✅ virtual devices · **4 🔧 mapping engine (in progress)** ·
-  5 physical input + grab · 6 end-to-end test · 7 robustness
-- Work in progress: step 4 (see Next steps). Nothing half-finished on disk
-  unless listed under "Uncommitted work".
+  validation · 3 ✅ virtual devices · 4 ✅ mapping engine ·
+  **5 ⏭ physical input + grab (next)** · 6 end-to-end test · 7 robustness
+- Step 4 done: `models.InputEvent`/`KeyAction` (neutral events),
+  `state.OutputRefCounts` (reference counts), `engine.MappingEngine`
+  (`handle()` returns True if the original must be suppressed; ignores
+  duplicate presses / releases of inactive inputs; consumes repeats;
+  `release_device()`, `release_all()`; output errors raised after all outputs
+  were processed, counts stay balanced). Tests: `tests/test_state.py`,
+  `tests/test_engine.py`.
+- Waiting for the user's decision on step 5 passthrough design (see Open
+  questions) before writing step 5 code.
 - Step 3 record (complete):
   - ✅ 3a: backend-independent output layer `src/inpmap/output.py`
     (`OutputBackend`/`OutputDevice` protocols, `OutputManager` that tracks held
@@ -40,23 +47,24 @@ Last updated: 2026-10-13
     SDL recognition of the gamepad, Steam behaviour.
 ## Next steps (in order)
 
-1. **Step 4 – mapping engine + state manager** (pure, no hardware):
-   - Neutral input event model (device id, code, press/release/repeat).
-   - `state.py`: reference counts per (output device, code); output pressed on
-     0→1, released on 1→0.
-   - `engine.py`: rules indexed by (input device, code); press activates the
-     rule's outputs, release deactivates; duplicate presses / releases
-     without press ignored; repeat events of mapped inputs consumed without
-     action; unmapped events reported as not handled (passthrough decided in
-     step 5); `release_device(id)` for device loss; `release_all()`.
-     Output errors: process all outputs, keep state coherent, then raise.
-   - Unit tests per spec §9: match/no-match, multi-output, press/release,
-     repeat, shared outputs (two inputs → KEY_Y), device loss, errors.
-2. Step 5 – physical input reading, device selection, `EVIOCGRAB`, passthrough
-   of unmapped events. Before the user's first real grab test: auto-exit
-   timeout option, grab only the configured device, release on every exit
-   path.
-3. Step 6 – end-to-end test with physical `X` (user).
+1. **Step 5 – physical input, grab, passthrough, runtime**:
+   - `inpmap devices`: list physical input devices (name, path, by-id path,
+     whether it has keys/buttons) to pick the config selector.
+   - Linux input backend: resolve `name`/`path` selectors (error if none or
+     ambiguous), translate evdev events to `InputEvent`.
+   - Grab (`EVIOCGRAB`) only devices referenced by the config, only after
+     config validation and output creation succeeded; ungrab on every exit.
+   - Passthrough of everything the engine does not consume (proposal: one
+     forwarding uinput device per grabbed input that mirrors its
+     capabilities, like Input Remapper — pending user decision).
+   - Wait until no key is held on a device before grabbing it (otherwise the
+     desktop never sees the release of a key held at grab time → stuck key).
+   - Runtime loop (`inpmap run CONFIG [--timeout SECONDS]`), separate from
+     CLI parsing; SIGINT/SIGTERM → release outputs, ungrab, destroy devices;
+     device loss → `engine.release_device()`.
+   - Unit tests with fake input backend; then user's first real grab test
+     with `--timeout`.
+2. Step 6 – end-to-end test with physical `X` (user).
 
 ## Decisions (and why)
 
@@ -74,6 +82,8 @@ Last updated: 2026-10-13
 | ruff (lint + format), pytest; `hardware` marker excluded by default | small toolchain |
 | Auto-commit at each completed, test-passing step; never push | user decision 2026-10-13 (CLAUDE.md §13, §17) |
 | `OutputManager` tracks held codes per device; reference counting of overlapping mappings belongs to the (future) state manager | separation: output layer guarantees release on close, state manager owns semantics |
+| Engine semantics: press→activate, release→deactivate, repeat consumed w/o action, duplicate press and release-of-inactive ignored, shared outputs reference-counted per (output device, code) | spec §6 (no premature release), robust to missed/duplicated events |
+| Same input in two mappings is rejected by config, so the engine keeps one rule per (input device, code) | simple, unambiguous |
 | Virtual keyboard: all `KEY_*`, no `BTN_*`, no `EV_REP` | udev `input_id` sets `ID_INPUT_KEYBOARD` only if codes 1–31 are all present; libinput accepts `ID_INPUT_KEY`/`KEYBOARD` as keyboard; full set also enables later passthrough; compositors do repeat themselves |
 | Virtual gamepad: BTN_SOUTH/EAST/NORTH/WEST, TL/TR/TL2/TR2, SELECT/START/MODE, THUMBL/THUMBR, DPAD_*; ABS_X/Y/RX/RY (−32768..32767, fuzz 16, flat 128), ABS_Z/RZ (0..255); no `KEY_*`; plus any mapped gamepad code | udev: joystick buttons suffice for `ID_INPUT_JOYSTICK`, but ≥4 "well-known" keys or <2 joystick buttons/axes un-detect it; libinput ignores joysticks (good: no stray input); SDL without udev (containers/Flatpak) needs ABS_X+ABS_Y; SDL auto gamepad mapping needs BTN_SOUTH and uses the standard layout. Input Remapper uses a similar set (BTN_SOUTH..BTN_THUMBR + ABS 0x00–0x05 + HAT0X/Y) |
 | Device identity: BUS_USB, vendor 0x0001, product 0x0001 kbd / 0x0002 pad, phys `inpmap` | stable, no impersonation (SDL special-cases known VID/PIDs and ignores Steam's virtual pad VID/PID); SDL ignores names starting `uinput-` or containing ` Keyboard` for gamepads, so don't name a gamepad like that |
@@ -93,8 +103,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 86 passed, 3 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after step 3c.
+- Unit tests: 108 passed, 3 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after step 4.
 - Hardware tests (`pytest -m hardware`): 3 passed on the dev machine
   (device creation/identity/capabilities, press/release delivery,
   release_all delivery + device removal). Note: events queued when a device
@@ -110,7 +120,8 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- None pending.
+- Step 5 passthrough design for unmapped events of a grabbed device
+  (recommended: forwarding uinput device mirroring the grabbed device).
 
 ## Session log
 
@@ -124,4 +135,5 @@ Last updated: 2026-10-13
   manager (3a), research on device recognition, Linux uinput backend,
   `test-outputs` CLI (3b/3c); hardware tests + udev classification passed
   (3d, one test fixed: cannot read events after device destruction).
-  User's evtest check passed (3e) → step 3 complete. Started step 4.
+  User's evtest check passed (3e) → step 3 complete. Step 4 (engine, ref
+  counts, 22 new tests) complete. Asked user about step 5 passthrough design.

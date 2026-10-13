@@ -19,6 +19,27 @@ class OutputKind(Enum):
     GAMEPAD = "gamepad"
 
 
+class KeyAction(Enum):
+    """What happened to a key or button."""
+
+    RELEASE = 0
+    PRESS = 1
+    REPEAT = 2  # autorepeat while held; not a new press
+
+
+@dataclass(frozen=True)
+class InputEvent:
+    """A normalized key/button event from a physical input device.
+
+    Backends translate their native events into this form; the engine never
+    sees backend objects.
+    """
+
+    device: str
+    code: int
+    action: KeyAction
+
+
 @dataclass(frozen=True)
 class InputDeviceSpec:
     """How to find a physical input device. Exactly one selector is set."""
