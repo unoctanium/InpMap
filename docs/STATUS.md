@@ -339,6 +339,15 @@ Last updated: 2026-10-13
   `editors/inpmap.xml` (Kate; verified with `ksyntaxhighlighter6` via a
   temporary XDG_DATA_HOME — loads and highlights) and
   `editors/inpmap.nanorc` (**not verified**: nano offers no batch check).
+  ✅ S5 (2026-10-13): README rewritten language-first (intro, status,
+  install step 4, usage, "Configuration" with the example, modifiers,
+  guarantees, "Editor support", short "JSON (machine format)");
+  `docs/macros.md` points to `docs/dsl.md`.
+  **DSL implementation complete.** Next: (a) user's real-keyboard test of
+  `config/local.inpmap` (case 1 bracket_combo: KDE must see a plain Enter;
+  case 2 alternate on the Razer pad; modifiers); (b) user decides whether
+  to drop JSON completely (then remove JSON loading/docs, update
+  `project_spec.md` + `CLAUDE.md` §7); (c) systemd service.
   (previous plan text:) S3 engine/runtime: modifier
   matching (exact, sides, ignore, specificity) and temporary release /
   re-press of modifiers on the forwarding devices, hardware test; S4 CLI

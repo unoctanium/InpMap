@@ -1,5 +1,10 @@
 # Macro specification (V1.1)
 
+> This document specifies macro **semantics** and their **JSON** structure.
+> For writing configurations by hand, use the configuration language
+> (`docs/dsl.md`); it compiles into exactly this model (coverage table in
+> `docs/dsl.md` §8).
+
 Status: **approved by the user (2026-10-13)**; implementation in progress. Based on the decisions in
 `docs/macros-research.md` §5. Input Remapper served as functional reference;
 this is our own design.

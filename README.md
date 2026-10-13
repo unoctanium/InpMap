@@ -1,21 +1,23 @@
 # InpMap
 
-A configuration-driven input remapper. Rules are defined in JSON; one physical
-input can drive outputs on several virtual devices at once (e.g. a keyboard key
-and a gamepad button). See `project_spec.md` for goals and roadmap.
+A configuration-driven input remapper. Mappings are written in a small
+configuration language (`.inpmap` files); one physical input can drive
+outputs on several virtual devices at once (e.g. a keyboard key and a gamepad
+button). See `project_spec.md` for goals and roadmap.
 
 ## Status
 
 | Area | State |
 |---|---|
-| JSON configuration loading and validation | implemented, unit-tested |
+| Configuration loading and validation (`.inpmap` and JSON) | implemented, unit-tested |
 | `inpmap check` CLI | implemented |
 | Virtual keyboard / gamepad (uinput), `inpmap test-outputs` | implemented, verified on hardware |
 | Mapping engine, reference-counted press/release state | implemented, unit-tested |
 | Physical input, grab, passthrough, `inpmap run`, `inpmap devices` | implemented, verified on a real keyboard (spec §7 acceptance test passed) |
 | Reconnect after device loss, `SYN_DROPPED` resync, LED mirroring | implemented, tested with synthetic devices |
 | `inpmap udev-rules` (permission setup) | implemented; rules syntax-checked with `udevadm verify`, installation not yet tested |
-| Macros (V1.1), gamepad axis outputs, `inpmap macro-trace` | implemented, unit-tested and hardware-tested with synthetic devices; real-keyboard test pending |
+| Macros (V1.1), gamepad axis outputs, `inpmap macro-trace` | implemented, verified on a real keyboard |
+| Configuration language (`.inpmap`), modifiers, editor syntax files | implemented, unit-tested, hardware-tested with synthetic devices; real-keyboard test pending |
 
 ## Installation (clean machine)
 
@@ -52,17 +54,20 @@ See [Device permissions](#device-permissions) below (one-time, needs sudo).
 ### 4. Configuration
 
 ```sh
-cp config/example.json config/local.json      # git-ignored
+cp config/example.inpmap config/local.inpmap  # git-ignored
 .venv/bin/inpmap devices                      # find your device's name or /dev/input/by-id path
-$EDITOR config/local.json
-.venv/bin/inpmap check config/local.json
+$EDITOR config/local.inpmap
+.venv/bin/inpmap check config/local.inpmap
 ```
+
+Optionally install syntax highlighting for your editor (see
+[Editor support](#editor-support)).
 
 ### 5. Verify
 
 ```sh
-.venv/bin/inpmap test-outputs config/local.json --only gamepad   # watch with evtest
-.venv/bin/inpmap run config/local.json --timeout 30              # stops by itself after 30 s
+.venv/bin/inpmap test-outputs config/local.inpmap --only gamepad   # watch with evtest
+.venv/bin/inpmap run config/local.inpmap --timeout 30              # stops by itself after 30 s
 ```
 
 ### Uninstall
@@ -78,17 +83,17 @@ $EDITOR config/local.json
 
 ```sh
 .venv/bin/inpmap devices                                     # list physical devices and their /dev/input/by-id links
-.venv/bin/inpmap udev-rules config/local.json                # print permission rules (see Device permissions)
-.venv/bin/inpmap check config/example.json
-.venv/bin/inpmap run config/local.json --timeout 30          # remap; stops after 30 s, or Ctrl+C
-.venv/bin/inpmap macro-trace config/example-macros.json tap-double-long --press-at 0 --press-at 150 --hold-ms 50
+.venv/bin/inpmap udev-rules config/local.inpmap              # print permission rules (see Device permissions)
+.venv/bin/inpmap check config/example.inpmap                 # validate, print a summary and warnings
+.venv/bin/inpmap run config/local.inpmap --timeout 30        # remap; stops after 30 s, or Ctrl+C
+.venv/bin/inpmap macro-trace config/example.inpmap KEY_F10 --press-at 0 --press-at 150 --hold-ms 50
                                                              # simulate a mapping, print its timeline (no devices)
-.venv/bin/inpmap test-outputs config/example.json            # create devices, press/release each output
-.venv/bin/inpmap test-outputs config/example.json --no-emit --delay 30   # only create, for inspection
+.venv/bin/inpmap test-outputs config/example.inpmap          # create devices, press/release each output
+.venv/bin/inpmap test-outputs config/example.inpmap --no-emit --delay 30   # only create, for inspection
 ```
 
-Machine-specific configurations (`config/local*.json`) are git-ignored. Copy
-`config/example.json` and set the input device from `inpmap devices`.
+Machine-specific configurations (`config/local*`) are git-ignored. Copy
+`config/example.inpmap` and set the input device from `inpmap devices`.
 
 ### What `run` does
 
@@ -167,7 +172,7 @@ Check the current state with `getfacl /dev/uinput` (look for
 Plug in the configured devices, then:
 
 ```sh
-.venv/bin/inpmap udev-rules config/local.json > 70-inpmap.rules
+.venv/bin/inpmap udev-rules config/local.inpmap > 70-inpmap.rules
 cat 70-inpmap.rules                            # review: one rule for /dev/uinput, one per input
 sudo install -m 644 70-inpmap.rules /etc/udev/rules.d/70-inpmap.rules
 sudo udevadm control --reload
@@ -190,109 +195,152 @@ On the development machine, `/dev/uinput` access comes from rules shipped by
 `steam-devices` and `kdeconnect` (same `uaccess` mechanism), and input access
 from the `input` group.
 
-## Configuration (version 1)
+## Configuration
 
-```json
-{
-  "version": 1,
-  "inputs":  { "physical-keyboard": { "name": "AT Translated Set 2 keyboard" } },
-  "outputs": {
-    "keyboard": { "type": "keyboard", "name": "InpMap Virtual Keyboard" },
-    "gamepad":  { "type": "gamepad",  "name": "InpMap Virtual Gamepad" }
-  },
-  "mappings": [
-    {
-      "id": "keyboard-x-to-y-and-gamepad-a",
-      "description": "optional free text",
-      "input":   { "device": "physical-keyboard", "type": "key", "code": "KEY_X" },
-      "consume": true,
-      "outputs": [
-        { "device": "keyboard", "type": "key",    "code": "KEY_Y" },
-        { "device": "gamepad",  "type": "button", "code": "BTN_SOUTH" }
-      ]
+Configurations are written in InpMap's configuration language, in files
+ending in `.inpmap`. The complete reference is `docs/dsl.md`; the example
+below is `config/example.inpmap`.
+
+```
+# InpMap example configuration
+version 1
+
+settings {
+    key_pause = 10ms
+}
+
+let presses = 0
+
+input kbd {
+    name = "AT Translated Set 2 keyboard"     # or: path = "/dev/input/by-id/…"
+}
+
+output keyboard {
+    type = keyboard
+    name = "InpMap Virtual Keyboard"
+}
+
+output gamepad {
+    type = gamepad
+    name = "InpMap Virtual Gamepad"
+}
+
+# X holds KEY_Y and the gamepad's south button (A) at the same time
+map KEY_X {
+    hold KEY_Y
+    hold BTN_SOUTH
+}
+
+# F9: tap Q, wait 40-60 ms, tap the gamepad's east button (B)
+map KEY_F9 as combo {
+    tap KEY_Q
+    wait random(40ms, 60ms)
+    tap BTN_EAST
+    presses += 1
+}
+
+# F10: tap types 1, double tap types 2, long press types 3
+map KEY_F10 {
+    on tap        { tap KEY_1 }
+    on double_tap { tap KEY_2 }
+    on long_press { tap KEY_3 }
+}
+
+# F11: fire the gamepad's south button while held, stop at once on release
+map KEY_F11 as autofire {
+    cancel on release
+    while held {
+        tap BTN_SOUTH (pause 30ms)
     }
-  ]
+}
+
+# F12: push the left stick up within 150 ms, return within 50 ms
+map KEY_F12 {
+    axis ABS_Y {
+        target  = -1.0
+        attack  = 150ms
+        release = 50ms
+    }
+}
+
+# Caps Lock alone is Escape; held together with another key it is Ctrl
+map KEY_CAPSLOCK {
+    if single {
+        tap KEY_ESC
+    } else {
+        hold KEY_LEFTCTRL
+    }
 }
 ```
 
-- **inputs**: physical devices, selected by exactly one of `name` (kernel
-  device name) or `path` (absolute, e.g. `/dev/input/by-id/...-event-kbd`).
-- **outputs**: virtual devices to create. `type` is `keyboard` or `gamepad`;
-  `name` is optional (default `InpMap <id>`, max 79 bytes, must be unique).
-- **mappings**: each maps one input to one or more outputs.
-  - Each output has an optional `"mode"`:
-    - `"hold"` (default): the output is held while the input is held. In text
-      fields the desktop's key repeat then types `yyyy`, exactly as for a real
-      held key; games see one continuous press.
-    - `"tap"`: pressing the input presses the output for 20 ms and releases it
-      automatically, giving exactly one keystroke however long the input is
-      held. Releasing the input does nothing. 20 ms is long enough for games
-      that sample keys once per frame at 60 fps.
-  - If several held mappings or taps share an output, it stays pressed until
-    the last of them lets go.
-  - `type: "key"` takes `KEY_*` codes, `type: "button"` takes `BTN_*` codes.
-  - Keyboard outputs accept `key`, gamepad outputs accept gamepad/joystick
-    `button` codes only.
-  - Codes are Linux names from `linux/input-event-codes.h`. Aliases such as
-    `BTN_A` = `BTN_SOUTH` are accepted. `KEY_Y` is a key position, not a
-    character; the result depends on the active keyboard layout.
-  - `BTN_SOUTH` is the bottom face button (A on Xbox layouts, Cross on
-    PlayStation); label mapping is convention-dependent.
-  - `consume` defaults to `true`; `false` is rejected until passthrough is
-    implemented.
+The essentials:
 
-### Gamepad axes
+- **Devices**: `input` blocks select physical devices (by kernel `name` or
+  `path`); `output` blocks declare virtual devices (`keyboard` or
+  `gamepad`). With one input device, `map KEY_X` uses it; with several,
+  write `map kbd.KEY_X`. In outputs, `keyboard.KEY_Q` names the device;
+  `KEY_Q` alone is enough when only one output device can emit it.
+- **Codes** are Linux names (`KEY_*`, `BTN_*`, `ABS_*`). `KEY_Y` is a key
+  position, not a character; the result depends on the keyboard layout.
+  Gamepad buttons are named by position: `BTN_SOUTH` (A on Xbox, Cross on
+  PlayStation), `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`. `BTN_X`/`BTN_Y` get a
+  warning, because Linux's `BTN_X` is the top button (Y on Xbox).
+- **Modifiers**: `map KEY_LEFTBRACE modifiers(ctrl, shift) { … }` fires
+  only while exactly Ctrl and Shift are held (`ctrl` = either side,
+  `left_ctrl`/`right_ctrl` = that side; also `shift`, `alt`, `meta`). A
+  `map` without `modifiers(…)` fires only when **no** modifier is held, so
+  e.g. Shift+X still types a capital X. `modifiers(ignore)` fires
+  regardless. Modifiers may come from any configured device (e.g. Ctrl on
+  the keyboard + a gamepad button). While such a mapping runs, the held
+  modifiers are hidden from the desktop, so its output is not modified by
+  them (`keep modifiers` turns this off). `settings { modifiers = ctrl, alt }`
+  makes the others (here Shift and Meta) normal, mappable keys.
+- **Holding**: `hold KEY_Y` keeps an output pressed while the input is held;
+  in text fields the desktop's key repeat then types `yyyy`, as for a real
+  held key, while games see one continuous press. `axis` holds a gamepad
+  stick or trigger (sticks −1.0 … 1.0, triggers 0.0 … 1.0), optionally
+  ramping in and out.
+- **Sequences**: `tap`, `press`, `release`, `with KEYS { … }`, chords with
+  `+` (`tap ctrl + KEY_C`), `wait 40ms` / `wait random(40ms, 60ms)`,
+  `repeat`, `while held`, `toggle`, `parallel`, `move ABS_X to 1.0 over 1s`.
+- **Conditions**: `if … else if … else` with `tap`, `single`, variable
+  comparisons, bool variables, `capslock`/`numlock`/`scrolllock`, `not`;
+  gestures `on tap` / `on double_tap` / `on long_press`; `on release { … }`.
+- **Options** at the start of a mapping: `cancel on release`,
+  `restart on press`, `keep modifiers`, `key_pause 5ms`,
+  `max_run 60s` / `max_run none`.
 
-A mapping output can hold a gamepad stick or trigger while the input is held,
-optionally ramping in and out (e.g. W pushes the left stick up):
-
-```json
-{ "device": "gamepad", "type": "axis", "code": "ABS_Y", "value": -1.0, "attack_ms": 150, "release_ms": 50 }
-```
-
-Sticks `ABS_X`, `ABS_Y`, `ABS_RX`, `ABS_RY` take −1.0 … 1.0, triggers
-`ABS_Z`, `ABS_RZ` take 0.0 … 1.0. If several mappings hold the same axis, the
-most recent one wins; when it lets go, the previous one's value applies again.
-
-### Macros
-
-A mapping output can also be a macro: a list of steps that may press keys and
-buttons and move axes on **any** output device, wait, loop, branch and use
-variables. The full specification is `docs/macros.md`; a commented collection
-of examples is `config/example-macros.json`.
-
-```json
-{ "macro": { "device": "keyboard", "steps": [
-    { "tap": ["KEY_LEFTCTRL", "KEY_C"] },
-    { "wait_ms": { "min": 40, "max": 60 } },
-    { "tap": { "code": "BTN_EAST", "device": "gamepad" } } ] } }
-```
-
-| Steps | |
-|---|---|
-| keys | `tap` (list = chord), `press`, `release`, `hold_keys`, `with_keys` |
-| axes | `axis` (move/ramp), `hold_axis` (while the input is held) |
-| flow | `wait_ms`, `repeat`, `while_held`, `toggle`, `parallel` |
-| conditions | `if_tap` (tap / double tap / long press), `if_single` (alone vs. with another key), `if_eq` (variable), `if_led` (Caps/Num/Scroll Lock) |
-| variables | `set`, `add` (declared in top-level `variables`) |
-
-Per macro: `on_release` (`finish` or `cancel`), `on_retrigger` (`ignore` or
-`restart`), `release_steps`, `key_pause_ms` (default from
-`settings.key_pause_ms`, 10 ms), `max_run_ms` (default 1 minute).
-Everything a macro presses or moves is released or re-centred when it ends,
-is cancelled, loses its input device, or the remapper stops. Try macros
-safely with `inpmap macro-trace` before running them.
+Guarantees: everything a mapping presses or moves is released or re-centred
+when it ends, is cancelled, loses its input device, or the remapper stops;
+outputs shared by several mappings are reference-counted. Errors are
+reported as `FILE:LINE:COLUMN: message`, all of a file at once, before any
+device is touched. Try mappings safely with `inpmap macro-trace`.
 
 Not supported yet: mouse movement, dual-role keys that hold back other keys
-(`mod_tap`), conditions on other held inputs, named reusable macros,
-Gaussian "humanizer" delays, layout-aware text typing.
+(`mod_tap`), conditions on other held inputs, named reusable blocks, the
+Gaussian "humanizer", layout-aware text typing.
 
-Validation rejects unknown keys, unknown device references, unknown or
-mismatched codes, duplicate ids, the same input in two mappings, and devices not
-used by any mapping. All problems are reported together.
+### Editor support
 
-**Version policy:** `version` is required. Incompatible format changes bump it;
-older versions are then migrated explicitly or rejected with a clear message.
+- **Kate / KWrite**: copy `editors/inpmap.xml` to
+  `~/.local/share/org.kde.syntax-highlighting/syntax/` and restart the
+  editor; `.inpmap` files are then highlighted (mode "InpMap").
+- **nano**: add `include "/path/to/InpMap/editors/inpmap.nanorc"` to
+  `~/.config/nano/nanorc` (or `~/.nanorc`). Not tested yet.
+
+To remove: delete the copied file or the `include` line.
+
+### JSON (machine format)
+
+The same model can also be written as JSON (any file not ending in
+`.inpmap`), e.g. for tools or a future GUI: `config/example.json`,
+`config/example-macros.json`; the JSON structure of macros is described in
+`docs/macros.md`. The language is the recommended format for writing by
+hand.
+
+**Version policy:** `version` is required in both formats. Incompatible
+changes increase it; older versions are then migrated explicitly or
+rejected with a clear message.
 
 ## Tests
 
