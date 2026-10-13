@@ -11,10 +11,11 @@ Last updated: 2026-10-13
 
 - Milestone: **V1** (Linux, no GUI)
 - Spec steps (`project_spec.md` §11): 1 ✅ environment · 2 ✅ skeleton + JSON
-  validation · **3 ⏭ virtual devices (next)** · 4 mapping engine · 5 physical
-  input + grab · 6 end-to-end test · 7 robustness
-- Work in progress: none. Working tree is clean except for uncommitted items
-  listed below.
+  validation · **3 🔧 virtual devices (in progress)** · 4 mapping engine ·
+  5 physical input + grab · 6 end-to-end test · 7 robustness
+- Work in progress: step 3. Research on gamepad/keyboard recognition
+  (udev input_id, libinput, SDL, Input Remapper's uinput definitions) was
+  started; results get recorded under Decisions.
 
 ## Next steps (in order)
 
@@ -50,6 +51,7 @@ Last updated: 2026-10-13
 | Validator collects all problems, location + mapping id in each message | CLAUDE.md §7 diagnostics |
 | Exit codes: 0 ok, 1 config invalid, 2 usage | |
 | ruff (lint + format), pytest; `hardware` marker excluded by default | small toolchain |
+| Auto-commit at each completed, test-passing step; never push | user decision 2026-10-13 (CLAUDE.md §13, §17) |
 
 ## Environment facts (dev machine, verified 2026-10-13)
 
@@ -81,4 +83,5 @@ Last updated: 2026-10-13
   implemented skeleton, code table, models, config validator, `inpmap check`,
   example config, README, tests (commit `6df3577`). Added this handoff file,
   session-continuity rule (CLAUDE.md §17) and `/session-start` + `/handoff`
-  commands.
+  commands (commit `c9cafef`). User authorized auto-commits at completed
+  steps; README got the session start/handoff procedure. Started step 3.

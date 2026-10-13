@@ -305,7 +305,7 @@ Document external system dependencies separately from Python dependencies. Do no
 - Do not overwrite user changes.
 - Check `git status` before potentially disruptive operations.
 - Never discard changes, reset branches, rewrite history, or delete files without explicit authorization.
-- Do not commit unless asked.
+- Commit automatically at each completed, test-passing step (see section 17). Otherwise do not commit unless asked. Never push, amend published commits, or rewrite history without explicit authorization.
 - Keep generated artifacts, caches, virtual environments, and local machine configuration out of version control using appropriate `.gitignore` entries.
 - Update tests and documentation when behavior changes.
 - Do not add generated files or large lockfiles without understanding the repository's chosen workflow.
@@ -375,7 +375,11 @@ Keep it factual and concise: current position, next steps, decisions with reason
 
 ### Commits
 
-Follow section 13 (commit only when asked). Because uncommitted work can be lost, list it under "Uncommitted work" in `docs/STATUS.md`, and suggest a commit at the end of each completed, test-passing step. When committing, update `docs/STATUS.md` in the same commit.
+Commit automatically (authorized by the user) whenever a step or meaningful sub-step is completed and the test suite and linter pass:
+- update `docs/STATUS.md` in the same commit;
+- use a descriptive message; commit only files belonging to the work, never secrets, caches, or local machine configuration;
+- do not commit failing or half-finished work; list it under "Uncommitted work" in `docs/STATUS.md` instead;
+- never push, amend, or rewrite history without explicit authorization.
 
 ### Memory
 

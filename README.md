@@ -108,8 +108,28 @@ default; run them with `pytest -m hardware`.
 ## Working with Claude Code
 
 Project state and next steps live in `docs/STATUS.md` (rules: `CLAUDE.md`
-§17). Start a session with `claude` in the repo root and run
-`/session-start`; end one with `/handoff`.
+§17). Start a session in the repository root:
+
+```sh
+cd ~/Projects/InpMap
+claude
+```
+
+Then type `/session-start`. "Continue" also works, because `CLAUDE.md` is
+loaded automatically and tells Claude to do the same steps:
+
+1. Read `docs/STATUS.md`, plus the spec and `CLAUDE.md`.
+2. Compare it with `git status` and `git log`. If they disagree, for example
+   uncommitted changes or a step left "in progress", Claude treats the last
+   session as crashed. It then checks those changes, runs the tests and
+   corrects the status file.
+3. Tell you in a few lines where we are, what was last done, what has been
+   verified, what's next, and whether a decision or a manual test is waiting
+   on you.
+
+At the end of a session, run `/handoff`. Claude updates the status file, runs
+the tests and commits completed, test-passing work (Claude also commits
+automatically at each completed step; it never pushes).
 
 ## Event code table
 
