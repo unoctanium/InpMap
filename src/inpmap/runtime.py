@@ -1,16 +1,20 @@
-"""Remapping runtime: startup, event loop and guaranteed cleanup.
+"""Remapping runtime: startup, event loop, reconnect and guaranteed cleanup.
 
 Independent of CLI parsing so foreground mode, a future systemd service and
-tests share it. Startup order is chosen so that a failure never leaves a
-grabbed device behind:
+tests share it. Each configured input device moves through these states:
 
-1. create virtual output devices;
-2. open the physical input devices (not grabbed) and verify their codes;
-3. per input device: wait until no key is held, discard events the desktop
-   has already seen, then grab;
-4. loop: read events, let the engine consume mapped ones, forward the rest.
+    opened  --no key held-->  grabbed  --lost-->  absent  --reopened-->  opened
 
-Cleanup on every exit path: release engine outputs, ungrab and close inputs
+* opened: not grabbed yet. Its events still reach the desktop, so they are
+  read and discarded. Grabbing waits until no key is held, otherwise the
+  desktop would never see the release of a key held at grab time.
+* grabbed: events go to the engine; everything not consumed is forwarded.
+* absent: the device disappeared. Outputs it held are released, its
+  resources closed, and opening is retried periodically.
+
+Startup creates the virtual outputs first, then opens all inputs; a missing
+input at startup is a hard error (likely a configuration mistake). Cleanup
+on every exit path: release engine outputs, ungrab and close inputs
 (releasing forwarded keys), destroy the virtual devices.
 """
 
@@ -19,12 +23,14 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
 from .config import Config
 from .engine import MappingEngine
 from .input import InputBackend, InputDeviceLost, InputError, InputSource
+from .models import InputDeviceSpec
 from .output import OutputBackend, OutputError, OutputManager
 
 log = logging.getLogger(__name__)
@@ -43,6 +49,18 @@ class CleanupError(Exception):
     """Shutdown did not complete cleanly (details were logged)."""
 
 
+@dataclass
+class _Slot:
+    """Runtime state of one configured input device."""
+
+    spec: InputDeviceSpec
+    codes: frozenset[int]
+    source: InputSource | None = None
+    grabbed: bool = False
+    waiting_announced: bool = False
+    retry_at: float = 0.0
+
+
 class Runtime:
     """Runs one configuration until stopped, timed out, or failed."""
 
@@ -53,23 +71,24 @@ class Runtime:
         output_backend: OutputBackend,
         *,
         poll_interval: float = 0.1,
+        reconnect_interval: float = 1.0,
         clock: Callable[[], float] = time.monotonic,
-        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._config = config
         self._inputs = input_backend
         self._outputs = OutputManager(output_backend, config)
         self._poll_interval = poll_interval
+        self._reconnect_interval = reconnect_interval
         self._clock = clock
-        self._sleep = sleep
-        self._sources: list[InputSource] = []
+        self._slots: list[_Slot] = []
         self._engine: MappingEngine | None = None
+        self._all_grabbed_announced = False
 
     def run(self, stop: StopFlag, timeout: float | None = None) -> StopReason:
         """Run until ``stop`` is set or ``timeout`` seconds have passed.
 
-        Raises InputError/OutputError on failures (after cleanup), and
-        CleanupError if shutdown itself failed.
+        Raises InputError/OutputError on unrecoverable failures (after
+        cleanup), and CleanupError if shutdown itself failed.
         """
         deadline = None if timeout is None else self._clock() + timeout
         self._outputs.open()
@@ -85,64 +104,99 @@ class Runtime:
         return reason
 
     def _start_and_loop(self, stop: StopFlag, deadline: float | None) -> StopReason:
-        self._open_inputs()
         self._engine = MappingEngine(self._config, self._outputs)
-        for source in self._sources:
-            reason = self._grab_when_released(source, stop, deadline)
-            if reason is not None:
-                return reason
-        log.info("remapping active")
-        return self._loop(stop, deadline)
-
-    def _open_inputs(self) -> None:
         for device_id, spec in self._config.inputs.items():
-            source = self._inputs.open(spec, self._config.input_codes(device_id))
-            self._sources.append(source)
-            log.info("opened input '%s': %s", device_id, source.description)
-
-    def _grab_when_released(
-        self, source: InputSource, stop: StopFlag, deadline: float | None
-    ) -> StopReason | None:
-        # Grabbing while a key is held would hide its release from the
-        # desktop, leaving that key stuck there.
-        if source.held_codes():
-            log.info("release all keys on %s to start", source.description)
-        while source.held_codes():
-            reason = self._should_stop(stop, deadline)
-            if reason is not None:
-                return reason
-            self._sleep(0.05)
-        # Events queued so far were already delivered to the desktop.
-        # A tiny window remains between this read and the grab.
-        source.read()
-        source.grab()
-        log.info("grabbed %s", source.description)
-        return None
-
-    def _loop(self, stop: StopFlag, deadline: float | None) -> StopReason:
-        assert self._engine is not None
+            slot = _Slot(spec=spec, codes=self._config.input_codes(device_id))
+            self._slots.append(slot)
+            slot.source = self._inputs.open(spec, slot.codes)
+            log.info("opened input '%s': %s", device_id, slot.source.description)
         while True:
             reason = self._should_stop(stop, deadline)
             if reason is not None:
                 return reason
-            wait = self._poll_interval
-            if deadline is not None:
-                wait = max(0.0, min(wait, deadline - self._clock()))
-            for source in self._inputs.wait(self._sources, wait):
-                self._process(source)
+            for slot in self._slots:
+                self._advance(slot)
+            self._wait_and_process(deadline)
 
-    def _process(self, source: InputSource) -> None:
-        assert self._engine is not None
+    def _advance(self, slot: _Slot) -> None:
+        """Move a slot towards 'grabbed': reconnect or grab when possible."""
+        if slot.source is None:
+            if self._clock() >= slot.retry_at:
+                self._try_reopen(slot)
+            return
+        if slot.grabbed:
+            return
+        source = slot.source
         try:
-            events = source.read()
+            if source.held_codes():
+                if not slot.waiting_announced:
+                    log.info("release all keys on %s to start remapping it", source.description)
+                    slot.waiting_announced = True
+                return
+            # Events queued so far were already delivered to the desktop.
+            # A tiny window remains between this read and the grab.
+            source.read()
+            source.grab()
         except InputDeviceLost:
-            log.error("input device lost: %s", source.description)
-            self._engine.release_device(source.spec.id)
-            raise
+            self._lose(slot)
+            return
+        slot.grabbed = True
+        slot.waiting_announced = False
+        log.info("grabbed %s", source.description)
+        if not self._all_grabbed_announced and all(s.grabbed for s in self._slots):
+            self._all_grabbed_announced = True
+            log.info("remapping active")
+
+    def _try_reopen(self, slot: _Slot) -> None:
+        try:
+            slot.source = self._inputs.open(slot.spec, slot.codes)
+        except InputError as exc:
+            log.debug("input '%s' not available yet: %s", slot.spec.id, exc)
+            slot.retry_at = self._clock() + self._reconnect_interval
+            return
+        log.info("input '%s' reconnected: %s", slot.spec.id, slot.source.description)
+
+    def _wait_and_process(self, deadline: float | None) -> None:
+        wait = self._poll_interval
+        if deadline is not None:
+            wait = max(0.0, min(wait, deadline - self._clock()))
+        by_source = {id(s.source): s for s in self._slots if s.source is not None}
+        sources = [s.source for s in self._slots if s.source is not None]
+        for source in self._inputs.wait(sources, wait):
+            slot = by_source.get(id(source))
+            if slot is not None and slot.source is source:
+                self._process(slot)
+
+    def _process(self, slot: _Slot) -> None:
+        assert self._engine is not None and slot.source is not None
+        try:
+            events = slot.source.read()
+        except InputDeviceLost:
+            self._lose(slot)
+            return
+        if not slot.grabbed:
+            return  # the desktop received these events already
         for event, raw in events:
             consumed = event is not None and self._engine.handle(event)
             if not consumed:
-                source.forward(raw)
+                slot.source.forward(raw)
+
+    def _lose(self, slot: _Slot) -> None:
+        assert self._engine is not None and slot.source is not None
+        log.error(
+            "input device lost: %s; releasing its outputs and waiting for it to reconnect",
+            slot.source.description,
+        )
+        self._engine.release_device(slot.spec.id)
+        try:
+            slot.source.close()
+        except InputError as exc:
+            log.warning("cleanup of lost device %s: %s", slot.source.description, exc)
+        slot.source = None
+        slot.grabbed = False
+        slot.waiting_announced = False
+        slot.retry_at = self._clock() + self._reconnect_interval
+        self._all_grabbed_announced = False
 
     def _should_stop(self, stop: StopFlag, deadline: float | None) -> StopReason | None:
         if stop.is_set():
@@ -161,14 +215,17 @@ class Runtime:
                 errors.append(str(exc))
                 log.error("releasing outputs failed: %s", exc)
             self._engine = None
-        for source in self._sources:
+        for slot in self._slots:
+            if slot.source is None:
+                continue
             try:
-                source.close()
-                log.info("released %s", source.description)
+                slot.source.close()
+                log.info("released %s", slot.source.description)
             except InputError as exc:
                 errors.append(str(exc))
-                log.error("closing input %s failed: %s", source.description, exc)
-        self._sources.clear()
+                log.error("closing input %s failed: %s", slot.source.description, exc)
+            slot.source = None
+        self._slots.clear()
         try:
             self._outputs.close()
         except OutputError as exc:

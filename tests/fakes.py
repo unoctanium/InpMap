@@ -36,10 +36,14 @@ class FakeInputSource:
         return f"fake {self.spec.id}"
 
     def held_codes(self) -> frozenset[int]:
+        if self.lost:
+            raise InputDeviceLost(f"{self.description} lost")
         return frozenset(self.held)
 
     def grab(self) -> None:
         self.journal.append(f"grab {self.spec.id}")
+        if self.lost:
+            raise InputDeviceLost(f"{self.description} lost")
         if self.grab_error is not None:
             raise self.grab_error
         self.grabbed = True
@@ -74,7 +78,9 @@ class FakeInputSource:
 class FakeInputBackend:
     """Opens pre-built sources; each wait() call runs the next script step.
 
-    When the script is exhausted, ``stop`` (if given) is set.
+    ``sources[id]`` is returned by open(); ``replacements[id]`` holds sources
+    returned by later open() calls (reconnects), in order. When the script is
+    exhausted, ``stop`` (if given) is set.
     """
 
     sources: dict[str, FakeInputSource]
@@ -82,12 +88,20 @@ class FakeInputBackend:
     stop: object | None = None
     open_error: dict[str, InputError] = field(default_factory=dict)
     opened_codes: dict[str, frozenset[int]] = field(default_factory=dict)
+    replacements: dict[str, list[FakeInputSource]] = field(default_factory=dict)
+    open_count: dict[str, int] = field(default_factory=dict)  # successful opens
+    open_attempts: dict[str, int] = field(default_factory=dict)
 
     def open(self, spec: InputDeviceSpec, mapped_codes: frozenset[int]) -> FakeInputSource:
+        self.open_attempts[spec.id] = self.open_attempts.get(spec.id, 0) + 1
         if spec.id in self.open_error:
             raise self.open_error[spec.id]
         self.opened_codes[spec.id] = mapped_codes
-        return self.sources[spec.id]
+        count = self.open_count.get(spec.id, 0)
+        self.open_count[spec.id] = count + 1
+        if count == 0:
+            return self.sources[spec.id]
+        return self.replacements[spec.id].pop(0)
 
     def wait(self, sources, timeout: float) -> list[FakeInputSource]:
         if self.script:

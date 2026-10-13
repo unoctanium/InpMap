@@ -23,6 +23,7 @@ import logging
 import os
 import re
 import select
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -255,6 +256,8 @@ class LinuxInputBackend:
 
     def wait(self, sources: Sequence[LinuxInputSource], timeout: float) -> list[LinuxInputSource]:
         if not sources:
+            # All inputs absent (e.g. unplugged): sleep instead of spinning.
+            time.sleep(timeout)
             return []
         ready, _, _ = select.select(list(sources), [], [], timeout)
         return ready

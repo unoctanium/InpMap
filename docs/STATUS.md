@@ -92,10 +92,16 @@ Last updated: 2026-10-13
    - ✅ Acceptance test passed (see Current position).
    User's order (2026-10-13): **robustness → installation → tap mode**.
 2. 🔧 **Step 7 – robustness** (in progress):
-   - 7a reconnect: runtime becomes a per-device state machine (opened →
-     waiting for keys released → grabbed; lost → release its outputs, close,
-     retry open every second → re-grab). Startup with a missing device stays
-     a hard error. Other devices keep working meanwhile.
+   - ✅ 7a reconnect: `runtime.py` is a per-device state machine (`_Slot`:
+     opened → waiting for no key held → grabbed; lost → release its outputs,
+     close, retry `open` every `reconnect_interval` (1 s) → re-grab). Events
+     of not-yet-grabbed devices are read and discarded. Startup with a
+     missing device stays a hard error. Other devices keep working.
+     Linux `wait()` sleeps when no source is open. Tests: fake-based
+     reconnect/shared-output/lost-while-waiting tests; hardware test
+     `test_runtime_survives_unplug_and_reconnects` (synthetic keyboard
+     destroyed while X held → KEY_Y and BTN_SOUTH released; recreated → X
+     remaps again) passed 2026-10-13.
    - 7b SYN_DROPPED: discard until next SYN_REPORT, then resync key state via
      EVIOCGKEY and synthesize the differences (Linux backend).
    - 7c LED feedback: read EV_LED written by the desktop to the forwarding
@@ -123,7 +129,7 @@ Last updated: 2026-10-13
 | Validator collects all problems, location + mapping id in each message | CLAUDE.md §7 diagnostics |
 | Exit codes: 0 ok, 1 config invalid, 2 usage, 3 device error, 130 interrupted (test-outputs) | |
 | Runtime startup order: outputs → open inputs (verify mapped codes) → wait until no key held → discard queued events → grab | never leave a grab behind on failure; avoid stuck keys in the desktop; tiny window between drain and grab accepted |
-| Device loss: release that device's outputs, clean up everything, exit with error (no reconnect in V1) | controlled and visible; hotplug is step 7 |
+| Device loss: release that device's outputs, close it, keep running and reopen it every second (by the same name/path selector); missing at startup = error | step 7a; daemon-friendly (wireless sleep, replug), while config mistakes still fail fast |
 | Forwarding device copies the original's vendor/product/version/bustype, omits EV_REP | per-device desktop settings and SDL mappings keep working; no double key repeat |
 | SIGHUP handled like SIGINT/SIGTERM in `run` | closing the terminal must still clean up |
 | Machine-specific configs as git-ignored `config/local*.json` | keep personal device paths out of the repo |
@@ -152,8 +158,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 136 passed, 4 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after step 5.
+- Unit tests: 139 passed, 5 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after step 7a. Hardware: 5 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

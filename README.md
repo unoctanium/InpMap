@@ -74,8 +74,12 @@ Notes and limitations:
 - Force feedback (rumble) is not supported: virtual and forwarding devices
   declare no `EV_FF`. (With it declared but unanswered, the kernel would block
   a game's rumble request for up to 30 s.)
-- If an input device disappears, the remapper releases everything and exits
-  (exit code 3); reconnect handling is future work.
+- If an input device disappears (unplugged, wireless sleep), its held outputs
+  are released immediately and the remapper keeps running: other devices
+  keep working, and the device is reopened (checked every second) and
+  grabbed again once it is back with no key held. A device missing at
+  startup is an error (exit code 3), since that usually means a wrong
+  `name`/`path`.
 - Per-device settings in the desktop (e.g. keyboard layout per device) apply
   to the forwarding device, which copies the original's vendor/product IDs.
 

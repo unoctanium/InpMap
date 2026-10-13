@@ -152,6 +152,60 @@ def test_runtime_remaps_suppresses_and_forwards():
     assert result.get("reason") is StopReason.STOPPED, result.get("error")
 
 
+@pytest.mark.hardware
+def test_runtime_survives_unplug_and_reconnects():
+    def plug():
+        return UInput({ecodes.EV_KEY: [ecodes.KEY_X]}, name=PHYSICAL_NAME, phys="pytest-physical")
+
+    physical = plug()
+    stop = threading.Event()
+    result: dict = {}
+    grabbed: list[InputDevice] = []
+
+    def run():
+        try:
+            runtime = Runtime(
+                CONFIG, LinuxInputBackend(), LinuxOutputBackend(), reconnect_interval=0.2
+            )
+            result["reason"] = runtime.run(stop, timeout=20)
+        except BaseException as exc:
+            result["error"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    try:
+        thread.start()
+        for name in ("InpMap Test E2E Keyboard", "InpMap Test E2E Gamepad"):
+            device = find_device(name)
+            device.grab()
+            grabbed.append(device)
+        vkbd, vpad = grabbed
+        time.sleep(0.3)
+
+        emit(physical, ecodes.KEY_X, 1)  # hold X ...
+        assert read_key_events(vkbd, 1) == [(ecodes.KEY_Y, 1)]
+        physical.close()  # ... and unplug while held
+        assert read_key_events(vkbd, 1) == [(ecodes.KEY_Y, 0)]
+        assert read_key_events(vpad, 2) == [(ecodes.BTN_SOUTH, 1), (ecodes.BTN_SOUTH, 0)]
+
+        physical = plug()  # replug: same name, new event node
+        time.sleep(1.0)  # > reconnect_interval + grab
+        assert "error" not in result, result.get("error")
+        emit(physical, ecodes.KEY_X, 1)
+        emit(physical, ecodes.KEY_X, 0)
+        assert read_key_events(vkbd, 2) == [(ecodes.KEY_Y, 1), (ecodes.KEY_Y, 0)]
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        for device in grabbed:
+            try:
+                device.ungrab()
+            except OSError:
+                pass
+            device.close()
+        physical.close()
+    assert result.get("reason") is StopReason.STOPPED, result.get("error")
+
+
 # -- LinuxInputSource with stand-ins for evdev objects ---------------------
 # (Events on a destroyed uinput device cannot be read back, so cleanup
 # ordering is checked here instead of against real devices.)

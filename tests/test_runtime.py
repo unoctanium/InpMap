@@ -5,7 +5,7 @@ from fakes import SYN, FakeInputBackend, FakeInputSource, FakeOutputBackend, key
 
 from inpmap.codes import code_from_name as c
 from inpmap.config import parse_config
-from inpmap.input import InputDeviceLost, InputError
+from inpmap.input import InputError
 from inpmap.output import OutputError
 from inpmap.runtime import CleanupError, Runtime, StopReason
 
@@ -45,22 +45,22 @@ class Harness:
         self.inputs = FakeInputBackend({"kbd": self.kbd, "pad": self.pad}, stop=self.stop)
         self.outputs = FakeOutputBackend(journal=self.journal)
         self.now = 0.0
-        self.sleep_hook = None
 
     def clock(self):
         self.now += 0.01
         return self.now
 
-    def sleep(self, seconds):
-        self.now += seconds
-        if self.sleep_hook:
-            self.sleep_hook()
-
     def step(self, fn):
         self.inputs.script.append(fn)
 
+    def idle(self, count=1):
+        for _ in range(count):
+            self.step(lambda: None)
+
     def run(self, timeout=None):
-        runtime = Runtime(CONFIG, self.inputs, self.outputs, clock=self.clock, sleep=self.sleep)
+        runtime = Runtime(
+            CONFIG, self.inputs, self.outputs, clock=self.clock, reconnect_interval=0.0
+        )
         return runtime.run(self.stop, timeout=timeout)
 
     def vkbd_events(self):
@@ -124,24 +124,32 @@ def test_outputs_created_before_any_grab_and_cleanup_order(h):
 def test_waits_for_held_keys_before_grabbing_and_discards_seen_events(h):
     h.kbd.held = {KEY_A}
     h.kbd.queue = [key_raw(KEY_A, 1), SYN]  # already delivered to the desktop
-    sleeps = []
+    h.idle()
 
-    def release_after_three():
-        sleeps.append(1)
-        if len(sleeps) == 3:
-            h.kbd.held.clear()
-            h.kbd.queue += [key_raw(KEY_A, 0), SYN]
+    def release_a():
+        assert not h.kbd.grabbed
+        h.kbd.held.clear()
+        h.kbd.queue += [key_raw(KEY_A, 0), SYN]
 
-    h.sleep_hook = release_after_three
+    h.step(release_a)
+    h.idle()
     h.run()
-    assert len(sleeps) == 3
+    assert "grab kbd" in h.journal
     assert h.kbd.discarded == [key_raw(KEY_A, 1), SYN, key_raw(KEY_A, 0), SYN]
     assert h.kbd.forwarded == []  # nothing replayed to the desktop
 
 
+def test_other_device_works_while_one_waits_for_release(h):
+    h.kbd.held = {KEY_A}
+    h.step(lambda: h.pad.queue.extend([key_raw(BTN_EAST, 1), SYN, key_raw(BTN_EAST, 0), SYN]))
+    h.run()
+    assert "grab kbd" not in h.journal
+    assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]
+
+
 def test_stop_while_waiting_for_release(h):
     h.kbd.held = {KEY_A}
-    h.sleep_hook = h.stop.set
+    h.step(h.stop.set)
     assert h.run() is StopReason.STOPPED
     assert "grab kbd" not in h.journal
     h.assert_all_cleaned_up()
@@ -172,18 +180,76 @@ def test_stop_while_key_held_releases_outputs(h):
     h.assert_all_cleaned_up()
 
 
-def test_device_loss_releases_outputs_and_raises(h):
+def test_device_loss_releases_outputs_and_reconnects(h):
+    kbd2 = FakeInputSource(CONFIG.inputs["kbd"], journal=h.journal)
+    h.inputs.replacements["kbd"] = [kbd2]
     h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 1), SYN]))
 
-    def lose():
+    def unplug():
         h.kbd.lost = True
+        h.inputs.open_error["kbd"] = InputError("not found")
 
-    h.step(lose)
-    with pytest.raises(InputDeviceLost):
-        h.run()
-    assert h.vkbd_events()[-1] == (KEY_Y, False)
-    assert h.vpad_events()[-1] == (BTN_SOUTH, False)
-    h.assert_all_cleaned_up()
+    h.step(unplug)
+
+    def check_released_while_absent():
+        assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]
+        assert h.vpad_events() == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+        assert h.kbd.closed
+        assert h.pad.grabbed  # the other device keeps working
+
+    h.step(check_released_while_absent)
+
+    def replug():
+        del h.inputs.open_error["kbd"]
+
+    h.step(replug)
+    h.idle()  # reopen + grab happen at the start of the next loop iteration
+
+    def press_on_reconnected():
+        assert kbd2.grabbed
+        kbd2.queue.extend([key_raw(KEY_X, 1), SYN, key_raw(KEY_X, 0), SYN])
+
+    h.step(press_on_reconnected)
+    assert h.run() is StopReason.STOPPED
+    assert h.vkbd_events()[2:] == [(KEY_Y, True), (KEY_Y, False)]
+    assert h.inputs.open_count["kbd"] == 2  # initial + reconnect
+    assert h.inputs.open_attempts["kbd"] >= 3  # ... with at least one failed retry between
+    assert kbd2.closed and h.pad.closed
+
+
+def test_shared_output_survives_loss_of_one_holder(h):
+    h.inputs.replacements["kbd"] = []
+    h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 1), SYN]))
+    h.step(lambda: h.pad.queue.extend([key_raw(BTN_EAST, 1), SYN]))
+
+    def unplug():
+        h.kbd.lost = True
+        h.inputs.open_error["kbd"] = InputError("not found")
+
+    h.step(unplug)
+
+    def check():
+        # KEY_Y is still held by the pad's mapping; BTN_SOUTH was released.
+        assert h.vkbd_events() == [(KEY_Y, True)]
+        assert h.vpad_events() == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+
+    h.step(check)
+    h.run()
+    assert h.vkbd_events()[-1] == (KEY_Y, False)  # released at shutdown
+
+
+def test_device_lost_while_waiting_for_release(h):
+    h.kbd.held = {KEY_A}
+
+    def unplug():
+        h.kbd.lost = True
+        h.inputs.open_error["kbd"] = InputError("not found")  # stays absent
+
+    h.step(unplug)
+    h.idle()
+    assert h.run() is StopReason.STOPPED
+    assert h.kbd.closed
+    assert "grab kbd" not in h.journal
 
 
 def test_input_open_failure_cleans_up_without_grabbing(h):
