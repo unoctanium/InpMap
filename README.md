@@ -10,11 +10,12 @@ and a gamepad button). See `project_spec.md` for goals and roadmap.
 |---|---|
 | JSON configuration loading and validation | implemented, unit-tested |
 | `inpmap check` CLI | implemented |
-| Virtual keyboard / gamepad (uinput) | not yet |
+| Virtual keyboard / gamepad (uinput), `inpmap test-outputs` | implemented; hardware verification pending |
 | Reading and grabbing physical devices (evdev) | not yet |
 | Mapping engine, press/release state | not yet |
 
-Nothing in the current version opens, grabs or creates input devices.
+The current version can create virtual output devices; it does not yet open or
+grab physical devices.
 
 ## Requirements
 
@@ -42,9 +43,46 @@ kernel headers).
 
 ```sh
 .venv/bin/inpmap check config/example.json
+.venv/bin/inpmap test-outputs config/example.json            # create devices, press/release each output
+.venv/bin/inpmap test-outputs config/example.json --no-emit --delay 30   # only create, for inspection
 ```
 
-Exit codes: `0` valid, `1` invalid configuration, `2` command-line usage error.
+`test-outputs` creates the configured virtual devices, waits `--delay`
+seconds (default 3), then presses and releases every mapped output code
+(`--hold` seconds each; `--only DEVICE` limits it to one output device). Keyboard
+output goes to the focused window like real typing, and `KEY_Y` is a key
+position: on a German (QWERTZ) layout it types `z`. Watch the events with
+`evtest`, e.g. `evtest` → choose "InpMap Virtual Gamepad". Ctrl+C or SIGTERM
+releases all outputs and removes the devices.
+
+Exit codes: `0` success, `1` invalid configuration, `2` command-line usage
+error, `3` device error, `130` interrupted.
+
+## Virtual devices
+
+- **Keyboard**: declares all `KEY_*` codes and no buttons, so udev tags it
+  `ID_INPUT_KEYBOARD` and libinput (KDE Wayland) uses it as a keyboard.
+- **Gamepad**: standard buttons (`BTN_SOUTH/EAST/NORTH/WEST`, shoulders,
+  triggers, select/start/mode, stick clicks, D-pad) plus two sticks and two
+  triggers at rest, and no `KEY_*` codes. This lets udev tag it
+  `ID_INPUT_JOYSTICK`, libinput ignore it, and SDL map it as a gamepad.
+- Identity: bus USB, vendor `0x0001`, product `0x0001` (keyboard) / `0x0002`
+  (gamepad), phys `inpmap`; no real hardware is impersonated.
+
+## Device permissions
+
+- Creating virtual devices needs write access to `/dev/uinput`.
+  - Check with `getfacl /dev/uinput`; look for a `user:<you>:rw-` line. On the
+    development machine (CachyOS) this ACL comes from udev rules shipped by the
+    `steam-devices` and `kdeconnect` packages
+    (`KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess"`), which grant it to
+    the user of the active local session only. Other systems may lack it.
+  - If missing, make sure the `uinput` module is loaded (`ls /dev/uinput`).
+    Setup instructions for a narrowly scoped udev rule will follow with the
+    installation script; do **not** make the node world-writable.
+- Reading and grabbing physical devices (later step) needs read access to
+  `/dev/input/event*`, typically via the `input` group. Membership lets every
+  program of that user read all keyboards, so grant it deliberately.
 
 ## Configuration (version 1)
 

@@ -18,11 +18,20 @@ Last updated: 2026-10-13
     (`OutputBackend`/`OutputDevice` protocols, `OutputManager` that tracks held
     codes, ignores redundant transitions, releases everything on close/error,
     cleans up partially created devices). Fakes in `tests/fakes.py`.
-  - 🔧 3b: Linux uinput backend. Waiting on research into gamepad/keyboard
-    recognition (udev input_id, libinput, SDL, Input Remapper's uinput
-    definitions); results go under Decisions.
-  - 3c: CLI command to create devices and emit a test press/release, plus
-    `hardware`-marked tests.
+  - ✅ 3b (code + unit tests): Linux uinput backend
+    `src/inpmap/backends/linux.py` (capabilities per research below).
+  - ✅ 3c (code + unit tests): `inpmap test-outputs CONFIG [--delay] [--hold]
+    [--only DEV] [--no-emit]`; `hardware`-marked tests in
+    `tests/test_linux_backend.py` (they grab the virtual device's own node,
+    so no event reaches the desktop).
+  - ⏳ 3d: hardware verification — **waiting for the user's OK** to let Claude
+    run: `pytest -m hardware`; `inpmap test-outputs config/example.json
+    --no-emit --delay 20` in the background plus `udevadm info` on both nodes
+    (expect gamepad `ID_INPUT_JOYSTICK=1` without `ID_INPUT_KEY`, keyboard
+    `ID_INPUT_KEYBOARD=1`). Then the user's manual `evtest` check of
+    `inpmap test-outputs config/example.json --only gamepad` (and keyboard).
+    Not installed, optional: `libinput list-devices` (package
+    `libinput-tools`?) and SDL tools (`sdl2-jstest`/`testcontroller`).
 
 ## Next steps (in order)
 
@@ -60,6 +69,10 @@ Last updated: 2026-10-13
 | ruff (lint + format), pytest; `hardware` marker excluded by default | small toolchain |
 | Auto-commit at each completed, test-passing step; never push | user decision 2026-10-13 (CLAUDE.md §13, §17) |
 | `OutputManager` tracks held codes per device; reference counting of overlapping mappings belongs to the (future) state manager | separation: output layer guarantees release on close, state manager owns semantics |
+| Virtual keyboard: all `KEY_*`, no `BTN_*`, no `EV_REP` | udev `input_id` sets `ID_INPUT_KEYBOARD` only if codes 1–31 are all present; libinput accepts `ID_INPUT_KEY`/`KEYBOARD` as keyboard; full set also enables later passthrough; compositors do repeat themselves |
+| Virtual gamepad: BTN_SOUTH/EAST/NORTH/WEST, TL/TR/TL2/TR2, SELECT/START/MODE, THUMBL/THUMBR, DPAD_*; ABS_X/Y/RX/RY (−32768..32767, fuzz 16, flat 128), ABS_Z/RZ (0..255); no `KEY_*`; plus any mapped gamepad code | udev: joystick buttons suffice for `ID_INPUT_JOYSTICK`, but ≥4 "well-known" keys or <2 joystick buttons/axes un-detect it; libinput ignores joysticks (good: no stray input); SDL without udev (containers/Flatpak) needs ABS_X+ABS_Y; SDL auto gamepad mapping needs BTN_SOUTH and uses the standard layout. Input Remapper uses a similar set (BTN_SOUTH..BTN_THUMBR + ABS 0x00–0x05 + HAT0X/Y) |
+| Device identity: BUS_USB, vendor 0x0001, product 0x0001 kbd / 0x0002 pad, phys `inpmap` | stable, no impersonation (SDL special-cases known VID/PIDs and ignores Steam's virtual pad VID/PID); SDL ignores names starting `uinput-` or containing ` Keyboard` for gamepads, so don't name a gamepad like that |
+| Sources for the above (read 2026-10-13): systemd `src/udev/udev-builtin-input_id.c` (main), libinput `src/evdev.c` (main), SDL `src/joystick/linux/SDL_sysjoystick.c`, `src/core/linux/SDL_evdev_capabilities.c`, `SDL_gamepad.c` (main + SDL2), input-remapper `inputremapper/injection/global_uinputs.py` | unverified: Steam client behaviour (closed source) |
 | `open()`/`close()` treat failures at cleanup boundaries: partial creation is rolled back (also on Ctrl+C), close attempts every release and every device before raising | no stuck keys, no orphan virtual devices |
 
 ## Environment facts (dev machine, verified 2026-10-13)
@@ -67,15 +80,19 @@ Last updated: 2026-10-13
 - CachyOS, KDE Plasma (Wayland), shell fish. Python 3.14.7.
 - `python-evdev` 2.0.0 (pacman), `evtest` 1.36 installed.
 - User `odo` is in group `input` → can read/grab `/dev/input/event*` without root.
-- `/dev/uinput` has ACL `user:odo:rw` → virtual devices without root.
+- `/dev/uinput` has ACL `user:odo:rw` → virtual devices without root. Source:
+  `TAG+="uaccess"` rules in `/usr/lib/udev/rules.d/60-steam-input.rules`
+  (package `steam-devices`) and `40-kdeconnect-uinput.rules` (`kdeconnect`).
   Other machines will need a documented udev rule.
 - No git remote configured.
 
 ## Verification status
 
-- Unit tests: 77 passed (`.venv/bin/python -m pytest`), ruff clean — after
-  step 3a.
-- Hardware/integration tests: **none run yet** (nothing touches devices).
+- Unit tests: 86 passed, 3 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after step 3c.
+- Hardware/integration tests: **none run yet**. evdev 2.0.0 `UInput` API
+  (signature, `AbsInfo`, `write`/`syn`/`close`, `.device`) verified by
+  inspecting the installed library, not by creating devices.
 
 ## Uncommitted work
 
@@ -83,7 +100,7 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- None pending.
+- OK to run the hardware checks of step 3d (see above)?
 
 ## Session log
 
@@ -93,4 +110,6 @@ Last updated: 2026-10-13
   example config, README, tests (commit `6df3577`). Added this handoff file,
   session-continuity rule (CLAUDE.md §17) and `/session-start` + `/handoff`
   commands (commit `c9cafef`). User authorized auto-commits at completed
-  steps; README got the session start/handoff procedure. Started step 3.
+  steps; README got the session start/handoff procedure. Step 3: output
+  manager (3a), research on device recognition, Linux uinput backend,
+  `test-outputs` CLI, hardware tests written but not yet run (3b/3c).

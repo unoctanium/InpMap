@@ -8,16 +8,21 @@ from __future__ import annotations
 
 import argparse
 import logging
+import signal
 import sys
+import time
 from collections.abc import Sequence
 
 from . import __version__, codes
 from .config import ConfigError, load_config
 from .models import Config
+from .output import OutputError, OutputManager
 
 EXIT_OK = 0
 EXIT_CONFIG_ERROR = 1
-# argparse itself exits with 2 on usage errors.
+EXIT_USAGE = 2  # also used by argparse itself
+EXIT_DEVICE_ERROR = 3
+EXIT_INTERRUPTED = 130
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,6 +36,39 @@ def build_parser() -> argparse.ArgumentParser:
     check = commands.add_parser("check", help="validate a configuration file")
     check.add_argument("config", help="path to the JSON configuration")
     check.set_defaults(handler=_cmd_check)
+
+    test_outputs = commands.add_parser(
+        "test-outputs",
+        help="create the virtual output devices and emit each mapped output once",
+        description=(
+            "Create the configured virtual devices, wait, then press and release every "
+            "mapped output code. Physical devices are not touched. Keyboard output goes "
+            "to the focused window like real typing; KEY_Y is a key position, so on a "
+            "German layout it types 'z'."
+        ),
+    )
+    test_outputs.add_argument("config", help="path to the JSON configuration")
+    test_outputs.add_argument(
+        "--delay",
+        type=float,
+        default=3.0,
+        help="seconds to wait after creating the devices (default: 3)",
+    )
+    test_outputs.add_argument(
+        "--hold", type=float, default=0.2, help="seconds each output is held (default: 0.2)"
+    )
+    test_outputs.add_argument(
+        "--only",
+        action="append",
+        metavar="DEVICE",
+        help="emit only on this output device id (repeatable)",
+    )
+    test_outputs.add_argument(
+        "--no-emit",
+        action="store_true",
+        help="only create the devices for --delay seconds; emit nothing",
+    )
+    test_outputs.set_defaults(handler=_cmd_test_outputs)
     return parser
 
 
@@ -52,6 +90,72 @@ def _cmd_check(args: argparse.Namespace) -> int:
     print(f"{args.config}: OK (version {config.version})")
     print(describe_config(config))
     return EXIT_OK
+
+
+def _cmd_test_outputs(args: argparse.Namespace) -> int:
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    selected = args.only or list(config.outputs)
+    unknown = [device_id for device_id in selected if device_id not in config.outputs]
+    if unknown:
+        known = ", ".join(config.outputs)
+        print(f"unknown output device(s): {', '.join(unknown)} (known: {known})", file=sys.stderr)
+        return EXIT_USAGE
+    if args.delay < 0 or args.hold < 0:
+        print("--delay and --hold must not be negative", file=sys.stderr)
+        return EXIT_USAGE
+
+    try:
+        from .backends.linux import LinuxOutputBackend
+    except ImportError as exc:
+        print(f"Linux backend unavailable: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
+
+    # Turn SIGTERM into the same orderly shutdown path as Ctrl+C.
+    previous = signal.signal(signal.SIGTERM, _raise_keyboard_interrupt)
+    try:
+        with OutputManager(LinuxOutputBackend(), config) as outputs:
+            for device_id, device in outputs.devices.items():
+                node = getattr(device, "node", None) or "unknown node"
+                print(f"created {device_id}: '{config.outputs[device_id].name}' at {node}")
+            if args.no_emit:
+                print(f"keeping devices for {args.delay:g}s (no events)", flush=True)
+                time.sleep(args.delay)
+            else:
+                print(f"emitting in {args.delay:g}s", flush=True)
+                time.sleep(args.delay)
+                _pulse_outputs(outputs, config, selected, args.hold)
+        print("devices removed")
+        return EXIT_OK
+    except OutputError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
+    except KeyboardInterrupt:
+        print("interrupted; outputs released and devices removed", file=sys.stderr)
+        return EXIT_INTERRUPTED
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
+def _pulse_outputs(
+    outputs: OutputManager, config: Config, device_ids: Sequence[str], hold: float
+) -> None:
+    for device_id in device_ids:
+        for code in sorted(config.output_codes(device_id)):
+            name = codes.code_name(code)
+            outputs.press(device_id, code)
+            print(f"  {device_id}: {name} pressed", flush=True)
+            time.sleep(hold)
+            outputs.release(device_id, code)
+            print(f"  {device_id}: {name} released", flush=True)
+            time.sleep(hold)
+
+
+def _raise_keyboard_interrupt(signum: int, frame: object) -> None:
+    raise KeyboardInterrupt
 
 
 def describe_config(config: Config) -> str:
