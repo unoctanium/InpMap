@@ -56,6 +56,7 @@ def test_profiles_unit_runs_the_instance_file():
     )
     assert "Description=InpMap input remapper, profile %i" in text
     assert "Conflicts=inpmap.service" in text
+    assert "After=inpmap.service" in text  # stopped before the profile starts
     assert "#   dcs                  OK" in text
     assert "systemctl --user enable --now inpmap@dcs.service" in text
     assert "systemctl --user stop 'inpmap@*' && systemctl --user start inpmap@dcs.service" in text

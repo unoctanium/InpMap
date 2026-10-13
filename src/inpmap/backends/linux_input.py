@@ -267,7 +267,8 @@ class LinuxInputSource:
             if exc.errno == errno.EBUSY:
                 raise InputError(
                     f"{self.description} is already grabbed by another program "
-                    "(e.g. another remapper such as input-remapper); stop it first"
+                    "(e.g. the InpMap service: systemctl --user stop inpmap 'inpmap@*', "
+                    "or another remapper such as input-remapper); stop it first"
                 ) from exc
             raise _io_error(exc, self.description, "grabbing") from exc
         self._grabbed = True

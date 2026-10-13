@@ -111,7 +111,8 @@ def render_profiles_unit(
         header,
         "InpMap input remapper, profile %i",
         # The single-configuration service would grab the same devices.
-        [f"Conflicts={UNIT_NAME}"],
+        # After= makes systemd stop it before starting the profile.
+        [f"Conflicts={UNIT_NAME}", f"After={UNIT_NAME}"],
         _exec_start(python, config_word),
     )
 

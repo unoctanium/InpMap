@@ -68,7 +68,10 @@ device by bus/vendor/product/uniq/phys-prefix).
    `test_wait_for_key_press_identifies_the_device` (synthetic gamepad,
    ungrabbed, so no keyboard events) passed. ⏳ Interactive use with `i`
    on the real keyboard/gamepad not yet tried by the user.
-4. User's real-hardware test of the service (when back at the PC).
+4. ⏳ **User's tests at the PC: step by step in `docs/testlist.md`** (written
+   2026-10-14; covers emergency stop, codes, numpad, input-config, user
+   service, profiles). Record the results here when they come in.
+   Older wording: user's real-hardware test of the service (when back at the PC).
 
 ## Backlog (future features, user agreed 2026-10-14; not scheduled)
 
