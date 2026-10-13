@@ -24,14 +24,18 @@ Last updated: 2026-10-13
     [--only DEV] [--no-emit]`; `hardware`-marked tests in
     `tests/test_linux_backend.py` (they grab the virtual device's own node,
     so no event reaches the desktop).
-  - ⏳ 3d: hardware verification — **waiting for the user's OK** to let Claude
-    run: `pytest -m hardware`; `inpmap test-outputs config/example.json
-    --no-emit --delay 20` in the background plus `udevadm info` on both nodes
-    (expect gamepad `ID_INPUT_JOYSTICK=1` without `ID_INPUT_KEY`, keyboard
-    `ID_INPUT_KEYBOARD=1`). Then the user's manual `evtest` check of
-    `inpmap test-outputs config/example.json --only gamepad` (and keyboard).
-    Not installed, optional: `libinput list-devices` (package
-    `libinput-tools`?) and SDL tools (`sdl2-jstest`/`testcontroller`).
+  - ✅ 3d (automated part, run by Claude 2026-10-13, user approved):
+    `pytest -m hardware` 3/3 passed; `udevadm info` while running
+    `test-outputs --no-emit`: keyboard `ID_INPUT_KEY=1 ID_INPUT_KEYBOARD=1`,
+    gamepad `ID_INPUT_JOYSTICK=1` (no `ID_INPUT_KEY`) — as predicted. SIGTERM
+    → "outputs released and devices removed", exit 130; nodes gone afterwards.
+  - ⏳ 3e: **waiting for the user's manual `evtest` result** (instructions
+    given in chat 2026-10-13): run `.venv/bin/inpmap test-outputs
+    config/example.json --delay 15`, attach `evtest` to the printed gamepad
+    and keyboard nodes; expect `BTN_SOUTH` (code 304) value 1 then 0, and
+    `KEY_Y` (code 21) value 1 then 0. Optional: KDE System Settings → Game
+    Controller lists "InpMap Virtual Gamepad" (SDL-based recognition).
+    Not installed, optional: `libinput list-devices`, SDL test tools.
 
 ## Next steps (in order)
 
@@ -90,9 +94,14 @@ Last updated: 2026-10-13
 
 - Unit tests: 86 passed, 3 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after step 3c.
-- Hardware/integration tests: **none run yet**. evdev 2.0.0 `UInput` API
-  (signature, `AbsInfo`, `write`/`syn`/`close`, `.device`) verified by
-  inspecting the installed library, not by creating devices.
+- Hardware tests (`pytest -m hardware`): 3 passed on the dev machine
+  (device creation/identity/capabilities, press/release delivery,
+  release_all delivery + device removal). Note: events queued when a device
+  is destroyed cannot be read (evdev returns ENODEV), so release-on-close is
+  verified as release_all (hardware) + close ordering (fake-backend tests).
+- udev classification of both virtual devices verified (see 3d).
+- Not yet verified: user-side `evtest` observation, SDL/KDE game controller
+  recognition, Steam behaviour.
 
 ## Uncommitted work
 
@@ -100,7 +109,7 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- OK to run the hardware checks of step 3d (see above)?
+- Result of the manual `evtest` check (step 3e)?
 
 ## Session log
 
@@ -112,4 +121,6 @@ Last updated: 2026-10-13
   commands (commit `c9cafef`). User authorized auto-commits at completed
   steps; README got the session start/handoff procedure. Step 3: output
   manager (3a), research on device recognition, Linux uinput backend,
-  `test-outputs` CLI, hardware tests written but not yet run (3b/3c).
+  `test-outputs` CLI (3b/3c); hardware tests + udev classification passed
+  (3d, one test fixed: cannot read events after device destruction).
+  Waiting for user's evtest result (3e).

@@ -143,20 +143,23 @@ def test_press_release_reach_virtual_devices(grabbed):
 
 
 @pytest.mark.hardware
-def test_close_releases_held_outputs_and_removes_devices(grabbed):
+def test_release_all_reaches_devices_and_close_removes_them(grabbed):
+    # Events still queued when a device is destroyed cannot be read (evdev
+    # returns ENODEV), so the releases are checked before closing. That
+    # close() calls release_all() first is covered by the fake-backend tests.
     outputs = OutputManager(LinuxOutputBackend(), CONFIG)
     outputs.open()
     try:
         keyboard_node = outputs.devices["keyboard"].node
-        gamepad_node = outputs.devices["gamepad"].node
         keyboard = grabbed(keyboard_node)
-        gamepad = grabbed(gamepad_node)
+        gamepad = grabbed(outputs.devices["gamepad"].node)
         outputs.press("keyboard", ecodes.KEY_Y)
         outputs.press("gamepad", ecodes.BTN_SOUTH)
+        outputs.release_all()
+        assert read_key_events(keyboard, 2) == [(ecodes.KEY_Y, 1), (ecodes.KEY_Y, 0)]
+        assert read_key_events(gamepad, 2) == [(ecodes.BTN_SOUTH, 1), (ecodes.BTN_SOUTH, 0)]
     finally:
         outputs.close()
-    assert read_key_events(keyboard, 2) == [(ecodes.KEY_Y, 1), (ecodes.KEY_Y, 0)]
-    assert read_key_events(gamepad, 2) == [(ecodes.BTN_SOUTH, 1), (ecodes.BTN_SOUTH, 0)]
     # Device nodes disappear asynchronously after destruction.
     deadline = time.monotonic() + 2.0
     while time.monotonic() < deadline:
