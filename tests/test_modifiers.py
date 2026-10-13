@@ -1,4 +1,4 @@
-"""Modifier matching (docs/dsl.md §4.0) and masking in the engine."""
+"""Modifier matching (docs/configuration.md §5.2) and masking in the engine."""
 
 import pytest
 

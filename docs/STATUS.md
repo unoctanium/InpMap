@@ -13,7 +13,24 @@ Last updated: 2026-10-13
   complete and verified on real hardware. JSON was removed completely
   (user's Option A): `.inpmap` is the only configuration format;
   `project_spec.md` (change note at the top) and `CLAUDE.md` §7 updated.
-  Next: systemd service (spec step 9) — ask the user before starting.**
+  Next: systemd service (spec step 9) — user said to continue with it
+  after the docs rework.**
+- **Docs reworked for newcomers (user request 2026-10-13):** README
+  (what/why, features, docs index, quick start, Claude Code workflow);
+  `docs/installation.md`, `docs/usage.md` (workflow, every command/option,
+  troubleshooting), `docs/configuration.md` (complete language reference =
+  the normative language spec; merges the former `docs/dsl.md` and
+  `docs/macros.md`), `docs/development.md` (tests, architecture, code
+  table). Deleted: `dsl.md` (incl. its review-notes chapter 12),
+  `macros.md`, `combinations-research.md`, `config-usability.md`,
+  `format-comparison.md`. Kept: `STATUS.md`, `macros-research.md`
+  (marked historical). Doc tests moved to `tests/test_docs.py`: every
+  ```` ```inpmap ```` block of the reference parses and compiles, the README
+  example compiles, `config/example.inpmap` = reference §10, golden
+  timelines. Stale "JSON configuration" CLI help and "see README" error
+  messages fixed. References in CLAUDE.md (§7, §12) and project_spec.md
+  updated. The installation doc has a placeholder section "Running in the
+  background" for the service.
 - The user's old `config/local.json`, `local-macros.json`, `local-tap.json`
   were deleted at the user's request (2026-10-13); `config/local.inpmap`
   is the only local config. Older mentions of `local*.json` below are
@@ -280,9 +297,9 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 390 passed, 10 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after the JSON removal (fewer tests: JSON-file
-  tests dropped). Hardware: 10 passed (S3).
+- Unit tests: 402 passed, 10 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after the docs rework (JSON-file tests were
+  dropped earlier). Hardware: 10 passed (S3), not re-run since.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

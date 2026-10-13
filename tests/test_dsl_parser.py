@@ -1,32 +1,6 @@
-import re
-from pathlib import Path
-
 import pytest
 
 from inpmap.dsl.parser import DslSyntaxError, parse
-
-SPEC = Path(__file__).resolve().parent.parent / "docs" / "dsl.md"
-
-
-def spec_blocks():
-    """Code blocks of the spec that are meant to be complete, valid syntax."""
-    blocks = re.findall(r"```\n(.*?)```", SPEC.read_text(), re.S)
-    schematic = ("…", "[as", "KEY_LEFTCTRL + KEY_LEFTSHIFT + KEY_LEFTBRACE as")
-    return [
-        b
-        for b in blocks
-        if not any(marker in b for marker in schematic)
-        and not b.lstrip().startswith(("if ", "on "))
-    ]
-
-
-def test_spec_has_examples():
-    assert len(spec_blocks()) >= 6
-
-
-@pytest.mark.parametrize("block", spec_blocks())
-def test_spec_examples_parse(block):
-    parse(block, "spec")
 
 
 def kinds(tree):

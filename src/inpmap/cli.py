@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     check = commands.add_parser("check", help="validate a configuration file")
-    check.add_argument("config", help="path to the JSON configuration")
+    check.add_argument("config", help="path to the .inpmap configuration file")
     check.set_defaults(handler=_cmd_check)
 
     devices = commands.add_parser(
@@ -60,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
             "contains the install and removal commands."
         ),
     )
-    udev_rules.add_argument("config", help="path to the JSON configuration")
+    udev_rules.add_argument("config", help="path to the .inpmap configuration file")
     udev_rules.set_defaults(handler=_cmd_udev_rules)
 
     trace_cmd = commands.add_parser(
@@ -71,8 +71,11 @@ def build_parser() -> argparse.ArgumentParser:
             "every output event with its time. No devices are opened or created."
         ),
     )
-    trace_cmd.add_argument("config", help="path to the JSON configuration")
-    trace_cmd.add_argument("mapping", help="id of the mapping to simulate")
+    trace_cmd.add_argument("config", help="path to the .inpmap configuration file")
+    trace_cmd.add_argument(
+        "mapping",
+        help="mapping name: its 'as' name or the trigger as written, e.g. KEY_F9",
+    )
     trace_cmd.add_argument(
         "--hold-ms", type=float, default=100.0, help="how long each press lasts (default 100)"
     )
@@ -88,7 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         action="append",
         metavar="MS",
-        help="press another key at this time (repeatable), e.g. for if_single",
+        help="press another key at this time (repeatable), e.g. for 'if single'",
     )
     trace_cmd.add_argument("--until-ms", type=float, help="simulate up to this time")
     trace_cmd.add_argument("--seed", type=int, default=0, help="seed for random durations")
@@ -114,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
             "their keys are released) and remap until Ctrl+C/SIGTERM or --timeout."
         ),
     )
-    run.add_argument("config", help="path to the JSON configuration")
+    run.add_argument("config", help="path to the .inpmap configuration file")
     run.add_argument(
         "--timeout",
         type=float,
@@ -133,7 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
             "German layout it types 'z'."
         ),
     )
-    test_outputs.add_argument("config", help="path to the JSON configuration")
+    test_outputs.add_argument("config", help="path to the .inpmap configuration file")
     test_outputs.add_argument(
         "--delay",
         type=float,
@@ -189,7 +192,7 @@ def _cmd_devices(args: argparse.Namespace) -> int:
     if unreadable:
         print(
             f"\n{len(unreadable)} event node(s) not readable by this user "
-            f"({', '.join(unreadable)}); see README 'Device permissions'."
+            f"({', '.join(unreadable)}); see docs/installation.md, 'Device permissions'."
         )
     return EXIT_OK
 

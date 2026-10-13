@@ -7,7 +7,7 @@ Semantics:
     ``hold`` outputs keep the holder until the input is released; ``tap``
     outputs give it up after :data:`TAP_DURATION`.
   - Each macro of the rule starts a run (or, if it is still running, the
-    press goes to the run: see docs/macros.md). Axis outputs run as small
+    press goes to the run: see docs/configuration.md §7). Axis outputs run as small
     internal macros.
 * An output key is released only when its last holder lets go (reference
   counting), so overlapping mappings and macros never release each other's
@@ -274,7 +274,7 @@ class MappingEngine:
     def _activate(self, key: InputKey, rule: MappingRule) -> None:
         if rule.trigger.modifiers and not rule.keep_modifiers:
             # Hide the held modifiers from the desktop before any output, so
-            # the outputs are not modified by them (docs/dsl.md §4.0 rule 7).
+            # the outputs are not modified by them (docs/configuration.md §5.2 rule 8).
             self._mask(rule, self._modifiers.held_keys())
         self._active[key] = rule
         log.debug("mapping '%s' activated", rule.id)

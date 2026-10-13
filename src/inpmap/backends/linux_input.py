@@ -374,7 +374,7 @@ class LinuxInputBackend:
         except PermissionError as exc:
             raise InputError(
                 f"input '{spec.id}': no read access to {path}. The user needs read access "
-                "to /dev/input/event* (usually membership in the 'input' group; see README)"
+                "to /dev/input/event* (see docs/installation.md, 'Device permissions')"
             ) from exc
         except OSError as exc:
             raise InputError(f"input '{spec.id}': cannot open {path}: {exc}") from exc

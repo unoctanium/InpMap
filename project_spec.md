@@ -1,6 +1,6 @@
 # Projektbriefing: Cross-Platform Input Remapper – Linux V1
 
-> **Änderung 2026-10-13:** Die InpMap-Konfigurationssprache (Dateiendung `.inpmap`, Spezifikation in `docs/dsl.md`) ersetzt JSON als einziges Konfigurationsformat. JSON-Konfigurationsdateien werden nicht mehr unterstützt. Die Arbeitsschritte in §11 und §14 sowie der JSON-Entwurf in §7 sind historisch und beschreiben den ursprünglichen Weg.
+> **Änderung 2026-10-13:** Die InpMap-Konfigurationssprache (Dateiendung `.inpmap`, Spezifikation in `docs/configuration.md`, ursprünglich `docs/dsl.md`) ersetzt JSON als einziges Konfigurationsformat. JSON-Konfigurationsdateien werden nicht mehr unterstützt. Die Arbeitsschritte in §11 und §14 sowie der JSON-Entwurf in §7 sind historisch und beschreiben den ursprünglichen Weg.
 
 ## 1. Rolle und Arbeitsweise
 
@@ -58,7 +58,7 @@ Spätere Versionen sollen komplexe Makros und weitere Eingabegeräte unterstütz
 ### Programmiersprache und Technologien
 
 - Python 3
-- die InpMap-Konfigurationssprache (`.inpmap`, `docs/dsl.md`) als einziges Konfigurationsformat für Mapping-Regeln (ursprünglich JSON)
+- die InpMap-Konfigurationssprache (`.inpmap`, `docs/configuration.md`) als einziges Konfigurationsformat für Mapping-Regeln (ursprünglich JSON)
 - `evdev` zum Lesen physischer Eingabeereignisse
 - `uinput` zum Erzeugen virtueller Eingabegeräte
 - `pytest` für automatisierte Tests

@@ -1,5 +1,8 @@
 # Macros: research and proposal (V1.1)
 
+> Historical design record. The resulting macro specification, formerly
+> `docs/macros.md`, is now part of `docs/configuration.md`.
+
 Status: **for discussion**, nothing decided yet. After agreement this becomes
 the basis for the specification `docs/macros.md`.
 

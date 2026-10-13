@@ -1,4 +1,4 @@
-"""Macro execution through the engine, on a fake clock (docs/macros.md)."""
+"""Macro execution through the engine, on a fake clock (docs/configuration.md §7)."""
 
 import logging
 import random

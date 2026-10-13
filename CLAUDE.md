@@ -135,9 +135,9 @@ Do not run destructive commands, modify system configuration, install packages g
 
 ## 7. Configuration language
 
-The InpMap configuration language (`.inpmap` files, specified in `docs/dsl.md`) is the only user-facing configuration format. It replaced JSON on 2026-10-13 by decision of the user. Do not introduce another format (JSON, YAML, TOML, Lua, …) unless the product specification is explicitly changed.
+The InpMap configuration language (`.inpmap` files, specified in `docs/configuration.md`) is the only user-facing configuration format. It replaced JSON on 2026-10-13 by decision of the user. Do not introduce another format (JSON, YAML, TOML, Lua, …) unless the product specification is explicitly changed.
 
-- Change the language only by first updating `docs/dsl.md` and getting the user's approval; keep the grammar (`src/inpmap/dsl/inpmap.lark`), the compiler, the editor syntax files (`editors/`) and the examples consistent with it.
+- Change the language only by first updating `docs/configuration.md` and getting the user's approval; keep the grammar (`src/inpmap/dsl/inpmap.lark`), the compiler, the editor syntax files (`editors/`) and the examples consistent with it.
 - Validate the configuration at startup before creating or grabbing input devices.
 - Reject unknown device references, unsupported event types, invalid codes, duplicate identifiers, and malformed rules with useful error messages.
 - Report every problem as `FILE:LINE:COLUMN: message`, all problems of a file together, and name the mapping where it helps.
@@ -280,7 +280,8 @@ Do not build a complex IPC protocol or live configuration reload before it is ne
 Keep the repository usable by a new developer and by someone installing it on another PC.
 
 Maintain:
-- `README.md`: project overview, supported scope, setup, configuration, run, test, troubleshooting, and current limitations.
+- `README.md`: project overview, motivation, supported scope, quick start, and links to the user documentation.
+- User documentation for newcomers: `docs/installation.md` (setup, permissions, uninstall), `docs/usage.md` (workflow, every command and option, troubleshooting), `docs/configuration.md` (complete language reference); `docs/development.md` for contributors.
 - `project_spec.md`: product specification and milestones.
 - `CLAUDE.md`: these development instructions.
 - example configuration(s) (`config/example.inpmap`) that are tested against the current implementation.

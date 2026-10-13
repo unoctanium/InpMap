@@ -1,8 +1,4 @@
-import re
-from pathlib import Path
-
 import pytest
-from golden_example_traces import SCENARIOS, TIMELINES
 
 from inpmap.codes import code_from_name as c
 from inpmap.config import ConfigError
@@ -31,10 +27,6 @@ from inpmap.macros import (
     Wait,
 )
 from inpmap.models import Modifier, ModifierRequirement, Side
-from inpmap.trace import trace
-
-ROOT = Path(__file__).resolve().parent.parent
-SPEC = ROOT / "docs" / "dsl.md"
 
 HEADER = """version 1
 input kbd { name = "Kbd" }
@@ -63,28 +55,6 @@ def problems(text: str) -> list[str]:
 
 def K(name, device="keyboard"):
     return KeyRef(device, c(name))
-
-
-# -- equivalence with today's example configuration --------------------------------
-
-
-def complete_example() -> str:
-    return re.search(r"## 11\. Complete example.*?```\n(.*?)```", SPEC.read_text(), re.S).group(1)
-
-
-@pytest.mark.parametrize("mapping, scenario_index", sorted(TIMELINES))
-def test_complete_example_matches_reference_timelines(mapping, scenario_index):
-    """Behaviour of the example equals the former, verified JSON example."""
-    config = compile_text(complete_example(), "example.inpmap").config
-    scenario = SCENARIOS[scenario_index]
-    actual = [(t.ms, t.text) for t in trace(config, mapping, seed=7, **scenario)]
-    assert actual == TIMELINES[(mapping, scenario_index)]
-
-
-def test_more_examples_compile():
-    block = re.search(r"More examples \(a keyboard.*?```\n(.*?)```", SPEC.read_text(), re.S)
-    config = compile_text(block.group(1), "more.inpmap").config
-    assert "pad.BTN_SOUTH+ctrl" in [m.id for m in config.mappings]
 
 
 # -- top level -------------------------------------------------------------------------

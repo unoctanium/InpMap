@@ -1,4 +1,4 @@
-"""Parsing and validation of macro outputs (see docs/macros.md).
+"""Parsing and validation of macro outputs (see docs/configuration.md §6).
 
 Used by :mod:`inpmap.config`; reports problems through the configuration
 validator so all errors of a file are collected together, each with its JSON

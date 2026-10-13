@@ -1,4 +1,4 @@
-// Grammar of the InpMap configuration language (docs/dsl.md §2–§5),
+// Grammar of the InpMap configuration language (docs/configuration.md),
 // for the lark parser (LALR, basic lexer; see parser.py for the post-lexer
 // that lets `else` follow on the line after `}`).
 //

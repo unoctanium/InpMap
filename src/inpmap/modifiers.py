@@ -1,4 +1,4 @@
-"""Modifier state and trigger matching (docs/dsl.md §4.0).
+"""Modifier state and trigger matching (docs/configuration.md §5.2).
 
 The state is the set of modifier keys currently held on any input device.
 A trigger matches when exactly its required modifiers are held: required

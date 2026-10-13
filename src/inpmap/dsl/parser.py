@@ -1,4 +1,4 @@
-"""Parser for the InpMap configuration language (docs/dsl.md §2–§5).
+"""Parser for the InpMap configuration language (docs/configuration.md).
 
 The grammar is in ``inpmap.lark`` next to this module.
 

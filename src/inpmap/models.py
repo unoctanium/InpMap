@@ -61,7 +61,7 @@ class OutputDeviceSpec:
 
 
 class Modifier(Enum):
-    """Modifier groups (docs/dsl.md §4.0)."""
+    """Modifier groups (docs/configuration.md §5.2)."""
 
     CTRL = "ctrl"
     SHIFT = "shift"

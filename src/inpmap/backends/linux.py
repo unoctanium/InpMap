@@ -171,7 +171,7 @@ class LinuxOutputBackend:
             raise OutputError(
                 f"cannot create virtual {spec.kind.value} '{spec.name}': {exc}. "
                 f"Check that {self.devnode} exists and is writable by this user "
-                "(see README, 'Device permissions')."
+                "(see docs/installation.md, 'Device permissions')."
             ) from exc
         device = LinuxOutputDevice(spec, uinput)
         log.debug("uinput device '%s' at %s", spec.name, device.node)

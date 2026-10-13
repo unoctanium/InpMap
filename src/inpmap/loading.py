@@ -1,7 +1,7 @@
 """Load a configuration file.
 
 Configurations are written in the InpMap configuration language
-(`.inpmap` files, docs/dsl.md). JSON support was removed on 2026-10-13.
+(`.inpmap` files, docs/configuration.md). JSON support was removed on 2026-10-13.
 """
 
 from __future__ import annotations
@@ -20,6 +20,6 @@ def load(path: str | Path) -> LoadResult:
     if Path(path).suffix != DSL_SUFFIX:
         raise ConfigError(
             str(path),
-            [f"configuration files must end in {DSL_SUFFIX} (see docs/dsl.md)"],
+            [f"configuration files must end in {DSL_SUFFIX} (see docs/configuration.md)"],
         )
     return load_dsl(path)

@@ -1,4 +1,4 @@
-"""Compile the configuration language into the validated model (docs/dsl.md).
+"""Compile the configuration language into the validated model (docs/configuration.md).
 
 The parse tree is translated into the configuration data structure that
 :func:`inpmap.config.parse_config` validates, so every validation rule and

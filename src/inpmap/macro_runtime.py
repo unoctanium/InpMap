@@ -1,4 +1,4 @@
-"""Macro execution (see docs/macros.md §5).
+"""Macro execution (see docs/configuration.md §7).
 
 A :class:`MacroRun` executes one macro after a trigger press. Its steps are
 interpreted by Python generators ("fibers") that yield what they wait for —

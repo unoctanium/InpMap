@@ -1,4 +1,4 @@
-"""Ownership of gamepad axes by several holders (see docs/macros.md §6).
+"""Ownership of gamepad axes by several holders (see docs/configuration.md §7.3).
 
 Each axis has a stack of holders. The most recent holder's value is written;
 when it lets go, the next holder's value applies again, or the axis returns

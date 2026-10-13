@@ -4,7 +4,7 @@
   Syntax highlighting for InpMap configuration files (*.inpmap) in Kate,
   KWrite and other KSyntaxHighlighting-based editors.
   Install: copy to ~/.local/share/org.kde.syntax-highlighting/syntax/
-  (see README, "Editor support").
+  (see docs/installation.md, "Optional: syntax highlighting").
 -->
 <language name="InpMap" section="Configuration" version="1" kateversion="5.0"
           extensions="*.inpmap" mimetype="" author="InpMap" license="MIT">

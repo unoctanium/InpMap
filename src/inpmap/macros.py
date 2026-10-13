@@ -1,4 +1,4 @@
-"""Validated macro model (see docs/macros.md).
+"""Validated macro model (see docs/configuration.md §6).
 
 Instances are produced by the configuration loader; the executor
 (:mod:`inpmap.macro_runtime`) interprets them. Durations are milliseconds.

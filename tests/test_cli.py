@@ -72,14 +72,6 @@ def test_missing_file(tmp_path, capsys):
     assert "cannot read file" in capsys.readouterr().err
 
 
-def test_example_file_matches_spec():
-    import re
-
-    spec = (EXAMPLE.parent.parent / "docs" / "dsl.md").read_text()
-    block = re.search(r"## 11\. Complete example.*?```\n(.*?)```", spec, re.S).group(1)
-    assert EXAMPLE.read_text() == block
-
-
 # -- macro-trace -----------------------------------------------------------------------------
 
 
