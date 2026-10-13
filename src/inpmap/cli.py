@@ -19,7 +19,7 @@ from . import __version__, codes
 from .config import ConfigError
 from .input import InputError
 from .loading import load
-from .macros import AXIS_NAMES, Led
+from .macros import AXIS_KINDS, AXIS_NAMES, AxisKind, Led
 from .models import Config, OutputMode
 from .output import OutputError, OutputManager
 from .runtime import CleanupError, Runtime
@@ -30,6 +30,8 @@ EXIT_CONFIG_ERROR = 1
 EXIT_USAGE = 2  # also used by argparse itself
 EXIT_DEVICE_ERROR = 3
 EXIT_INTERRUPTED = 130
+
+AXIS_NAMES_BY_NAME = {name: code for code, name in AXIS_NAMES.items()}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +53,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--all", action="store_true", help="also list devices without keys or buttons"
     )
     devices.set_defaults(handler=_cmd_devices)
+
+    codes_cmd = commands.add_parser(
+        "codes",
+        help="list key, button and axis names (optionally only those containing FILTER)",
+        description=(
+            "List the names usable in configuration files: KEY_* and BTN_* codes (all "
+            "usable as triggers) and the gamepad axes, with the output type that can "
+            "send each one. FILTER selects names containing it (any case), e.g. 'kp' "
+            "for the numpad."
+        ),
+    )
+    codes_cmd.add_argument("filter", nargs="?", default="", help="part of a name, e.g. kp")
+    codes_cmd.set_defaults(handler=_cmd_codes)
 
     input_config = commands.add_parser(
         "input-config",
@@ -259,6 +274,27 @@ def _modifier_list(text: str | None) -> list[str] | None:
     if text == "none":
         return []
     return [name.strip() for name in text.split(",") if name.strip()]
+
+
+def _cmd_codes(args: argparse.Namespace) -> int:
+    wanted = args.filter.upper()
+    rows = []
+    for entry in codes.catalog():
+        if not any(wanted in name for name in (entry.name, *entry.aliases)):
+            continue
+        sent_by = entry.sent_by or "- (only as input)"
+        also = f"  (also {', '.join(entry.aliases)})" if entry.aliases else ""
+        rows.append(f"{entry.name:<28} {entry.code:>4}  {sent_by}{also}")
+    for name, code in AXIS_NAMES_BY_NAME.items():
+        if wanted in name:
+            kind = "stick" if AXIS_KINDS[code] is AxisKind.STICK else "trigger"
+            rows.append(f"{name:<28} {code:>4}  gamepad axis ({kind})")
+    if not rows:
+        print(f"no name contains '{args.filter}'")
+        return EXIT_OK
+    print(f"{'NAME':<28} {'CODE':>4}  SENT BY")
+    print("\n".join(rows))
+    return EXIT_OK
 
 
 IDENTIFY_TIMEOUT = 15.0

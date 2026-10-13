@@ -74,7 +74,9 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 - Several configurations / profiles: template unit `inpmap@NAME.service`
   running `config/NAME.inpmap`, switch with `systemctl --user`.
-- `inpmap codes [FILTER]`: list valid key/button names.
+- ✅ `inpmap codes [FILTER]` (2026-10-14): `codes.catalog()` (canonical name,
+  aliases, sent by keyboard/gamepad/none) + gamepad axes; docs usage.md,
+  configuration.md §12.1; tests in test_codes.py, test_cli.py.
 - Analog triggers and sticks as buttons (threshold, like Input
   Remapper's `analog_threshold`; e.g. Razer L2/R2 are analog).
 - ~~Layout-aware output by character~~ — not wanted: the user prefers key
@@ -405,8 +407,8 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 453 passed, 11 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after input-config (2026-10-14) (JSON-file tests were
+- Unit tests: 456 passed, 11 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after inpmap codes (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 11 passed (2026-10-14, after input-config).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,

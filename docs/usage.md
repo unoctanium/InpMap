@@ -113,6 +113,29 @@ Validates `FILE` and prints a summary of inputs, outputs, mappings and
 variables. Warnings go to the error output; the file is still valid.
 Touches no devices.
 
+### `inpmap codes`
+
+```text
+inpmap codes [FILTER]
+```
+
+Lists the names you can use in a configuration: every `KEY_*` and `BTN_*`
+code (all of them can be triggers) and the gamepad axes, with the output
+type that can send each one. `FILTER` keeps the names that contain it,
+in any case:
+
+```text
+$ inpmap codes kp1
+NAME                         CODE  SENT BY
+KEY_KP1                        79  keyboard
+$ inpmap codes btn_a
+NAME                         CODE  SENT BY
+BTN_SOUTH                     304  gamepad  (also BTN_A)
+```
+
+"only as input" marks codes that no InpMap output can send (e.g. mouse
+buttons); they can still trigger mappings.
+
 ### `inpmap input-config`
 
 ```text

@@ -212,3 +212,23 @@ def test_missing_command_is_usage_error():
     with pytest.raises(SystemExit) as info:
         main([])
     assert info.value.code == 2
+
+
+# -- codes ---------------------------------------------------------------------------------
+
+
+def test_codes_filter(capsys):
+    assert main(["codes", "kp1"]) == EXIT_OK
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].split() == ["NAME", "CODE", "SENT", "BY"]
+    assert lines[1].split() == ["KEY_KP1", "79", "keyboard"]
+    assert len(lines) == 2
+
+
+def test_codes_aliases_axes_and_no_match(capsys):
+    main(["codes", "btn_a"])
+    assert "BTN_SOUTH                     304  gamepad  (also BTN_A)" in capsys.readouterr().out
+    main(["codes", "ABS_RZ"])
+    assert "gamepad axis (trigger)" in capsys.readouterr().out
+    assert main(["codes", "nothing_like_this"]) == EXIT_OK
+    assert "no name contains 'nothing_like_this'" in capsys.readouterr().out

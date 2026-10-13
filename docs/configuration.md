@@ -849,9 +849,11 @@ map pad.BTN_WEST as alternate {
 
 ### 12.1 Finding key codes
 
-The codes are the kernel's names from `linux/input-event-codes.h`. To see
-which code a key sends, run `evtest`, choose your keyboard and press the
-key: it prints e.g. `code 45 (KEY_X)`. Some frequently used ones:
+The codes are the kernel's names from `linux/input-event-codes.h`.
+`inpmap codes FILTER` lists them (`inpmap codes kp` shows the numpad keys;
+[usage.md](usage.md#inpmap-codes)). To see which code a key sends, run
+`evtest`, choose your keyboard and press the key: it prints e.g.
+`code 45 (KEY_X)`. Some frequently used ones:
 
 | Keys | Codes |
 |---|---|

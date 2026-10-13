@@ -42,3 +42,14 @@ def test_table_matches_installed_evdev():
         if getattr(ecodes, name, None) != (value := codes.code_from_name(name))
     }
     assert mismatches == {}
+
+
+def test_catalog_lists_each_code_once_with_aliases_and_sender():
+    from inpmap.codes import catalog
+
+    entries = {entry.name: entry for entry in catalog()}
+    assert len(entries) == len({entry.code for entry in catalog()})
+    assert entries["BTN_SOUTH"].aliases == ("BTN_A",) and entries["BTN_SOUTH"].sent_by == "gamepad"
+    assert entries["KEY_KP1"].sent_by == "keyboard"
+    assert entries["BTN_LEFT"].sent_by == ""  # mouse button: only usable as a trigger
+    assert "BTN_A" not in entries

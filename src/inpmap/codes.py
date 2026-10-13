@@ -7,6 +7,8 @@ and must not import evdev, so the core stays backend-independent.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from ._linux_codes import CANONICAL_NAMES, CODES
 
 # Inclusive ranges of EV_KEY codes that belong to joysticks/gamepads:
@@ -38,3 +40,32 @@ def all_names() -> list[str]:
 def is_gamepad_button(code: int) -> bool:
     """Whether ``code`` lies in a joystick/gamepad button range."""
     return any(low <= code <= high for low, high in GAMEPAD_BUTTON_RANGES)
+
+
+@dataclass(frozen=True)
+class CodeEntry:
+    """One key/button code for listings (``inpmap codes``)."""
+
+    name: str  # canonical name
+    code: int
+    aliases: tuple[str, ...]
+    sent_by: str  # output type that can send it: "keyboard", "gamepad", or "" (input only)
+
+
+def catalog() -> list[CodeEntry]:
+    """Every key/button code, ordered by value, with its aliases."""
+    names: dict[int, list[str]] = {}
+    for name, code in CODES.items():
+        names.setdefault(code, []).append(name)
+    entries = []
+    for code in sorted(names):
+        canonical = code_name(code)
+        if canonical.startswith("KEY_"):
+            sent_by = "keyboard"
+        elif is_gamepad_button(code):
+            sent_by = "gamepad"
+        else:
+            sent_by = ""  # e.g. mouse buttons: usable as mapping triggers only
+        aliases = tuple(n for n in names[code] if n != canonical)
+        entries.append(CodeEntry(canonical, code, aliases, sent_by))
+    return entries
