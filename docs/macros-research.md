@@ -219,3 +219,8 @@ step (`{"tap": "KEY_A"}`) to keep it readable.
   duration accepts a number or an object
   `{"mean_ms", "stddev_ms", "min_ms", "max_ms"}`; humanizer implementation
   now or later — awaiting the user's choice.
+- **Confirmed by the user (2026-10-13):** axis ramps as proposed incl.
+  "most recent holder wins"; Q5 `finish` default + `cancel` optional; Q7
+  `if_single` now, `mod_tap` later; Q10 configurable pauses now (global →
+  macro → step), humanizer later.
+- Spec draft written: `docs/macros.md` (awaiting user review).
