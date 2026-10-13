@@ -13,33 +13,71 @@ and a gamepad button). See `project_spec.md` for goals and roadmap.
 | Virtual keyboard / gamepad (uinput), `inpmap test-outputs` | implemented, verified on hardware |
 | Mapping engine, reference-counted press/release state | implemented, unit-tested |
 | Physical input, grab, passthrough, `inpmap run`, `inpmap devices` | implemented, verified on a real keyboard (spec §7 acceptance test passed) |
+| Reconnect after device loss, `SYN_DROPPED` resync, LED mirroring | implemented, tested with synthetic devices |
+| `inpmap udev-rules` (permission setup) | implemented; rules syntax-checked with `udevadm verify`, installation not yet tested |
 
-## Requirements
+## Installation (clean machine)
 
-- Linux (V1 scope), Python ≥ 3.11 (developed on 3.14)
-- `python-evdev` — used by the upcoming Linux backend
-- For later hardware tests: read access to `/dev/input/event*` and read/write
-  access to `/dev/uinput` (setup will be documented with the backend)
+Requirements: Linux, Python ≥ 3.11 (so far tested on 3.14 only), and for the
+recommended permission setup systemd-logind (standard on most desktops).
+InpMap installs nothing system-wide except an optional udev rules file.
 
-## Development setup
+### 1. System packages
 
-On Arch/CachyOS, `python-evdev` is available as a system package. The dev venv
-reuses it instead of compiling it:
+| Distribution | Command | Tested |
+|---|---|---|
+| Arch, CachyOS, Manjaro | `sudo pacman -S --needed python python-evdev git evtest` | yes (CachyOS) |
+| Debian, Ubuntu | `sudo apt install python3 python3-venv python3-evdev git evtest` | not yet |
+| Fedora | `sudo dnf install python3 python3-evdev git evtest` | not yet |
+
+`evtest` is only needed for checking events. Without a distribution evdev
+package, pip builds `evdev` itself; that needs a C compiler, Python headers and
+kernel headers (e.g. Debian: `build-essential python3-dev linux-libc-dev`),
+and the venv below is then created without `--system-site-packages`.
+
+### 2. InpMap in a virtual environment
 
 ```sh
-sudo pacman -S --needed python python-evdev evtest   # system packages (Arch-based)
-python3 -m venv --system-site-packages .venv
-.venv/bin/pip install -e '.[dev]'                     # installs inpmap, pytest, ruff
+git clone <repository-url> InpMap      # or copy the directory
+cd InpMap
+python3 -m venv --system-site-packages .venv   # lets the venv use the distro's evdev
+.venv/bin/pip install -e .                     # developers: -e '.[dev]' adds pytest and ruff
 ```
 
-On other distributions, either install your distribution's evdev package the
-same way, or use a plain venv and let pip build `evdev` (needs a C compiler and
-kernel headers).
+### 3. Device permissions
+
+See [Device permissions](#device-permissions) below (one-time, needs sudo).
+
+### 4. Configuration
+
+```sh
+cp config/example.json config/local.json      # git-ignored
+.venv/bin/inpmap devices                      # find your device's name or /dev/input/by-id path
+$EDITOR config/local.json
+.venv/bin/inpmap check config/local.json
+```
+
+### 5. Verify
+
+```sh
+.venv/bin/inpmap test-outputs config/local.json --only gamepad   # watch with evtest
+.venv/bin/inpmap run config/local.json --timeout 30              # stops by itself after 30 s
+```
+
+### Uninstall
+
+1. If you installed the udev rules: `sudo rm /etc/udev/rules.d/70-inpmap.rules`,
+   then `sudo udevadm control --reload` and
+   `sudo udevadm trigger --subsystem-match=input --subsystem-match=misc`.
+2. If you joined the `input` group only for InpMap:
+   `sudo gpasswd -d "$USER" input` (takes effect at next login).
+3. Delete the InpMap directory (including `.venv`).
 
 ## Usage
 
 ```sh
 .venv/bin/inpmap devices                                     # list physical devices and their /dev/input/by-id links
+.venv/bin/inpmap udev-rules config/local.json                # print permission rules (see Device permissions)
 .venv/bin/inpmap check config/example.json
 .venv/bin/inpmap run config/local.json --timeout 30          # remap; stops after 30 s, or Ctrl+C
 .venv/bin/inpmap test-outputs config/example.json            # create devices, press/release each output
@@ -111,18 +149,43 @@ error, `3` device error, `130` interrupted.
 
 ## Device permissions
 
-- Creating virtual devices needs write access to `/dev/uinput`.
-  - Check with `getfacl /dev/uinput`; look for a `user:<you>:rw-` line. On the
-    development machine (CachyOS) this ACL comes from udev rules shipped by the
-    `steam-devices` and `kdeconnect` packages
-    (`KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess"`), which grant it to
-    the user of the active local session only. Other systems may lack it.
-  - If missing, make sure the `uinput` module is loaded (`ls /dev/uinput`).
-    Setup instructions for a narrowly scoped udev rule will follow with the
-    installation script; do **not** make the node world-writable.
-- Reading and grabbing physical devices (later step) needs read access to
-  `/dev/input/event*`, typically via the `input` group. Membership lets every
-  program of that user read all keyboards, so grant it deliberately.
+InpMap runs as a normal user and needs:
+
+- **write access to `/dev/uinput`** to create the virtual and forwarding
+  devices;
+- **read/write access to the configured input devices** (`/dev/input/eventN`)
+  to read and grab them and to set their LEDs.
+
+Do not run InpMap as root and do not make device nodes world-writable.
+Check the current state with `getfacl /dev/uinput` (look for
+`user:<you>:rw-`) and `.venv/bin/inpmap devices` (reports unreadable nodes).
+
+**Option A, recommended: per-device rules (systemd-logind `uaccess`).**
+Plug in the configured devices, then:
+
+```sh
+.venv/bin/inpmap udev-rules config/local.json > 70-inpmap.rules
+cat 70-inpmap.rules                            # review: one rule for /dev/uinput, one per input
+sudo install -m 644 70-inpmap.rules /etc/udev/rules.d/70-inpmap.rules
+sudo udevadm control --reload
+sudo udevadm trigger --subsystem-match=input --subsystem-match=misc
+```
+
+The rules give an ACL to the user of the active local session only, and only
+for `/dev/uinput` and the configured devices (matched by kernel name plus
+vendor/product ID, so other keyboards stay inaccessible). Regenerate and
+reinstall them after adding input devices to the configuration. The
+generated file contains the removal commands. (A future system-wide service
+without a login session will need a different setup.)
+
+**Option B: the `input` group.** `sudo usermod -aG input "$USER"`, then log in
+again. Simpler, but every program you run can then read every input device,
+including all keystrokes. `/dev/uinput` access is still needed separately
+(Option A's first rule, or a distribution rule, e.g. Arch's `steam-devices`).
+
+On the development machine, `/dev/uinput` access comes from rules shipped by
+`steam-devices` and `kdeconnect` (same `uaccess` mechanism), and input access
+from the `input` group.
 
 ## Configuration (version 1)
 
@@ -180,8 +243,10 @@ older versions are then migrated explicitly or rejected with a clear message.
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 ```
 
-Tests marked `hardware` (none yet) need real device access and are excluded by
-default; run them with `pytest -m hardware`.
+Tests marked `hardware` need access to `/dev/uinput` and `/dev/input` and are
+excluded by default; run them with `.venv/bin/python -m pytest -m hardware`.
+They only use synthetic devices they create themselves and grab every device
+they emit on, so no event reaches the desktop and real hardware is not touched.
 
 ## Working with Claude Code
 

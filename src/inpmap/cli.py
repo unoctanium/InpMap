@@ -48,6 +48,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     devices.set_defaults(handler=_cmd_devices)
 
+    udev_rules = commands.add_parser(
+        "udev-rules",
+        help="print udev rules granting session access to /dev/uinput and the configured inputs",
+        description=(
+            "Print udev rules (systemd-logind 'uaccess') for /dev/uinput and the input "
+            "devices of CONFIG, which must be connected. Nothing is installed; the output "
+            "contains the install and removal commands."
+        ),
+    )
+    udev_rules.add_argument("config", help="path to the JSON configuration")
+    udev_rules.set_defaults(handler=_cmd_udev_rules)
+
     run = commands.add_parser(
         "run",
         help="run the remapper in the foreground",
@@ -133,6 +145,22 @@ def _cmd_devices(args: argparse.Namespace) -> int:
             f"\n{len(unreadable)} event node(s) not readable by this user "
             f"({', '.join(unreadable)}); see README 'Device permissions'."
         )
+    return EXIT_OK
+
+
+def _cmd_udev_rules(args: argparse.Namespace) -> int:
+    from .backends.linux_setup import read_sysfs_inputs, render_rules
+
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    try:
+        print(render_rules(config, read_sysfs_inputs(), args.config), end="")
+    except InputError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
     return EXIT_OK
 
 

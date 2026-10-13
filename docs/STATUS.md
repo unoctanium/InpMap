@@ -117,9 +117,26 @@ Last updated: 2026-10-13
      (`set_led`; failure logged once). Hardware test
      `test_led_state_set_on_forwarder_reaches_physical_keyboard` passed.
      Not yet checked with the user's real keyboard (may have no LEDs).
-   - **Step 7 complete.** Next: installation (item 3).
-3. Installation for other PCs: clean-machine guide, narrowly scoped udev
-   rule(s), install/uninstall script if justified.
+   - **Step 7 complete.**
+3. ✅ Installation for other PCs (2026-10-13):
+   - `inpmap udev-rules CONFIG` (`src/inpmap/backends/linux_setup.py`, no
+     evdev needed): reads world-readable sysfs, prints a `uaccess` rule for
+     /dev/uinput (same as steam-devices/kdeconnect) and one rule per
+     configured input matching `ATTRS{name}` + `ATTRS{id/vendor}` +
+     `ATTRS{id/product}` (attribute names verified with `udevadm info -a`),
+     file `70-inpmap.rules` (must sort before 73-seat-late.rules where
+     uaccess is applied). Output for `config/local.json` passed
+     `udevadm verify` (systemd 262). **Not tested: actually installing it**
+     (needs sudo; on the dev machine access already exists via `input`
+     group and steam/kdeconnect rules, so the effect isn't observable here).
+   - README: clean-machine installation (packages per distro: Arch tested,
+     Debian/Fedora names untested), venv, permissions Option A (rules,
+     recommended) / Option B (`input` group), configuration, verification,
+     uninstall.
+   - Decided against an install shell script: steps are few and
+     transparent; the generator + documented commands cover it.
+   - Python ≥ 3.11 baseline only statically checked (ruff target py311);
+     only 3.14 available on the dev machine.
 4. Tap output mode (`"mode": "hold" | "tap"`), user's idea.
 5. Later: macro spec (V1.1), systemd service (step 9; runtime already
    separate from CLI with signal handling, no unit file yet).
@@ -170,8 +187,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 145 passed, 6 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after step 7c. Hardware: 6 passed.
+- Unit tests: 155 passed, 6 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after installation work. Hardware: 6 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and
