@@ -149,13 +149,14 @@ Last updated: 2026-10-13
    ⏳ Optional user check: `config/local-tap.json` (git-ignored) = X taps Y
    + holds BTN_SOUTH; expected one `y` per press however long X is held.
 5. 🔧 **V1.1 macro engine** (user decision 2026-10-13), in this order:
-   a. Research Input Remapper's macro docs, code and tests (in progress).
-   b. Write `docs/macros-research.md`: what Input Remapper offers and how
-      it behaves, plus a proposal grouping functions into "inspired by
-      Input Remapper", "intentionally not implemented", and "new, not in
-      Input Remapper".
-   c. **Discuss the function list with the user** — required before any
-      spec or code.
+   a. ✅ Research done (agent read IR main @ 1f770e5c: docs, macros/**,
+      macro/combination handlers, event reader, global uinputs, keyboard
+      layout, shared dict, all macro tests).
+   b. ✅ `docs/macros-research.md` written: IR behaviour summary, design
+      principles, format options, groups A (inspired), B (not
+      implemented/deferred), C (new), questions Q1–Q10.
+   c. ⏳ **Discussion with the user** of Q1–Q10 — required before any spec
+      or code. Record each decision in macros-research.md and here.
    d. Write our own JSON macro specification (`docs/macros.md`), then
       implement with tests.
    License note: Input Remapper is GPL-3.0; we implement independently and
@@ -235,7 +236,7 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- None pending.
+- Macro design questions Q1–Q10 in `docs/macros-research.md` §4.
 
 ## Session log
 
