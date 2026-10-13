@@ -156,9 +156,12 @@ Last updated: 2026-10-13
       principles, format options, groups A (inspired), B (not
       implemented/deferred), C (new), questions Q1–Q10.
    c. ✅ Discussion complete; all decisions in macros-research.md §5.
-      or code. Record each decision in macros-research.md and here.
-   d. ⏳ Spec draft `docs/macros.md` written (config stays version 1, all additions optional); **awaiting user review**, then
-      implement with tests.
+   d. ⏳ Spec draft `docs/macros.md` written (config stays version 1, all
+      additions optional). **Awaiting user review**, then implement with
+      tests (suggested order: settings/variables/axis outputs in config →
+      macro step model + validation → executor on the engine timer queue →
+      runtime integration incl. if_single/LEDs → `macro-trace` → hardware
+      tests → README).
    License note: Input Remapper is GPL-3.0; we implement independently and
    do not copy code.
 6. After macros: systemd service (step 9; runtime already separate from CLI
