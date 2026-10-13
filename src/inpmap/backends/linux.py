@@ -30,6 +30,7 @@ from evdev import AbsInfo, UInput, ecodes
 from evdev.uinput import UInputError
 
 from .. import codes
+from ..macros import AXIS_KINDS, AxisKind
 from ..models import OutputDeviceSpec, OutputKind
 from ..output import OutputError
 
@@ -75,6 +76,20 @@ GAMEPAD_AXES: tuple[tuple[int, AbsInfo], ...] = (
     (ecodes.ABS_Z, _TRIGGER),
     (ecodes.ABS_RZ, _TRIGGER),
 )
+_ABS_INFO = dict(GAMEPAD_AXES)
+
+
+def axis_raw(code: int, value: float) -> int:
+    """Convert a fraction of the axis range to the device's raw value.
+
+    Sticks: -1.0 -> min, 0.0 -> 0, 1.0 -> max (the asymmetric int16 range is
+    scaled separately per side). Triggers: 0.0 -> min, 1.0 -> max.
+    """
+    info = _ABS_INFO[code]
+    if AXIS_KINDS[code] is AxisKind.STICK:
+        return round(value * (info.max if value >= 0 else -info.min))
+    return round(info.min + value * (info.max - info.min))
+
 
 KEYBOARD_KEYS: tuple[int, ...] = tuple(
     sorted({codes.code_from_name(n) for n in codes.all_names() if n.startswith("KEY_")})
@@ -113,6 +128,15 @@ class LinuxOutputDevice:
     def set_key(self, code: int, pressed: bool) -> None:
         try:
             self._uinput.write(ecodes.EV_KEY, code, 1 if pressed else 0)
+            self._uinput.syn()
+        except OSError as exc:
+            raise OutputError(f"writing to '{self.spec.name}' failed: {exc}") from exc
+
+    def set_axis(self, code: int, value: float) -> None:
+        if self.spec.kind is not OutputKind.GAMEPAD or code not in AXIS_KINDS:
+            raise OutputError(f"'{self.spec.name}' has no axis {code:#x}")
+        try:
+            self._uinput.write(ecodes.EV_ABS, code, axis_raw(code, value))
             self._uinput.syn()
         except OSError as exc:
             raise OutputError(f"writing to '{self.spec.name}' failed: {exc}") from exc

@@ -149,3 +149,39 @@ def test_write_to_unknown_device_raises(backend):
 def test_open_twice_rejected(backend):
     with OutputManager(backend, CONFIG) as outputs, pytest.raises(RuntimeError):
         outputs.open()
+
+
+# -- axes -------------------------------------------------------------------------
+
+ABS_X, ABS_RZ = 0x00, 0x05
+
+
+def test_set_axis_tracks_value_and_skips_unchanged(backend):
+    with OutputManager(backend, CONFIG) as outputs:
+        outputs.set_axis("pad", ABS_X, 0.5)
+        outputs.set_axis("pad", ABS_X, 0.5)  # unchanged: not written
+        assert outputs.axis("pad", ABS_X) == 0.5
+        outputs.set_axis("pad", ABS_X, 0.0)
+        assert outputs.axis("pad", ABS_X) == 0.0
+    assert backend.created["pad"].axis_events == [(ABS_X, 0.5), (ABS_X, 0.0)]
+
+
+def test_close_returns_moved_axes_to_rest(backend):
+    outputs = OutputManager(backend, CONFIG)
+    outputs.open()
+    outputs.set_axis("pad", ABS_X, -1.0)
+    outputs.set_axis("pad", ABS_RZ, 1.0)
+    outputs.close()
+    assert backend.created["pad"].axis_events[-2:] == [(ABS_X, 0.0), (ABS_RZ, 0.0)]
+
+
+def test_axis_reset_failure_does_not_stop_key_release(backend):
+    outputs = OutputManager(backend, CONFIG)
+    outputs.open()
+    outputs.set_axis("pad", ABS_X, 1.0)
+    outputs.press("vkbd", KEY_Y)
+    backend.created["pad"].fail_writes = True
+    with pytest.raises(OutputError, match="pad axis 0x0"):
+        outputs.close()
+    assert backend.created["vkbd"].events[-1] == (KEY_Y, False)
+    assert all(d.closed for d in backend.created.values())

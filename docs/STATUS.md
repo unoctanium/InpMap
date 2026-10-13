@@ -171,8 +171,15 @@ Last updated: 2026-10-13
         parsed from docs/macros.md). **Temporary guard** in `cli._cmd_run`
         rejects configs with macros/axes until the executor exists — remove
         in step C.
-      - next: B output layer `set_axis` (OutputManager, fake, Linux
-        scaling), C executor + engine integration.
+      - ✅ B (2026-10-13): `OutputDevice.set_axis(code, fraction)`,
+        `OutputManager.set_axis/axis()` (skips unchanged values, resets
+        moved axes to rest in `release_all`/`close`), Linux `axis_raw`
+        scaling (sticks −32768..32767 per side, triggers 0..255),
+        hardware test `test_axis_values_reach_virtual_gamepad_and_reset_on_close`.
+      - next: C executor (`macro_runtime.py`: runs as generator fibers on the
+        engine timer queue; ownership of keys via ref counts and axes via
+        holder stacks) + engine integration; plain axis outputs run as
+        internal HoldAxis macros.
    License note: Input Remapper is GPL-3.0; we implement independently and
    do not copy code.
 6. After macros: systemd service (step 9; runtime already separate from CLI
@@ -226,8 +233,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 233 passed, 7 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after macro step A. Hardware: 7 passed (before macros).
+- Unit tests: 244 passed, 8 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after macro step B. Hardware: 8 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

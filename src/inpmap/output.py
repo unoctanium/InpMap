@@ -16,6 +16,7 @@ from collections.abc import Mapping
 from typing import Protocol
 
 from . import codes
+from .macros import AXIS_REST
 from .models import Config, OutputDeviceSpec
 
 log = logging.getLogger(__name__)
@@ -30,6 +31,10 @@ class OutputDevice(Protocol):
 
     def set_key(self, code: int, pressed: bool) -> None:
         """Emit a press or release of an EV_KEY code and synchronize."""
+        ...
+
+    def set_axis(self, code: int, value: float) -> None:
+        """Set an axis to a fraction of its range (sticks -1..1, triggers 0..1)."""
         ...
 
     def close(self) -> None:
@@ -53,6 +58,7 @@ class OutputManager:
         self._config = config
         self._devices: dict[str, OutputDevice] = {}
         self._held: dict[str, set[int]] = {}
+        self._axes: dict[str, dict[int, float]] = {}  # axes not at rest
 
     @property
     def devices(self) -> Mapping[str, OutputDevice]:
@@ -73,6 +79,7 @@ class OutputManager:
                 raise
             self._devices[device_id] = device
             self._held[device_id] = set()
+            self._axes[device_id] = {}
             log.info("created output device '%s' (%s)", device_id, spec.name)
 
     def press(self, device_id: str, code: int) -> None:
@@ -85,13 +92,39 @@ class OutputManager:
         """Codes currently held on a device."""
         return frozenset(self._held.get(device_id, ()))
 
+    def set_axis(self, device_id: str, code: int, value: float) -> None:
+        """Set an axis (fraction of its range); unchanged values are skipped."""
+        device = self._devices.get(device_id)
+        if device is None:
+            raise OutputError(f"output device '{device_id}' is not open")
+        axes = self._axes[device_id]
+        if axes.get(code, AXIS_REST) == value:
+            return
+        device.set_axis(code, value)
+        if value == AXIS_REST:
+            axes.pop(code, None)
+        else:
+            axes[code] = value
+
+    def axis(self, device_id: str, code: int) -> float:
+        """Current value of an axis (rest if never moved)."""
+        return self._axes.get(device_id, {}).get(code, AXIS_REST)
+
     def release_all(self) -> None:
-        """Release every held code on every device.
+        """Release every held code and return every moved axis to rest.
 
         Tries all devices even if some fail, then raises OutputError naming
         the failures.
         """
         failures: list[str] = []
+        for device_id, axes in self._axes.items():
+            for code in sorted(axes):
+                try:
+                    self._devices[device_id].set_axis(code, AXIS_REST)
+                except OutputError as exc:
+                    failures.append(f"{device_id} axis {code:#x}: {exc}")
+                    log.error("resetting axis %#x on '%s' failed: %s", code, device_id, exc)
+            axes.clear()
         for device_id, held in self._held.items():
             for code in sorted(held):
                 try:
@@ -160,4 +193,5 @@ class OutputManager:
                 log.error("closing output device '%s' failed: %s", device_id, exc)
         self._devices.clear()
         self._held.clear()
+        self._axes.clear()
         return errors

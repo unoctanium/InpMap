@@ -116,6 +116,7 @@ class FakeOutputDevice:
     spec: OutputDeviceSpec
     key_codes: frozenset[int]
     events: list[tuple[int, bool]] = field(default_factory=list)
+    axis_events: list[tuple[int, float]] = field(default_factory=list)
     closed: bool = False
     fail_writes: bool = False
     fail_close: bool = False
@@ -128,6 +129,13 @@ class FakeOutputDevice:
         if self.fail_writes:
             raise OutputError("simulated write failure")
         self.events.append((code, pressed))
+
+    def set_axis(self, code: int, value: float) -> None:
+        if self.closed:
+            raise AssertionError("write to closed device")
+        if self.fail_writes:
+            raise OutputError("simulated write failure")
+        self.axis_events.append((code, value))
 
     def close(self) -> None:
         self.closed = True

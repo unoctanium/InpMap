@@ -182,3 +182,47 @@ def test_missing_uinput_node_gives_actionable_error():
     spec = OutputDeviceSpec(id="k", kind=OutputKind.KEYBOARD, name="InpMap Test")
     with pytest.raises(OutputError, match="Check that /dev/does-not-exist exists"):
         backend.create(spec, frozenset())
+
+
+@pytest.mark.parametrize(
+    "code, value, raw",
+    [
+        (ecodes.ABS_X, 0.0, 0),
+        (ecodes.ABS_X, 1.0, 32767),
+        (ecodes.ABS_X, -1.0, -32768),
+        (ecodes.ABS_X, 0.5, 16384),
+        (ecodes.ABS_X, -0.5, -16384),
+        (ecodes.ABS_Z, 0.0, 0),
+        (ecodes.ABS_Z, 1.0, 255),
+        (ecodes.ABS_RZ, 0.5, 128),
+    ],
+)
+def test_axis_raw_scaling(code, value, raw):
+    from inpmap.backends.linux import axis_raw
+
+    assert axis_raw(code, value) == raw
+
+
+def read_abs_events(device, count, timeout=2.0):
+    events = []
+    deadline = time.monotonic() + timeout
+    while len(events) < count and time.monotonic() < deadline:
+        ready, _, _ = select.select([device.fd], [], [], deadline - time.monotonic())
+        if ready:
+            events += [(e.code, e.value) for e in device.read() if e.type == ecodes.EV_ABS]
+    return events
+
+
+@pytest.mark.hardware
+def test_axis_values_reach_virtual_gamepad_and_reset_on_close(grabbed):
+    outputs = OutputManager(LinuxOutputBackend(), CONFIG)
+    outputs.open()
+    try:
+        gamepad = grabbed(outputs.devices["gamepad"].node)
+        outputs.set_axis("gamepad", ecodes.ABS_X, -1.0)
+        outputs.set_axis("gamepad", ecodes.ABS_RZ, 1.0)
+        assert read_abs_events(gamepad, 2) == [(ecodes.ABS_X, -32768), (ecodes.ABS_RZ, 255)]
+        outputs.release_all()  # what close() does before destroying the device
+        assert read_abs_events(gamepad, 2) == [(ecodes.ABS_X, 0), (ecodes.ABS_RZ, 0)]
+    finally:
+        outputs.close()
