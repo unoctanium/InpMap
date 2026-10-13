@@ -30,6 +30,7 @@ from typing import Protocol
 from .config import Config
 from .engine import MappingEngine
 from .input import InputBackend, InputDeviceLost, InputError, InputSource
+from .macros import Led
 from .models import InputDeviceSpec
 from .output import OutputBackend, OutputError, OutputManager
 
@@ -104,7 +105,9 @@ class Runtime:
         return reason
 
     def _start_and_loop(self, stop: StopFlag, deadline: float | None) -> StopReason:
-        self._engine = MappingEngine(self._config, self._outputs, clock=self._clock)
+        self._engine = MappingEngine(
+            self._config, self._outputs, clock=self._clock, leds=self._leds_of
+        )
         for device_id, spec in self._config.inputs.items():
             slot = _Slot(spec=spec, codes=self._config.input_codes(device_id))
             self._slots.append(slot)
@@ -147,6 +150,12 @@ class Runtime:
         if not self._all_grabbed_announced and all(s.grabbed for s in self._slots):
             self._all_grabbed_announced = True
             log.info("remapping active")
+
+    def _leds_of(self, device_id: str) -> frozenset[Led]:
+        for slot in self._slots:
+            if slot.spec.id == device_id and slot.source is not None:
+                return slot.source.leds()
+        return frozenset()
 
     def _try_reopen(self, slot: _Slot) -> None:
         try:

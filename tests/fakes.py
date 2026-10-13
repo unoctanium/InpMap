@@ -30,10 +30,14 @@ class FakeInputSource:
     grab_error: InputError | None = None
     close_error: InputError | None = None
     discarded: list[tuple] = field(default_factory=list)
+    lit: set = field(default_factory=set)  # Led values
 
     @property
     def description(self) -> str:
         return f"fake {self.spec.id}"
+
+    def leds(self) -> frozenset:
+        return frozenset(self.lit)
 
     def held_codes(self) -> frozenset[int]:
         if self.lost:

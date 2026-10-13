@@ -338,3 +338,110 @@ def test_tap_output_is_released_by_the_loop():
     inputs.script += [lambda: None] * 10  # ~10 loop iterations > tap duration
     Runtime(config, inputs, outputs, clock=clock).run(stop)
     assert outputs.created["vkbd"].events == [(KEY_Y, True), (KEY_Y, False)]
+
+
+# -- macros through the runtime ------------------------------------------------------
+
+MACRO_CONFIG = parse_config(
+    {
+        "version": 1,
+        "inputs": {"kbd": {"name": "Kbd"}, "pad": {"name": "Pad"}},
+        "outputs": {"vkbd": {"type": "keyboard"}},
+        "mappings": [
+            {
+                "id": "led",
+                "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
+                "outputs": [
+                    {
+                        "macro": {
+                            "device": "vkbd",
+                            "steps": [
+                                {"wait_ms": 50},
+                                {
+                                    "if_led": {
+                                        "led": "capslock",
+                                        "then": [{"tap": "KEY_Y"}],
+                                        "else": [{"tap": "KEY_N"}],
+                                    }
+                                },
+                            ],
+                        }
+                    }
+                ],
+            },
+            {
+                "id": "single",
+                "input": {"device": "pad", "type": "button", "code": "BTN_EAST"},
+                "outputs": [
+                    {
+                        "macro": {
+                            "device": "vkbd",
+                            "steps": [
+                                {
+                                    "if_single": {
+                                        "then": [{"tap": "KEY_ESC"}],
+                                        "else": [{"hold_keys": "KEY_LEFTCTRL"}],
+                                    }
+                                }
+                            ],
+                        }
+                    }
+                ],
+            },
+        ],
+    }
+)
+
+
+def macro_harness():
+    from inpmap.macros import Led
+
+    stop = threading.Event()
+    kbd = FakeInputSource(MACRO_CONFIG.inputs["kbd"], lit={Led.CAPSLOCK})
+    pad = FakeInputSource(MACRO_CONFIG.inputs["pad"])
+    inputs = FakeInputBackend({"kbd": kbd, "pad": pad}, stop=stop)
+    outputs = FakeOutputBackend()
+    now = [0.0]
+
+    def clock():
+        now[0] += 0.002
+        return now[0]
+
+    def run():
+        Runtime(MACRO_CONFIG, inputs, outputs, clock=clock).run(stop)
+
+    return kbd, pad, inputs, outputs, run
+
+
+def test_timed_macro_and_if_led_through_runtime():
+    kbd, _pad, inputs, outputs, run = macro_harness()
+    inputs.script.append(lambda: kbd.queue.extend([key_raw(KEY_X, 1), SYN, key_raw(KEY_X, 0), SYN]))
+    inputs.script += [lambda: None] * 60  # the loop wakes for the macro's timers
+    run()
+    assert outputs.created["vkbd"].events == [(c("KEY_Y"), True), (c("KEY_Y"), False)]
+
+
+def test_if_single_reacts_to_key_on_another_device_before_forwarding_it():
+    kbd, pad, inputs, outputs, run = macro_harness()
+    order = []
+    original_forward = kbd.forward
+
+    def forward(raw):
+        order.append(("forward", raw))
+        original_forward(raw)
+
+    kbd.forward = forward
+    inputs.script.append(lambda: pad.queue.extend([key_raw(BTN_EAST, 1), SYN]))
+
+    def press_a():
+        kbd.queue.extend([key_raw(KEY_A, 1), SYN])
+
+    inputs.script.append(press_a)
+
+    def check():
+        assert outputs.created["vkbd"].events == [(c("KEY_LEFTCTRL"), True)]
+        assert order[0] == ("forward", key_raw(KEY_A, 1))
+
+    inputs.script.append(check)
+    run()
+    assert outputs.created["vkbd"].events[-1] == (c("KEY_LEFTCTRL"), False)  # released at stop

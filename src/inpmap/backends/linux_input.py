@@ -34,6 +34,7 @@ from evdev.uinput import UInputError
 from .. import codes
 from ..config import MAX_DEVICE_NAME_BYTES
 from ..input import InputDeviceLost, InputError
+from ..macros import Led
 from ..models import InputDeviceSpec, InputEvent, KeyAction
 
 log = logging.getLogger(__name__)
@@ -44,6 +45,11 @@ FORWARD_NAME_PREFIX = "InpMap forward: "
 LINK_DIRS = ("/dev/input/by-id", "/dev/input/by-path")
 
 _KEY_ACTIONS = {0: KeyAction.RELEASE, 1: KeyAction.PRESS, 2: KeyAction.REPEAT}
+_LEDS = {
+    ecodes.LED_NUML: Led.NUMLOCK,
+    ecodes.LED_CAPSL: Led.CAPSLOCK,
+    ecodes.LED_SCROLLL: Led.SCROLLLOCK,
+}
 
 
 def is_own_device(device: InputDevice) -> bool:
@@ -205,6 +211,14 @@ class LinuxInputSource:
                 if not self._led_warning_logged:
                     log.warning("cannot set LEDs on %s: %s", self.description, exc)
                     self._led_warning_logged = True
+
+    def leds(self) -> frozenset[Led]:
+        try:
+            lit = self._device.leds()
+        except OSError as exc:
+            log.debug("reading LEDs of %s failed: %s", self.description, exc)
+            return frozenset()
+        return frozenset(_LEDS[code] for code in lit if code in _LEDS)
 
     def held_codes(self) -> frozenset[int]:
         try:

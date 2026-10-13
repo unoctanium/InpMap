@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
+from .macros import Led
 from .models import InputDeviceSpec, InputEvent
 
 
@@ -36,6 +37,10 @@ class InputSource(Protocol):
 
     def held_codes(self) -> frozenset[int]:
         """Keys/buttons currently held down on the physical device."""
+        ...
+
+    def leds(self) -> frozenset[Led]:
+        """Lock LEDs currently lit on the device (empty if it has none)."""
         ...
 
     def grab(self) -> None:

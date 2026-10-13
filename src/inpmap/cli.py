@@ -173,16 +173,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if args.timeout is not None and args.timeout <= 0:
         print("--timeout must be positive", file=sys.stderr)
         return EXIT_USAGE
-    # TEMPORARY (V1.1 in progress): macros and axis outputs are parsed and
-    # validated, but the executor is not implemented yet. Remove with it.
-    pending = [rule.id for rule in config.mappings if rule.macros or rule.axes]
-    if pending:
-        print(
-            f"mappings {', '.join(pending)} use macros or axis outputs, which cannot be "
-            "executed yet (V1.1 in progress)",
-            file=sys.stderr,
-        )
-        return EXIT_CONFIG_ERROR
     try:
         from .backends.linux import LinuxOutputBackend
         from .backends.linux_input import LinuxInputBackend
