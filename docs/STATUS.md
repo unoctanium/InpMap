@@ -241,7 +241,9 @@ Last updated: 2026-10-13
 | Device loss: release that device's outputs, close it, keep running and reopen it every second (by the same name/path selector); missing at startup = error | step 7a; daemon-friendly (wireless sleep, replug), while config mistakes still fail fast |
 | Forwarding device copies the original's vendor/product/version/bustype, omits EV_REP | per-device desktop settings and SDL mappings keep working; no double key repeat |
 | SIGHUP handled like SIGINT/SIGTERM in `run` | closing the terminal must still clean up |
-| Machine-specific configs as git-ignored `config/local*.json` | keep personal device paths out of the repo |
+| Machine-specific configs as git-ignored `config/local*` | keep personal device paths out of the repo |
+| Grammar in its own file `src/inpmap/dsl/inpmap.lark` (package data) | user request 2026-10-13; verified in a built wheel |
+| Permissions widened (user's general clearance 2026-10-13): `git commit` no longer asks (matches the auto-commit rule); personal `.claude/settings.local.json` allows python/scripts, read-only `inpmap` commands and file tools in the project. Still asked: `inpmap run`/`test-outputs`, `evtest`, `systemctl`, `pip install`, `git push/checkout`, edits of `CLAUDE.md`, `project_spec.md`, `.claude/` | fewer prompts while keeping device-grabbing, installs and governing documents under the user's eye |
 | Tap duration fixed at 20 ms (not configurable yet) | games sampling once per frame (16.7 ms at 60 fps) must see it; Input Remapper uses a similar keystroke delay (10 ms default); timing configuration belongs to the V1.1 macro design |
 | Timed actions via engine timer queue + runtime loop, never sleeping in the event path | CLAUDE.md §8 (no blocking the input loop); foundation for macros |
 | ruff (lint + format), pytest; `hardware` marker excluded by default | small toolchain |
