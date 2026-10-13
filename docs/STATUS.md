@@ -404,8 +404,8 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 453 passed, 10 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after the language changes of 2026-10-14 (JSON-file tests were
+- Unit tests: 453 passed, 11 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after input-config (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 11 passed (2026-10-14, after input-config).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
