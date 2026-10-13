@@ -105,6 +105,12 @@ older versions are then migrated explicitly or rejected with a clear message.
 Tests marked `hardware` (none yet) need real device access and are excluded by
 default; run them with `pytest -m hardware`.
 
+## Working with Claude Code
+
+Project state and next steps live in `docs/STATUS.md` (rules: `CLAUDE.md`
+§17). Start a session with `claude` in the repo root and run
+`/session-start`; end one with `/handoff`.
+
 ## Event code table
 
 `src/inpmap/_linux_codes.py` is generated from the kernel header so the core

@@ -30,6 +30,7 @@ Review its actual documentation, source, tests, and license before relying on a 
 ## 2. Start every task by inspecting the repository
 
 At the beginning of a task:
+0. At the start of every session, read `docs/STATUS.md` first and follow section 17.
 1. Read `project_spec.md` and this `CLAUDE.md` if not already read in the current context.
 2. Inspect the existing directory structure, relevant source files, tests, dependency declarations, and Git status.
 3. Identify the smallest coherent change that satisfies the task.
@@ -330,11 +331,14 @@ Unless the task explicitly asks only for analysis, a code change is complete onl
 - any unrun integration/manual tests are clearly identified;
 - dependencies and platform assumptions are documented;
 - user-facing configuration and documentation remain consistent;
-- cleanup and failure behavior have been considered.
+- cleanup and failure behavior have been considered;
+- `docs/STATUS.md` reflects the new state (section 17).
 
 Do not claim success beyond the evidence available.
 
 ## 16. First action in this repository
+
+(Historical: the repository has been initialized. New sessions follow section 17.)
 
 When beginning work on this project:
 1. Read `project_spec.md`.
@@ -345,3 +349,34 @@ When beginning work on this project:
 6. Then implement and test virtual-device creation, followed by physical input handling and the end-to-end test defined in `project_spec.md`.
 
 Do not respond with another high-level project plan only. Start with concrete repository inspection and implementation.
+
+## 17. Session continuity and handoff (mandatory)
+
+Any session may crash or be terminated at any time. A new session must be able to continue seamlessly from the repository alone, without the previous conversation. `docs/STATUS.md` is the handoff document and the single source of truth for project state.
+
+### Starting a session
+
+The user starts a session with `claude` in the repository root and runs `/session-start` (or simply asks to continue). Claude then, before doing anything else:
+1. Reads `docs/STATUS.md`, then `project_spec.md` and this file if not already in context.
+2. Runs `git status` and `git log --oneline -10` and compares them with `docs/STATUS.md`. Any difference (uncommitted changes, commits not mentioned, a step marked in progress) means the previous session ended unexpectedly. Inspect those changes, run the test suite, and fix `docs/STATUS.md` before continuing.
+3. Reports to the user in a few lines: current position, what was last done, verification status, the next step, and any pending user decisions or manual tests. Then continues with the next step unless the user redirects.
+
+### Keeping the handoff current
+
+Update `docs/STATUS.md` on disk:
+- when a step or sub-step is completed;
+- when a design decision is made (record the reason);
+- before asking the user to run a manual or hardware test (record exactly what was asked and what result is awaited);
+- when receiving test results from the user (record the actual outcome);
+- before any long or risky operation;
+- at the end of a session (`/handoff`).
+
+Keep it factual and concise: current position, next steps, decisions with reasons, environment facts, verification status (what ran, what passed, what was not run), uncommitted work, open questions, and a dated session log. Never record results that were not actually observed. Rewrite stale sections instead of only appending.
+
+### Commits
+
+Follow section 13 (commit only when asked). Because uncommitted work can be lost, list it under "Uncommitted work" in `docs/STATUS.md`, and suggest a commit at the end of each completed, test-passing step. When committing, update `docs/STATUS.md` in the same commit.
+
+### Memory
+
+Do not rely on Claude's local auto-memory or on conversation history for project state. Anything a future session needs belongs in `docs/STATUS.md` or other repository docs.
