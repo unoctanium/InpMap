@@ -9,6 +9,7 @@ never touches real hardware.
 import select
 import threading
 import time
+from itertools import pairwise
 
 import pytest
 
@@ -301,6 +302,107 @@ def test_tap_output_released_while_input_still_held():
             except OSError:
                 pass
             vkbd.close()
+        physical.close()
+    assert result.get("reason") is StopReason.STOPPED, result.get("error")
+
+
+@pytest.mark.hardware
+def test_macro_and_axis_output_through_runtime():
+    config = parse_config(
+        {
+            "version": 1,
+            "inputs": {"kbd": {"name": PHYSICAL_NAME}},
+            "outputs": {
+                "keyboard": {"type": "keyboard", "name": "InpMap Test E2E Keyboard"},
+                "gamepad": {"type": "gamepad", "name": "InpMap Test E2E Gamepad"},
+            },
+            "mappings": [
+                {
+                    "id": "combo",
+                    "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
+                    "outputs": [
+                        {
+                            "macro": {
+                                "steps": [
+                                    {"tap": {"code": "KEY_A", "device": "keyboard"}},
+                                    {"tap": {"code": "BTN_EAST", "device": "gamepad"}},
+                                ]
+                            }
+                        }
+                    ],
+                },
+                {
+                    "id": "stick",
+                    "input": {"device": "kbd", "type": "key", "code": "KEY_W"},
+                    "outputs": [
+                        {
+                            "device": "gamepad",
+                            "type": "axis",
+                            "code": "ABS_Y",
+                            "value": -1.0,
+                            "attack_ms": 30,
+                            "release_ms": 30,
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+    physical = UInput(
+        {ecodes.EV_KEY: [ecodes.KEY_X, ecodes.KEY_W]}, name=PHYSICAL_NAME, phys="pytest-physical"
+    )
+    stop = threading.Event()
+    result: dict = {}
+    grabbed: list[InputDevice] = []
+
+    def run():
+        try:
+            result["reason"] = Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
+                stop, timeout=20
+            )
+        except BaseException as exc:
+            result["error"] = exc
+
+    def read_abs(device, until_value, timeout=2.0):
+        values = []
+        deadline = time.monotonic() + timeout
+        while (not values or values[-1] != until_value) and time.monotonic() < deadline:
+            if select.select([device.fd], [], [], 0.1)[0]:
+                values += [e.value for e in device.read() if e.type == ecodes.EV_ABS]
+        return values
+
+    thread = threading.Thread(target=run, daemon=True)
+    try:
+        thread.start()
+        for name in ("InpMap Test E2E Keyboard", "InpMap Test E2E Gamepad"):
+            device = find_device(name)
+            device.grab()
+            grabbed.append(device)
+        vkbd, vpad = grabbed
+        time.sleep(0.3)
+        assert "error" not in result, result.get("error")
+
+        emit(physical, ecodes.KEY_X, 1)
+        emit(physical, ecodes.KEY_X, 0)
+        assert read_key_events(vkbd, 2) == [(ecodes.KEY_A, 1), (ecodes.KEY_A, 0)]
+        assert read_key_events(vpad, 2) == [(ecodes.BTN_EAST, 1), (ecodes.BTN_EAST, 0)]
+
+        emit(physical, ecodes.KEY_W, 1)
+        attack = read_abs(vpad, -32768)
+        assert attack[-1] == -32768 and len(attack) >= 2  # ramped, not a jump
+        assert all(a > b for a, b in pairwise(attack))  # monotonic
+        emit(physical, ecodes.KEY_W, 0)
+        back = read_abs(vpad, 0)
+        assert back[-1] == 0 and len(back) >= 2
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        for device in grabbed:
+            try:
+                device.ungrab()
+            except OSError:
+                pass
+            device.close()
         physical.close()
     assert result.get("reason") is StopReason.STOPPED, result.get("error")
 
