@@ -298,8 +298,10 @@ Last updated: 2026-10-13
   `docs/format-comparison.md`). **Agreed order:** (1) write complete DSL
   spec `docs/dsl.md` (✅ draft written, commit 9ceee44) → (2) ✅ **spec approved by the user 2026-10-13** (published for review at https://claude.ai/artifact/QNvunSJmmSuaDfq3TcdqNZ). Review history: user replaced combination triggers by **one key + modifier state** (`modifiers(ctrl, shift)`, §4.0; exact match + `modifiers(ignore)`, re-press after the run, `meta` as default modifier — all confirmed), bool conditions and ctrl/shift/alt/meta aliases now specified; complete spec approved.
   (3) 🔧 Implementing the DSL, sub-steps (commit after each):
-  S1 parser (`lark` grammar → AST with positions, syntax errors as
-  FILE:LINE:COLUMN); S2 compiler AST → existing config data (+ new model
+  ✅ S1 parser (`src/inpmap/dsl/parser.py`: lark LALR grammar, basic
+  lexer + post-lexer allowing `else` on its own line, syntax errors as
+  FILE:LINE:COLUMN; `lark` added to dependencies; tests
+  `tests/test_dsl_parser.py` incl. all complete spec examples); S2 compiler AST → existing config data (+ new model
   fields: trigger modifiers, settings.modifiers), positions for all
   semantic errors, BTN_X/BTN_Y warning; S3 engine/runtime: modifier
   matching (exact, sides, ignore, specificity) and temporary release /

@@ -10,6 +10,8 @@ readme = "README.md"
 # Baseline: 3.11 (PEP 604 unions, dataclasses, enum). Developed and tested on 3.14.
 requires-python = ">=3.11"
 dependencies = [
+    # Parser for the configuration language (docs/dsl.md). Pure Python, MIT.
+    "lark>=1.2,<2",
     # Linux backend: reading /dev/input/event* and creating uinput devices.
     # Platform marker keeps a future Windows install from requiring it.
     "evdev; sys_platform == 'linux'",
