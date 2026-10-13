@@ -19,7 +19,17 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from . import codes
+from .config_macros import MacroParser, is_number, macro_devices, value_type
+from .macros import (
+    AXIS_NAMES,
+    DEFAULT_KEY_PAUSE_MS,
+    GAMEPAD_AXES,
+    AxisKind,
+    Macro,
+    axis_range,
+)
 from .models import (
+    AxisOutput,
     Config,
     InputDeviceSpec,
     InputTrigger,
@@ -28,6 +38,7 @@ from .models import (
     OutputDeviceSpec,
     OutputKind,
     OutputMode,
+    Settings,
 )
 
 SUPPORTED_VERSIONS = frozenset({1})
@@ -38,7 +49,11 @@ MAX_DEVICE_NAME_BYTES = 79
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
-_TOP_KEYS = {"version", "inputs", "outputs", "mappings"}
+_REQUIRED_TOP_KEYS = ("inputs", "mappings", "outputs", "version")
+_TOP_KEYS = {*_REQUIRED_TOP_KEYS, "settings", "variables"}
+_SETTINGS_KEYS = {"key_pause_ms"}
+_AXIS_OUTPUT_KEYS = {"device", "type", "code", "value", "attack_ms", "release_ms"}
+_VARIABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _INPUT_DEVICE_KEYS = {"name", "path"}
 _OUTPUT_DEVICE_KEYS = {"type", "name"}
 _MAPPING_KEYS = {"id", "description", "input", "outputs", "consume"}
@@ -134,7 +149,7 @@ class _Validator:
         if not self.check_object(data, "top level"):
             self.fail_if_problems()
         assert isinstance(data, dict)
-        self.check_keys(data, "top level", _TOP_KEYS, required=sorted(_TOP_KEYS))
+        self.check_keys(data, "top level", _TOP_KEYS, required=_REQUIRED_TOP_KEYS)
 
         version = data.get("version")
         # bool is a subclass of int; reject `true` explicitly.
@@ -151,12 +166,54 @@ class _Validator:
                 f"outputs.{device_id}",
                 f"device id '{device_id}' is used for both an input and an output",
             )
+        self.settings = self.parse_settings(data.get("settings", {}))
+        self.variables = self.parse_variables(data.get("variables", {}))
         mappings = self.mappings(data.get("mappings", []), inputs, outputs)
         self.check_unused_devices(inputs, outputs, mappings)
 
         self.fail_if_problems()
         assert isinstance(version, int)
-        return Config(version=version, inputs=inputs, outputs=outputs, mappings=mappings)
+        return Config(
+            version=version,
+            inputs=inputs,
+            outputs=outputs,
+            mappings=mappings,
+            settings=self.settings,
+            variables=self.variables,
+        )
+
+    def parse_settings(self, value: object) -> Settings:
+        if not self.check_object(value, "settings"):
+            return Settings()
+        assert isinstance(value, dict)
+        self.check_keys(value, "settings", _SETTINGS_KEYS, required=())
+        pause = value.get("key_pause_ms", DEFAULT_KEY_PAUSE_MS)
+        if not is_number(pause) or pause < 0:
+            self.error("settings.key_pause_ms", "must be a number >= 0")
+            return Settings()
+        return Settings(key_pause_ms=float(pause))
+
+    def parse_variables(self, value: object) -> dict[str, object]:
+        result: dict[str, object] = {}
+        if not self.check_object(value, "variables"):
+            return result
+        assert isinstance(value, dict)
+        for name, initial in value.items():
+            where = f"variables.{name}"
+            if not _VARIABLE_NAME.match(name):
+                self.error(
+                    where,
+                    "invalid variable name: use letters, digits and '_', not starting with a digit",
+                )
+            elif value_type(initial) is None:
+                self.error(
+                    where,
+                    "initial value must be an integer, a number, a string or true/false, "
+                    f"got {_json_type(initial)}",
+                )
+            else:
+                result[name] = initial
+        return result
 
     # -- devices ---------------------------------------------------------
 
@@ -297,21 +354,24 @@ class _Validator:
         trigger = (
             self.trigger(raw.get("input"), f"{where}.input", inputs) if "input" in raw else None
         )
-        actions = (
-            self.actions(raw.get("outputs"), f"{where}.outputs", outputs)
+        parsed = (
+            self.mapping_outputs(raw.get("outputs"), f"{where}.outputs", outputs)
             if "outputs" in raw
             else None
         )
 
-        if len(self.problems) > problems_before or not id_ok or trigger is None or actions is None:
+        if len(self.problems) > problems_before or not id_ok or trigger is None or parsed is None:
             return None
         assert isinstance(rule_id, str)
+        keys, axes, macros = parsed
         return MappingRule(
             id=rule_id,
             trigger=trigger,
-            outputs=actions,
+            outputs=keys,
             consume=consume,
             description=description,
+            axes=axes,
+            macros=macros,
         )
 
     def trigger(
@@ -328,27 +388,113 @@ class _Validator:
             return None
         return InputTrigger(device=device, code=code)
 
-    def actions(
+    def mapping_outputs(
         self, raw: object, where: str, outputs: dict[str, OutputDeviceSpec]
-    ) -> tuple[OutputAction, ...] | None:
+    ) -> tuple[tuple[OutputAction, ...], tuple[AxisOutput, ...], tuple[Macro, ...]] | None:
+        """Parse a mapping's outputs: key outputs, axis outputs and macros."""
         if not isinstance(raw, list) or not raw:
             self.error(where, "must be a non-empty JSON array")
             return None
         actions: list[OutputAction] = []
+        axes: list[AxisOutput] = []
+        macros: list[Macro] = []
         ok = True
         for index, item in enumerate(raw):
-            action = self.action(item, f"{where}[{index}]", outputs)
-            if action is None:
-                ok = False
-            elif any((a.device, a.code) == (action.device, action.code) for a in actions):
-                self.error(
-                    f"{where}[{index}]",
-                    f"duplicate output {action.device} {codes.code_name(action.code)}",
-                )
-                ok = False
+            item_where = f"{where}[{index}]"
+            if isinstance(item, dict) and "macro" in item:
+                macro = MacroParser(self, outputs).macro_output(item, item_where)
+                if macro is None:
+                    ok = False
+                else:
+                    macros.append(macro)
+            elif isinstance(item, dict) and item.get("type") == "axis":
+                axis = self.axis_output(item, item_where, outputs)
+                if axis is None:
+                    ok = False
+                elif any((a.device, a.code) == (axis.device, axis.code) for a in axes):
+                    self.error(item_where, f"duplicate axis {axis.device} {AXIS_NAMES[axis.code]}")
+                    ok = False
+                else:
+                    axes.append(axis)
             else:
-                actions.append(action)
-        return tuple(actions) if ok else None
+                action = self.action(item, item_where, outputs)
+                if action is None:
+                    ok = False
+                elif any((a.device, a.code) == (action.device, action.code) for a in actions):
+                    self.error(
+                        item_where,
+                        f"duplicate output {action.device} {codes.code_name(action.code)}",
+                    )
+                    ok = False
+                else:
+                    actions.append(action)
+        return (tuple(actions), tuple(axes), tuple(macros)) if ok else None
+
+    def axis_output(
+        self, raw: dict, where: str, outputs: dict[str, OutputDeviceSpec]
+    ) -> AxisOutput | None:
+        before = len(self.problems)
+        self.check_keys(raw, where, _AXIS_OUTPUT_KEYS, required=("device", "type", "code", "value"))
+        spec = self.output_device_ref(raw.get("device"), f"{where}.device", outputs)
+        axis = self.axis_code(raw.get("code"), f"{where}.code", spec) if spec else None
+        value = self.axis_value(raw.get("value"), f"{where}.value", axis[1]) if axis else None
+        attack = self.milliseconds(raw.get("attack_ms", 0), f"{where}.attack_ms")
+        release = self.milliseconds(raw.get("release_ms", 0), f"{where}.release_ms")
+        if len(self.problems) > before or spec is None or axis is None or value is None:
+            return None
+        assert attack is not None and release is not None
+        return AxisOutput(spec.id, axis[0], value, attack, release)
+
+    # -- helpers shared with the macro parser -------------------------------
+
+    def output_device_ref(
+        self, value: object, where: str, outputs: dict[str, OutputDeviceSpec]
+    ) -> OutputDeviceSpec | None:
+        if not isinstance(value, str):
+            self.error(where, "must be an output device id")
+            return None
+        spec = outputs.get(value)
+        if spec is None:
+            self.error(where, self.unknown_device(value, "output", outputs))
+        return spec
+
+    def key_for_device(self, value: object, where: str, spec: OutputDeviceSpec) -> int | None:
+        """Resolve a KEY_*/BTN_* name that must suit the output device."""
+        event_type = _OUTPUT_EVENT_TYPE[spec.kind]
+        code = self.code(value, where, event_type)
+        if code is None:
+            return None
+        if spec.kind is OutputKind.GAMEPAD and not codes.is_gamepad_button(code):
+            self.error(where, _not_gamepad_button(code))
+            return None
+        return code
+
+    def axis_code(
+        self, value: object, where: str, spec: OutputDeviceSpec
+    ) -> tuple[int, AxisKind] | None:
+        if spec.kind is not OutputKind.GAMEPAD:
+            self.error(where, f"axes need a gamepad device; '{spec.id}' is a {spec.kind.value}")
+            return None
+        if value not in GAMEPAD_AXES:
+            self.error(
+                where, f"unknown axis {value!r} (expected one of: {', '.join(GAMEPAD_AXES)})"
+            )
+            return None
+        assert isinstance(value, str)
+        return GAMEPAD_AXES[value]
+
+    def axis_value(self, value: object, where: str, kind: AxisKind) -> float | None:
+        low, high = axis_range(kind)
+        if not is_number(value) or not low <= value <= high:
+            self.error(where, f"must be a number from {low:g} to {high:g} for a {kind.value}")
+            return None
+        return float(value)
+
+    def milliseconds(self, value: object, where: str) -> float | None:
+        if not is_number(value) or value < 0:
+            self.error(where, "must be a number of milliseconds >= 0")
+            return None
+        return float(value)
 
     def action(
         self, raw: object, where: str, outputs: dict[str, OutputDeviceSpec]
@@ -374,11 +520,7 @@ class _Validator:
             )
             return None
         if spec.kind is OutputKind.GAMEPAD and not codes.is_gamepad_button(code):
-            self.error(
-                f"{where}.code",
-                f"{codes.code_name(code)} is not a gamepad/joystick button "
-                "(e.g. use BTN_SOUTH, BTN_EAST, BTN_START, BTN_DPAD_UP)",
-            )
+            self.error(f"{where}.code", _not_gamepad_button(code))
             return None
         if mode is None:
             return None
@@ -450,7 +592,12 @@ class _Validator:
         if self.problems:
             return
         used_inputs = {rule.trigger.device for rule in mappings}
-        used_outputs = {action.device for rule in mappings for action in rule.outputs}
+        used_outputs = set()
+        for rule in mappings:
+            used_outputs |= {action.device for action in rule.outputs}
+            used_outputs |= {axis.device for axis in rule.axes}
+            for macro in rule.macros:
+                used_outputs |= macro_devices(macro)
         for device_id in sorted(set(inputs) - used_inputs):
             self.error(f"inputs.{device_id}", "not used by any mapping")
         for device_id in sorted(set(outputs) - used_outputs):
@@ -460,6 +607,13 @@ class _Validator:
 
 def _mapping_where(index: int, rule_id: object) -> str:
     return f"mappings[{index}] ('{rule_id}')"
+
+
+def _not_gamepad_button(code: int) -> str:
+    return (
+        f"{codes.code_name(code)} is not a gamepad/joystick button "
+        "(e.g. use BTN_SOUTH, BTN_EAST, BTN_START, BTN_DPAD_UP)"
+    )
 
 
 def _suggest(value: str, candidates: Iterable[str]) -> str:

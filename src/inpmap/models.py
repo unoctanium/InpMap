@@ -8,8 +8,10 @@ such as ``BTN_A``/``BTN_SOUTH`` compare equal.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+
+from .macros import DEFAULT_KEY_PAUSE_MS, Macro
 
 
 class OutputKind(Enum):
@@ -83,14 +85,35 @@ class OutputAction:
 
 
 @dataclass(frozen=True)
+class AxisOutput:
+    """A gamepad axis held at ``value`` while the input is held.
+
+    ``value`` is a fraction of the axis range (sticks -1..1, triggers 0..1).
+    """
+
+    device: str
+    code: int
+    value: float
+    attack_ms: float = 0.0
+    release_ms: float = 0.0
+
+
+@dataclass(frozen=True)
 class MappingRule:
-    """One input mapped to one or more outputs."""
+    """One input mapped to key outputs, axis outputs and/or macros."""
 
     id: str
     trigger: InputTrigger
-    outputs: tuple[OutputAction, ...]
+    outputs: tuple[OutputAction, ...] = ()
     consume: bool = True
     description: str | None = None
+    axes: tuple[AxisOutput, ...] = ()
+    macros: tuple[Macro, ...] = ()
+
+
+@dataclass(frozen=True)
+class Settings:
+    key_pause_ms: float = DEFAULT_KEY_PAUSE_MS
 
 
 @dataclass(frozen=True)
@@ -101,15 +124,25 @@ class Config:
     inputs: Mapping[str, InputDeviceSpec]
     outputs: Mapping[str, OutputDeviceSpec]
     mappings: tuple[MappingRule, ...]
+    settings: Settings = Settings()
+    variables: Mapping[str, object] = field(default_factory=dict)
 
     def output_codes(self, device_id: str) -> frozenset[int]:
-        """Codes a virtual output device must declare as capabilities."""
-        return frozenset(
+        """Key/button codes a virtual output device must declare."""
+        codes = {
             action.code
             for rule in self.mappings
             for action in rule.outputs
             if action.device == device_id
-        )
+        }
+        codes |= {
+            key.code
+            for rule in self.mappings
+            for macro in rule.macros
+            for key in macro.key_refs()
+            if key.device == device_id
+        }
+        return frozenset(codes)
 
     def input_codes(self, device_id: str) -> frozenset[int]:
         """Codes mapped on a physical input device."""
