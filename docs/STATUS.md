@@ -176,10 +176,20 @@ Last updated: 2026-10-13
         moved axes to rest in `release_all`/`close`), Linux `axis_raw`
         scaling (sticks −32768..32767 per side, triggers 0..255),
         hardware test `test_axis_values_reach_virtual_gamepad_and_reset_on_close`.
-      - next: C executor (`macro_runtime.py`: runs as generator fibers on the
-        engine timer queue; ownership of keys via ref counts and axes via
-        holder stacks) + engine integration; plain axis outputs run as
-        internal HoldAxis macros.
+      - ✅ C (2026-10-13): `src/inpmap/axes.py` (holder stacks, most recent
+        wins, `batch()` defers writes so a restart doesn't jump to rest),
+        `src/inpmap/macro_runtime.py` (MacroRun with generator fibers
+        yielding Sleep/WaitRelease/WaitPress/WaitSingle/Join; ownership of
+        keys and axes; finish/cancel/restart/toggle/release_steps/max_run),
+        engine rewritten as MacroHost (callback timer queue next to tap
+        queue, `_offer_other_press` before processing a key so if_single
+        acts first, plain axis outputs = internal HoldAxis macros with
+        restart). Tests: `tests/test_macro_runtime.py` (35, fake clock).
+        Bug found+fixed: float error at ramp end caused an endless
+        near-zero sleep loop → ramp snaps to target when ≤1e-9 s remain.
+      - next: D runtime integration (pass LED state from input sources to
+        the engine, remove the temporary guard in `cli._cmd_run`), then E
+        `macro-trace`, F hardware tests, G README + example config.
    License note: Input Remapper is GPL-3.0; we implement independently and
    do not copy code.
 6. After macros: systemd service (step 9; runtime already separate from CLI
@@ -233,8 +243,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 244 passed, 8 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after macro step B. Hardware: 8 passed.
+- Unit tests: 279 passed, 8 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after macro step C. Hardware: 8 passed (step B).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

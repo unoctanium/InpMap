@@ -40,6 +40,10 @@ CONFIG = parse_config(
 class RecordingSink:
     def __init__(self):
         self.events = []
+        self.axes = []
+
+    def set_axis(self, device_id, code, value):
+        self.axes.append((device_id, code, value))
 
     def press(self, device_id, code):
         self.events.append((device_id, code, True))
