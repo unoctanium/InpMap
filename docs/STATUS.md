@@ -209,11 +209,13 @@ Last updated: 2026-10-13
         `inpmap check` summary lists axes, macros and variables.
         `config/local-macros.json` (git-ignored) = example with the user's
         keyboard path.
-      - ⏳ **User test on the real keyboard** with
+      - ✅ **User test on the real keyboard passed (2026-10-13, "all
+        works")** with
         `inpmap run config/local-macros.json --timeout 60`: F9 combo (q +
         gamepad B), F10 tap/double/long → 1/2/3, F11 autofire gamepad A while
         held, F12 left stick up (evtest), CapsLock alone → Esc / with another
-        key → Ctrl; X → y + gamepad A as before. Record results here.
+        key → Ctrl; X → y + gamepad A as before.
+   **V1.1 macro engine complete.**
    License note: Input Remapper is GPL-3.0; we implement independently and
    do not copy code.
 6. After macros: systemd service (step 9; runtime already separate from CLI
@@ -291,7 +293,9 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- Result of the real-keyboard macro test (see V1.1 item G).
+- Config authoring usability (user, 2026-10-13): discuss options for writing
+  configs by hand more easily — discussion only, no implementation yet; see
+  `docs/config-usability.md`. Afterwards: ask the user about the systemd service.
 
 ## Session log
 
