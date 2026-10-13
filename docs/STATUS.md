@@ -5,7 +5,52 @@ A new Claude Code session must be able to continue from this file plus the
 repository alone, without any earlier conversation. Keep it current (see
 `CLAUDE.md`, section 17).
 
-Last updated: 2026-10-13
+Last updated: 2026-10-14
+
+## Plan agreed with the user (2026-10-14), in this order
+
+Based on research of Input Remapper (usage.md, groups.py), keyd, kanata
+and xremap device selection (none writes device selectors into the config
+for the user; keyd/xremap/kanata apply a mapping to every device the
+config covers; Input Remapper groups all event nodes of one physical
+device by bus/vendor/product/uniq/phys-prefix).
+
+1. 🔧 **Emergency stop** (keyd-like): Backspace + Escape + Enter held
+   together on configured inputs stops InpMap (cleanup, exit 0 so the
+   service is not restarted). No language change.
+2. ⏳ **Language changes — spec text first, needs user approval** (CLAUDE.md §7):
+   a. **Unprefixed triggers apply to every input** (user decision "1 b"):
+      `map KEY_X` = mapped on every configured input that has KEY_X;
+      `kbd.KEY_X` restricts to one device and beats the unprefixed one on
+      that device. Makes multi-keyboard configs possible without
+      duplication and removes the "add a 2nd device → all triggers become
+      errors" problem.
+   b. **Disable a key**: `map KEY_INSERT { disable }`.
+3. **`inpmap input-config CONFIG`** (name chosen by the user): interactive
+   device picker for existing or new files; numbers toggle, `i` identifies
+   a device by key press, `w` checks + writes (text insertion of `input`
+   blocks only, atomic, `.bak`), `q` quits; selector by-id link > unique
+   name > by-path; device list **grouped per physical device** like Input
+   Remapper (user: yes); new file gets a starter config. Inputs only.
+4. User's real-hardware test of the service (when back at the PC).
+
+## Backlog (future features, user agreed 2026-10-14; not scheduled)
+
+- Several configurations / profiles: template unit `inpmap@NAME.service`
+  running `config/NAME.inpmap`, switch with `systemctl --user`.
+- `inpmap codes [FILTER]`: list valid key/button names.
+- Analog triggers and sticks as buttons (threshold, like Input
+  Remapper's `analog_threshold`; e.g. Razer L2/R2 are analog).
+- Layout-aware output by character (Input Remapper resolves symbol names
+  through the keyboard layout).
+- Mouse output; gamepad as mouse (sensitivity, deadzone, expo).
+- Mappings per application (xremap, keyd application mapper).
+- Layers / modes (keyd layers, xremap `set_mode`).
+- Earlier backlog: `mod_tap` (dual-role keys holding back other keys),
+  conditions on other held inputs, named reusable blocks, Gaussian
+  humanizer, `inpmap fmt`, system-wide service, nano syntax file check.
+- Not wanted: grabbing all keyboards automatically (keyd `*`) — too easy
+  to grab the wrong device.
 
 ## Current position
 
