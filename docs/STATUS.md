@@ -156,8 +156,8 @@ Last updated: 2026-10-13
       principles, format options, groups A (inspired), B (not
       implemented/deferred), C (new), questions Q1–Q10.
    c. ✅ Discussion complete; all decisions in macros-research.md §5.
-   d. ⏳ Spec draft `docs/macros.md` written (config stays version 1, all
-      additions optional). **Awaiting user review**, then implement with
+   d. ✅ Spec `docs/macros.md` approved by the user (max_run_ms 1 min). 🔧 Implementation in progress (config stays version 1, all
+      additions optional). Implement with
       tests (suggested order: settings/variables/axis outputs in config →
       macro step model + validation → executor on the engine timer queue →
       runtime integration incl. if_single/LEDs → `macro-trace` → hardware
@@ -239,7 +239,7 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- Review of the macro specification draft `docs/macros.md`.
+- None pending.
 
 ## Session log
 

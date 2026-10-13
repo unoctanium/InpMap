@@ -224,3 +224,7 @@ step (`{"tap": "KEY_A"}`) to keep it readable.
   `if_single` now, `mod_tap` later; Q10 configurable pauses now (global →
   macro → step), humanizer later.
 - Spec draft written: `docs/macros.md` (awaiting user review).
+- **Spec review (user, 2026-10-13):** `max_run_ms` default changed to
+  60000 (1 minute); releasing still-owned keys at run end, `if_led` on the
+  trigger's own device, and `toggle` as sole step confirmed. Spec approved
+  ("ok go") → implementation.

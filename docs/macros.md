@@ -1,6 +1,6 @@
 # Macro specification (V1.1)
 
-Status: **draft for review**. Based on the decisions in
+Status: **approved by the user (2026-10-13)**; implementation in progress. Based on the decisions in
 `docs/macros-research.md` §5. Input Remapper served as functional reference;
 this is our own design.
 
@@ -80,7 +80,7 @@ A macro is an entry in a mapping's `outputs` list:
         "on_release": "finish",
         "on_retrigger": "ignore",
         "key_pause_ms": 10,
-        "max_run_ms": 600000,
+        "max_run_ms": 60000,
         "steps": [ { "tap": "KEY_A" }, { "wait_ms": 100 }, { "tap": "KEY_B" } ],
         "release_steps": [ ]
     } }
@@ -95,7 +95,7 @@ A macro is an entry in a mapping's `outputs` list:
 | `on_release` | `"finish"` | input released while `steps` still run: `finish` lets them run to the end; `cancel` stops at once and releases everything the run owns |
 | `on_retrigger` | `"ignore"` | input pressed again while the macro runs: `ignore` (unless a step waits for it, §4.4) or `restart` (cancel, then start again) |
 | `key_pause_ms` | `settings.key_pause_ms` | default pause for key steps of this macro |
-| `max_run_ms` | 600000 (10 min) | the run is cancelled (with a warning) when it lasts longer; `null` = no limit |
+| `max_run_ms` | 60000 (1 min) | the run is cancelled (with a warning) when it lasts longer; `null` = no limit |
 | `release_steps` | none | steps run when the input is released (§4.3) |
 
 A mapping may combine plain outputs and macros; all start on the same press.
@@ -127,7 +127,7 @@ fields listed for it. Unknown fields are errors.
 
 | Step | Optional fields | Behaviour |
 |---|---|---|
-| `{"tap": KEYS}` | `device`, `pause_ms` | press all keys in order, pause, release in reverse order, pause. A list taps a chord (e.g. Ctrl+C) |
+| `{"tap": KEYS}` | `device`, `pause_ms` | press all keys in order, then release them in reverse order, with a pause after every press and every release. A list taps a chord (e.g. Ctrl+C) |
 | `{"press": KEYS}` | `device`, `pause_ms` | press and keep pressed (owned); pause after each press |
 | `{"release": KEYS}` | `device`, `pause_ms` | release keys this run pressed; releasing a key the run does not own is an error at load if statically visible, ignored at runtime otherwise |
 | `{"hold_keys": KEYS}` | `device` | press, wait until the input is released, release in reverse order. If the input is already released, press and release immediately |
