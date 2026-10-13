@@ -90,14 +90,21 @@ Last updated: 2026-10-13
         then evtest on event26 "InpMap Virtual Gamepad") showed BTN_SOUTH
         correctly — confirmed.
    - ✅ Acceptance test passed (see Current position).
-2. Decide whether a "tap" output mode is needed before V1.1 (user's idea).
-3. Step 7 – robustness: SYN_DROPPED resync, hotplug/reconnect, LED
-   forwarding to the physical keyboard, startup diagnostics.
-4. Remaining V1 definition-of-done items (spec §13): README installation +
-   test procedure for a clean machine incl. narrowly scoped uinput/input
-   permission setup (udev rule) — partly done; systemd readiness is by design
-   (Runtime separate from CLI, signal handling) but no unit file yet.
-5. Later: macro spec (V1.1, incl. tap/hold modes), systemd service (step 9).
+   User's order (2026-10-13): **robustness → installation → tap mode**.
+2. 🔧 **Step 7 – robustness** (in progress):
+   - 7a reconnect: runtime becomes a per-device state machine (opened →
+     waiting for keys released → grabbed; lost → release its outputs, close,
+     retry open every second → re-grab). Startup with a missing device stays
+     a hard error. Other devices keep working meanwhile.
+   - 7b SYN_DROPPED: discard until next SYN_REPORT, then resync key state via
+     EVIOCGKEY and synthesize the differences (Linux backend).
+   - 7c LED feedback: read EV_LED written by the desktop to the forwarding
+     device and apply it to the physical keyboard (Linux backend).
+3. Installation for other PCs: clean-machine guide, narrowly scoped udev
+   rule(s), install/uninstall script if justified.
+4. Tap output mode (`"mode": "hold" | "tap"`), user's idea.
+5. Later: macro spec (V1.1), systemd service (step 9; runtime already
+   separate from CLI with signal handling, no unit file yet).
 - Also known on this machine: the user's controller is a Razer Raiju V3 Pro
   (`Generic X-Box pad`, event11; it also exposes Keyboard/Mouse/Touchpad
   interfaces).
