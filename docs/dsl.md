@@ -38,6 +38,7 @@ File extension: `.inpmap` (e.g. `config/example.inpmap`).
 - **Keywords** (reserved, cannot be names): `version settings let input
   output map as hold tap press release with wait random repeat while held
   toggle parallel branch on double_tap long_press if else single not and
+  keep modifiers
   within after axis move to over cancel restart key_pause max_run none
   true false capslock numlock scrolllock ctrl shift alt meta`.
 
@@ -126,12 +127,60 @@ map TRIGGER [as NAME] {
 ```
 
 - **TRIGGER**: `INPUT.CODE` (e.g. `kbd.KEY_F9`, `pad.BTN_EAST`), or just
-  `CODE` if exactly one input device is declared.
+  `CODE` if exactly one input device is declared, or a combination of
+  such keys joined with `+` (§4.0).
 - **NAME** (optional): the mapping's name in messages and for
   `inpmap macro-trace`. Default: the trigger as written (`KEY_F9`,
   `pad.BTN_EAST`).
 - Each trigger may be mapped only once.
 - The original input event is always suppressed (consumed).
+
+### 4.0 Combination triggers
+
+A trigger may be a combination of keys and buttons joined with `+`:
+
+```
+map ctrl + shift + KEY_LEFTBRACE as bracket_combo { … }
+map pad.BTN_TL + pad.BTN_SOUTH { … }
+map kbd.KEY_LEFTALT + pad.BTN_START { … }     # keys of different devices
+```
+
+Rules (designed after studying Input Remapper, `docs/combinations-research.md`):
+
+1. **Firing**: the combination fires when its last missing key is pressed
+   while all others are held, in **any order**. Modifier aliases (`ctrl`,
+   `shift`, `alt`, `meta`) are satisfied by either side. Keys may come
+   from different input devices.
+2. **Before it fires**, keys of the combination behave as usual: unmapped
+   ones go through to the desktop (e.g. Ctrl, Shift), mapped ones run
+   their own mapping.
+3. **When it fires**, keys of the combination that went through to the
+   desktop and are still held are **released on the forwarding device
+   first**, then the mapping starts. So the mapping's output is not
+   modified by them (Ctrl+Shift+[ → a plain Enter, not Ctrl+Shift+Enter).
+   Their later physical releases are not passed on (no double release).
+   The completing key is consumed. Mapping option `keep modifiers`
+   disables the early release (then e.g. Shift stays in effect for the
+   output).
+4. **Release**: the combination counts as released as soon as **any** of
+   its keys is released — that is the trigger release for `hold`,
+   `while held`, `on release`, `cancel on release`, gestures. Released
+   modifiers are **not** pressed again on the forwarding device, even if
+   still physically held (a following unmapped key arrives without them).
+   Pressing the released key again while the others are still held fires
+   the combination again.
+5. **Overlaps**: when one key press completes several mappings, the one
+   with **more keys** wins; with equal size, the one **defined first** in
+   the file wins; the others do not fire. When a mapping fires whose keys
+   include all keys of a mapping that is still active (e.g. `ctrl + KEY_A`
+   active, then Shift completes `ctrl + shift + KEY_A`), the smaller one
+   is released first. A single-key mapping is the smallest case:
+   `KEY_LEFTBRACE` alone vs. `ctrl + shift + KEY_LEFTBRACE`.
+6. **Autorepeat** of combination keys is ignored and never fires again.
+7. Forwarded key state is tracked centrally per input device, so no
+   duplicate or missing releases (an Input Remapper weakness).
+8. A combination may not contain the same key twice; two mappings may not
+   have the same set of keys (also not via aliases); at most 6 keys.
 
 ### 4.1 Output references
 
@@ -162,6 +211,7 @@ Options come first in the body, one per line:
 
 | Option | Meaning | Default |
 |---|---|---|
+| `keep modifiers` | combination triggers only: do not release already passed-through keys when the combination fires (§4.0) | release them |
 | `cancel on release` | when the input is released while statements still run, stop at once and release/re-centre everything this mapping holds | finish the statements |
 | `restart on press` | a new press while statements still run cancels them and starts again | the press is ignored (unless a statement waits for it, §6) |
 | `key_pause DURATION` | key pause for this mapping | `settings.key_pause` |
@@ -495,7 +545,7 @@ map KEY_LEFTCTRL + KEY_LEFTSHIFT + KEY_LEFTBRACE as bracket_combo {
 }
 ```
 
-Proposed additions — **user decisions 2026-10-13: 1 yes (study Input Remapper first), 2 yes, 3 yes**:
+Proposed additions — **user decisions 2026-10-13: 1 yes (study Input Remapper first), 2 yes, 3 yes** — all three are now specified (§4.0, §4.1, §5.5):
 
 1. **Combination triggers** (`map A + B + C { … }`): fires when the last key
    is pressed while the others are held (order irrelevant); released as
