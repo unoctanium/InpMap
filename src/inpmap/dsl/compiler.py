@@ -11,7 +11,6 @@ source position of the element they refer to.
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,8 +21,6 @@ from ..config import ConfigError, parse_config
 from ..macros import GAMEPAD_AXES
 from ..models import Config
 from .parser import DslSyntaxError, parse
-
-log = logging.getLogger(__name__)
 
 LANGUAGE_VERSIONS = frozenset({1})
 DEFAULT_GESTURE_WINDOW_MS = 300.0
@@ -89,8 +86,6 @@ def compile_text(text: str, source: str = "<config>") -> LoadResult:
         config = parse_config(data, source)
     except ConfigError as exc:
         raise ConfigError(source, [compiler.locate(p) for p in exc.problems]) from None
-    for warning in compiler.warnings:
-        log.warning("%s", warning)
     return LoadResult(config, compiler.warnings)
 
 

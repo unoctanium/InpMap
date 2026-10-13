@@ -1,0 +1,69 @@
+# InpMap example configuration
+version 1
+
+settings {
+    key_pause = 10ms
+}
+
+let presses = 0
+
+input kbd {
+    name = "AT Translated Set 2 keyboard"
+}
+
+output keyboard {
+    type = keyboard
+    name = "InpMap Virtual Keyboard"
+}
+
+output gamepad {
+    type = gamepad
+    name = "InpMap Virtual Gamepad"
+}
+
+# X holds KEY_Y and the gamepad's south button (A) at the same time
+map KEY_X {
+    hold KEY_Y
+    hold BTN_SOUTH
+}
+
+# F9: tap Q, wait 40-60 ms, tap the gamepad's east button (B)
+map KEY_F9 as combo {
+    tap KEY_Q
+    wait random(40ms, 60ms)
+    tap BTN_EAST
+    presses += 1
+}
+
+# F10: tap types 1, double tap types 2, long press types 3
+map KEY_F10 {
+    on tap        { tap KEY_1 }
+    on double_tap { tap KEY_2 }
+    on long_press { tap KEY_3 }
+}
+
+# F11: fire the gamepad's south button while held, stop at once on release
+map KEY_F11 as autofire {
+    cancel on release
+    while held {
+        tap BTN_SOUTH (pause 30ms)
+    }
+}
+
+# F12: push the left stick up within 150 ms, return within 50 ms
+map KEY_F12 {
+    axis ABS_Y {
+        target  = -1.0
+        attack  = 150ms
+        release = 50ms
+    }
+}
+
+# Caps Lock alone is Escape; held together with another key it is Ctrl
+map KEY_CAPSLOCK {
+    if single {
+        tap KEY_ESC
+    } else {
+        hold KEY_LEFTCTRL
+    }
+}

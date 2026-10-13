@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE language>
+<!--
+  Syntax highlighting for InpMap configuration files (*.inpmap) in Kate,
+  KWrite and other KSyntaxHighlighting-based editors.
+  Install: copy to ~/.local/share/org.kde.syntax-highlighting/syntax/
+  (see README, "Editor support").
+-->
+<language name="InpMap" section="Configuration" version="1" kateversion="5.0"
+          extensions="*.inpmap" mimetype="" author="InpMap" license="MIT">
+  <highlighting>
+    <list name="keywords">
+      <item>version</item>
+      <item>settings</item>
+      <item>let</item>
+      <item>input</item>
+      <item>output</item>
+      <item>map</item>
+      <item>as</item>
+      <item>hold</item>
+      <item>tap</item>
+      <item>press</item>
+      <item>release</item>
+      <item>with</item>
+      <item>wait</item>
+      <item>random</item>
+      <item>repeat</item>
+      <item>while</item>
+      <item>held</item>
+      <item>toggle</item>
+      <item>parallel</item>
+      <item>branch</item>
+      <item>on</item>
+      <item>if</item>
+      <item>else</item>
+      <item>single</item>
+      <item>not</item>
+      <item>within</item>
+      <item>after</item>
+      <item>axis</item>
+      <item>move</item>
+      <item>to</item>
+      <item>over</item>
+      <item>cancel</item>
+      <item>restart</item>
+      <item>keep</item>
+      <item>modifiers</item>
+    </list>
+    <list name="builtins">
+      <item>ctrl</item>
+      <item>shift</item>
+      <item>alt</item>
+      <item>meta</item>
+      <item>left_ctrl</item>
+      <item>right_ctrl</item>
+      <item>left_shift</item>
+      <item>right_shift</item>
+      <item>left_alt</item>
+      <item>right_alt</item>
+      <item>left_meta</item>
+      <item>right_meta</item>
+      <item>ignore</item>
+      <item>double_tap</item>
+      <item>long_press</item>
+      <item>capslock</item>
+      <item>numlock</item>
+      <item>scrolllock</item>
+      <item>key_pause</item>
+      <item>max_run</item>
+      <item>true</item>
+      <item>false</item>
+      <item>none</item>
+    </list>
+    <contexts>
+      <context name="Normal" attribute="Normal Text" lineEndContext="#stay">
+        <DetectChar char="#" attribute="Comment" context="Comment"/>
+        <DetectChar char="&quot;" attribute="String" context="String"/>
+        <RegExpr String="\b(KEY|BTN|ABS)_[A-Z0-9_]+\b" attribute="Code"/>
+        <RegExpr String="\b[0-9]+(\.[0-9]+)?(ms|s)\b" attribute="Duration"/>
+        <RegExpr String="-?\b[0-9]+(\.[0-9]+)?\b" attribute="Number"/>
+        <keyword attribute="Keyword" String="keywords"/>
+        <keyword attribute="Builtin" String="builtins"/>
+      </context>
+      <context name="Comment" attribute="Comment" lineEndContext="#pop"/>
+      <context name="String" attribute="String" lineEndContext="#pop">
+        <HlCStringChar attribute="String Char"/>
+        <DetectChar char="&quot;" attribute="String" context="#pop"/>
+      </context>
+    </contexts>
+    <itemDatas>
+      <itemData name="Normal Text" defStyleNum="dsNormal"/>
+      <itemData name="Keyword" defStyleNum="dsKeyword"/>
+      <itemData name="Builtin" defStyleNum="dsBuiltIn"/>
+      <itemData name="Code" defStyleNum="dsConstant"/>
+      <itemData name="Duration" defStyleNum="dsDecVal"/>
+      <itemData name="Number" defStyleNum="dsDecVal"/>
+      <itemData name="String" defStyleNum="dsString"/>
+      <itemData name="String Char" defStyleNum="dsSpecialChar"/>
+      <itemData name="Comment" defStyleNum="dsComment"/>
+    </itemDatas>
+  </highlighting>
+  <general>
+    <comments>
+      <comment name="singleLine" start="#"/>
+    </comments>
+    <keywords casesensitive="1"/>
+  </general>
+</language>

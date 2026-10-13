@@ -122,3 +122,44 @@ def test_missing_command_is_usage_error():
     with pytest.raises(SystemExit) as info:
         main([])
     assert info.value.code == 2
+
+
+# -- configuration language files --------------------------------------------------------
+
+DSL_EXAMPLE = Path(__file__).resolve().parent.parent / "config" / "example.inpmap"
+
+
+def test_check_dsl_example(capsys):
+    assert main(["check", str(DSL_EXAMPLE)]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "combo: kbd KEY_F9 -> macro (4 steps)" in out
+
+
+def test_check_dsl_reports_positions_and_warnings(tmp_path, capsys):
+    path = tmp_path / "bad.inpmap"
+    path.write_text(
+        'version 1\ninput kbd { name = "K" }\noutput keyboard { type = keyboard }\n'
+        "map KEY_X { tap KEY_QQ }\n"
+    )
+    assert main(["check", str(path)]) == EXIT_CONFIG_ERROR
+    assert f"{path}:4:17: unknown key code 'KEY_QQ'" in capsys.readouterr().err
+    ok = tmp_path / "warn.inpmap"
+    ok.write_text(
+        'version 1\ninput kbd { name = "K" }\noutput pad { type = gamepad }\n'
+        "map KEY_X { tap BTN_X }\n"
+    )
+    assert main(["check", str(ok)]) == EXIT_OK
+    assert f"{ok}:4:17: warning: BTN_X is the top button" in capsys.readouterr().err
+
+
+def test_macro_trace_on_dsl_file(capsys):
+    assert main(["macro-trace", str(DSL_EXAMPLE), "combo", "--seed", "1"]) == EXIT_OK
+    assert "keyboard   KEY_Q            down" in capsys.readouterr().out
+
+
+def test_dsl_example_file_matches_spec():
+    import re
+
+    spec = (DSL_EXAMPLE.parent.parent / "docs" / "dsl.md").read_text()
+    block = re.search(r"## 11\. Complete example.*?```\n(.*?)```", spec, re.S).group(1)
+    assert DSL_EXAMPLE.read_text() == block

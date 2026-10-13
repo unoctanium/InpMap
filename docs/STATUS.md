@@ -269,8 +269,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 394 passed, 10 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after DSL step S3. Hardware: 10 passed.
+- Unit tests: 398 passed, 10 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after DSL step S4. Hardware: 10 passed (S3).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and
@@ -330,6 +330,15 @@ Last updated: 2026-10-13
   timestamps: modifiers released on the forwarder before the virtual
   Enter). ⏳ Real-desktop check of case 1 (KDE sees a plain Enter) pending
   with the user after S4.
+  ✅ S4 (2026-10-13): `src/inpmap/loading.py` (format by extension:
+  `.inpmap` → DSL, else JSON); all CLI commands use it and print warnings
+  to stderr; `check` shows trigger modifiers; `config/example.inpmap`
+  (= spec §11, tested identical); `config/local.inpmap` (git-ignored; the
+  user's mappings + case 1 `bracket_combo` + case 2 `alternate` on the
+  Razer pad); `.gitignore` now `config/local*`; editor files
+  `editors/inpmap.xml` (Kate; verified with `ksyntaxhighlighter6` via a
+  temporary XDG_DATA_HOME — loads and highlights) and
+  `editors/inpmap.nanorc` (**not verified**: nano offers no batch check).
   (previous plan text:) S3 engine/runtime: modifier
   matching (exact, sides, ignore, specificity) and temporary release /
   re-press of modifiers on the forwarding devices, hardware test; S4 CLI

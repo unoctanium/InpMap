@@ -8,4 +8,4 @@ dist/
 .ruff_cache/
 .claude/settings.local.json
 # machine-specific configurations
-config/local*.json
+config/local*

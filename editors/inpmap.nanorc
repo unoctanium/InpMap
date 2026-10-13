@@ -1,0 +1,20 @@
+## Syntax highlighting for InpMap configuration files (*.inpmap) in nano.
+## Install: add to ~/.config/nano/nanorc (or ~/.nanorc):
+##   include "/path/to/InpMap/editors/inpmap.nanorc"
+## (see README, "Editor support")
+
+syntax inpmap "\.inpmap$"
+comment "#"
+
+# keywords
+color brightblue "\<(version|settings|let|input|output|map|as|hold|tap|press|release|with|wait|random|repeat|while|held|toggle|parallel|branch|on|if|else|single|not|within|after|axis|move|to|over|cancel|restart|keep|modifiers)\>"
+# modifiers, gestures, LEDs, options and constants
+color cyan "\<(ctrl|shift|alt|meta|(left|right)_(ctrl|shift|alt|meta)|ignore|double_tap|long_press|capslock|numlock|scrolllock|key_pause|max_run|true|false|none)\>"
+# key, button and axis codes
+color green "\<(KEY|BTN|ABS)_[A-Z0-9_]+\>"
+# numbers and durations
+color magenta "(^|[^A-Za-z_])-?[0-9]+(\.[0-9]+)?(ms|s)?\>"
+# strings
+color yellow ""([^"\\]|\\.)*""
+# comments (last, so they win)
+color brightblack "#.*$"

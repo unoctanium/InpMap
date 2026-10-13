@@ -15,8 +15,9 @@ import time
 from collections.abc import Sequence
 
 from . import __version__, codes
-from .config import ConfigError, load_config
+from .config import ConfigError
 from .input import InputError
+from .loading import load
 from .macros import AXIS_NAMES, Led
 from .models import Config, OutputMode
 from .output import OutputError, OutputManager
@@ -189,7 +190,7 @@ def _cmd_devices(args: argparse.Namespace) -> int:
 
 def _cmd_macro_trace(args: argparse.Namespace) -> int:
     try:
-        config = load_config(args.config)
+        config = _load(args.config)
     except ConfigError as exc:
         print(exc, file=sys.stderr)
         return EXIT_CONFIG_ERROR
@@ -215,7 +216,7 @@ def _cmd_udev_rules(args: argparse.Namespace) -> int:
     from .backends.linux_setup import read_sysfs_inputs, render_rules
 
     try:
-        config = load_config(args.config)
+        config = _load(args.config)
     except ConfigError as exc:
         print(exc, file=sys.stderr)
         return EXIT_CONFIG_ERROR
@@ -229,7 +230,7 @@ def _cmd_udev_rules(args: argparse.Namespace) -> int:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     try:
-        config = load_config(args.config)
+        config = _load(args.config)
     except ConfigError as exc:
         print(exc, file=sys.stderr)
         return EXIT_CONFIG_ERROR
@@ -268,7 +269,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 def _cmd_check(args: argparse.Namespace) -> int:
     try:
-        config = load_config(args.config)
+        config = _load(args.config)
     except ConfigError as exc:
         print(exc, file=sys.stderr)
         return EXIT_CONFIG_ERROR
@@ -279,7 +280,7 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
 def _cmd_test_outputs(args: argparse.Namespace) -> int:
     try:
-        config = load_config(args.config)
+        config = _load(args.config)
     except ConfigError as exc:
         print(exc, file=sys.stderr)
         return EXIT_CONFIG_ERROR
@@ -343,6 +344,14 @@ def _raise_keyboard_interrupt(signum: int, frame: object) -> None:
     raise KeyboardInterrupt
 
 
+def _load(path: str) -> Config:
+    """Load a configuration and print its warnings (to stderr)."""
+    result = load(path)
+    for warning in result.warnings:
+        print(warning, file=sys.stderr)
+    return result.config
+
+
 def describe_config(config: Config) -> str:
     """Human-readable summary of a validated configuration."""
     lines = ["inputs:"]
@@ -365,6 +374,10 @@ def describe_config(config: Config) -> str:
             for macro in rule.macros
         ]
         trigger = f"{rule.trigger.device} {codes.code_name(rule.trigger.code)}"
+        if rule.trigger.any_modifiers:
+            trigger += " (any modifiers)"
+        elif rule.trigger.modifiers:
+            trigger += " with " + "+".join(sorted(r.name for r in rule.trigger.modifiers))
         lines.append(f"  {rule.id}: {trigger} -> {', '.join(targets)}")
     if config.variables:
         lines.append("variables:")
