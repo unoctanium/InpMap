@@ -38,7 +38,8 @@ File extension: `.inpmap` (e.g. `config/example.inpmap`).
 - **Keywords** (reserved, cannot be names): `version settings let input
   output map as hold tap press release with wait random repeat while held
   toggle parallel branch on double_tap long_press if else single not and
-  keep modifiers
+  keep modifiers left_ctrl right_ctrl left_shift right_shift left_alt
+  right_alt
   within after axis move to over cancel restart key_pause max_run none
   true false capslock numlock scrolllock ctrl shift alt meta`.
 
@@ -74,6 +75,7 @@ settings {
 | Setting | Type | Default | Meaning |
 |---|---|---|---|
 | `key_pause` | duration | `10ms` | pause after every key press and release made by `tap`, `press`, `release`, `hold`, `with` |
+| `modifiers` | list of `ctrl`, `shift`, `alt` (`meta` open) | `ctrl, shift, alt` | keys treated as modifiers (§4.0); all others are normal keys |
 
 ### 3.3 Variables
 
@@ -127,60 +129,65 @@ map TRIGGER [as NAME] {
 ```
 
 - **TRIGGER**: `INPUT.CODE` (e.g. `kbd.KEY_F9`, `pad.BTN_EAST`), or just
-  `CODE` if exactly one input device is declared, or a combination of
-  such keys joined with `+` (§4.0).
+  `CODE` if exactly one input device is declared, optionally followed by
+  `modifiers(…)` (§4.0).
 - **NAME** (optional): the mapping's name in messages and for
   `inpmap macro-trace`. Default: the trigger as written (`KEY_F9`,
   `pad.BTN_EAST`).
 - Each trigger may be mapped only once.
 - The original input event is always suppressed (consumed).
 
-### 4.0 Combination triggers
+### 4.0 Modifiers
 
-A trigger may be a combination of keys and buttons joined with `+`:
+A trigger is always **one** key or button. It can additionally require a
+**modifier state**: which modifier keys must be held when the key is
+pressed. (Arbitrary key combinations were considered and rejected as too
+edge-case-prone; see `docs/combinations-research.md` and §12.)
 
 ```
-map ctrl + shift + KEY_LEFTBRACE as bracket_combo { … }
-map pad.BTN_TL + pad.BTN_SOUTH { … }
-map kbd.KEY_LEFTALT + pad.BTN_START { … }     # keys of different devices
+map KEY_A modifiers(right_shift) { … }
+map KEY_LEFTBRACE modifiers(ctrl, shift) { … }
+map KEY_P modifiers(right_ctrl, right_alt) { … }
+map pad.BTN_SOUTH modifiers(ctrl) { … }      # Ctrl from the keyboard
+map pad.BTN_SOUTH { … }                      # the same button without modifiers
 ```
 
-Rules (designed after studying Input Remapper, `docs/combinations-research.md`):
+Rules:
 
-1. **Firing**: the combination fires when its last missing key is pressed
-   while all others are held, in **any order**. Modifier aliases (`ctrl`,
-   `shift`, `alt`, `meta`) are satisfied by either side. Keys may come
-   from different input devices.
-2. **Before it fires**, keys of the combination behave as usual: unmapped
-   ones go through to the desktop (e.g. Ctrl, Shift), mapped ones run
-   their own mapping.
-3. **When it fires**, keys of the combination that went through to the
-   desktop and are still held are **released on the forwarding device
-   first**, then the mapping starts. So the mapping's output is not
-   modified by them (Ctrl+Shift+[ → a plain Enter, not Ctrl+Shift+Enter).
-   Their later physical releases are not passed on (no double release).
-   The completing key is consumed. Mapping option `keep modifiers`
-   disables the early release (then e.g. Shift stays in effect for the
-   output).
-4. **Release**: the combination counts as released as soon as **any** of
-   its keys is released — that is the trigger release for `hold`,
-   `while held`, `on release`, `cancel on release`, gestures. Released
-   modifiers are **not** pressed again on the forwarding device, even if
-   still physically held (a following unmapped key arrives without them).
-   Pressing the released key again while the others are still held fires
-   the combination again.
-5. **Overlaps**: when one key press completes several mappings, the one
-   with **more keys** wins; with equal size, the one **defined first** in
-   the file wins; the others do not fire. When a mapping fires whose keys
-   include all keys of a mapping that is still active (e.g. `ctrl + KEY_A`
-   active, then Shift completes `ctrl + shift + KEY_A`), the smaller one
-   is released first. A single-key mapping is the smallest case:
-   `KEY_LEFTBRACE` alone vs. `ctrl + shift + KEY_LEFTBRACE`.
-6. **Autorepeat** of combination keys is ignored and never fires again.
-7. Forwarded key state is tracked centrally per input device, so no
-   duplicate or missing releases (an Input Remapper weakness).
-8. A combination may not contain the same key twice; two mappings may not
-   have the same set of keys (also not via aliases); at most 6 keys.
+1. **Modifier keys**: by default `ctrl`, `shift`, `alt` (left and right
+   keys each). `settings { modifiers = ctrl, alt }` chooses the set; a key
+   that is not in the set (e.g. Shift above) is a normal key and can be
+   mapped. A modifier key cannot be a trigger. *(Open: whether `meta` is a
+   default modifier.)*
+2. **Names**: `ctrl`, `shift`, `alt` = either side; `left_ctrl`,
+   `right_ctrl`, `left_shift`, `right_shift`, `left_alt`, `right_alt` =
+   exactly that side.
+3. **Exact match**: the mapping fires when the key is pressed while the
+   required modifiers are held and **no other modifier** is held. A trigger
+   without `modifiers(…)` fires only when no modifier is held; otherwise
+   the key passes through unchanged (e.g. Shift+A stays a capital A).
+4. **Specificity**: if several mappings of the same key match (e.g.
+   `modifiers(ctrl)` and `modifiers(right_ctrl)` with right Ctrl held), the
+   more specific side wins. Two mappings with the same key and the same
+   modifier requirement are an error.
+5. **Shared state**: the modifier state is the union of all configured
+   input devices, so a gamepad button can be combined with Ctrl on the
+   keyboard. Modifiers of devices that are not configured (not grabbed)
+   are not visible.
+6. **Timing**: modifiers count as they are at the moment the key is
+   pressed. Pressing or releasing modifiers while the key is held does not
+   affect the running mapping. The trigger release is the release of the
+   key itself.
+7. **Passed-through modifiers**: modifier keys always pass through to the
+   desktop. While a mapping with `modifiers(…)` runs, its required
+   modifiers are **temporarily released** on the forwarding device, so its
+   output is not modified (Ctrl+Shift+[ → a plain Enter). When the
+   mapping's run has **completely** finished (including `on release`),
+   modifiers that are still physically held are pressed again on the
+   forwarding device, so e.g. a following Ctrl+C works. Keys typed during
+   the run arrive without those modifiers. Mapping option `keep modifiers`
+   disables the temporary release (then e.g. Shift applies to the output).
+8. **Autorepeat** of the key is ignored, as for all triggers.
 
 ### 4.1 Output references
 
@@ -211,7 +218,7 @@ Options come first in the body, one per line:
 
 | Option | Meaning | Default |
 |---|---|---|
-| `keep modifiers` | combination triggers only: do not release already passed-through keys when the combination fires (§4.0) | release them |
+| `keep modifiers` | with `modifiers(…)` only: do not temporarily release the passed-through modifiers while the mapping runs (§4.0) | release them |
 | `cancel on release` | when the input is released while statements still run, stop at once and release/re-centre everything this mapping holds | finish the statements |
 | `restart on press` | a new press while statements still run cancels them and starts again | the press is ignored (unless a statement waits for it, §6) |
 | `key_pause DURATION` | key pause for this mapping | `settings.key_pause` |
@@ -561,3 +568,23 @@ Proposed additions — **user decisions 2026-10-13: 1 yes (study Input Remapper 
 
 Layout note: `KEY_LEFTBRACE` is the key right of P (`[` on US layouts, `ü`
 on German layouts, where `[` is AltGr+8).
+
+**Revision (user, 2026-10-13):** arbitrary combination triggers were
+dropped as too edge-case-prone. Replaced by **one key + modifier state**
+(`map KEY_LEFTBRACE modifiers(ctrl, shift)`, §4.0), with a fixed modifier
+set that the config can reduce (`settings { modifiers = … }`) to map e.g.
+Shift as a normal key. Case 1 becomes:
+
+```
+map KEY_LEFTBRACE modifiers(ctrl, shift) as bracket_combo {
+    tap KEY_ENTER
+    wait random(20ms, 60ms)
+    hold ctrl + shift + KEY_LEFTBRACE
+    on release {
+        wait 200ms
+        tap KEY_ENTER
+        tap KEY_ESC
+        tap BTN_EAST
+    }
+}
+```
