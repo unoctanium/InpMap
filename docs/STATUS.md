@@ -269,8 +269,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 290 passed, 9 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after macro step G. Hardware: 9 passed.
+- Unit tests: 371 passed, 9 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after DSL step S2. Hardware: 9 passed (last run before DSL).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and
@@ -301,9 +301,18 @@ Last updated: 2026-10-13
   ✅ S1 parser (`src/inpmap/dsl/parser.py`: lark LALR grammar, basic
   lexer + post-lexer allowing `else` on its own line, syntax errors as
   FILE:LINE:COLUMN; `lark` added to dependencies; tests
-  `tests/test_dsl_parser.py` incl. all complete spec examples); S2 compiler AST → existing config data (+ new model
-  fields: trigger modifiers, settings.modifiers), positions for all
-  semantic errors, BTN_X/BTN_Y warning; S3 engine/runtime: modifier
+  `tests/test_dsl_parser.py` incl. all complete spec examples);
+  ✅ S2 compiler (2026-10-13, commit d9d72d2): `src/inpmap/dsl/compiler.py`
+  (`compile_text`, `load`) → existing config data → `parse_config`, every
+  validator message mapped to FILE:LINE:COLUMN; model fields
+  `InputTrigger.modifiers/any_modifiers`, `MappingRule.keep_modifiers`,
+  `Settings.modifiers` + validation; ids may contain '+'; BTN_X/BTN_Y
+  warning; spec "More examples" fixed (device prefixes with two inputs);
+  tests `tests/test_dsl_compiler.py` incl. 24 trace-equivalence checks of
+  the DSL example vs. `config/example-macros.json`. **TEMPORARY guards** in
+  `engine.MappingEngine.__init__` and `cli._cmd_run` reject modifier
+  triggers — remove them in S3.
+  S3 engine/runtime: modifier
   matching (exact, sides, ignore, specificity) and temporary release /
   re-press of modifiers on the forwarding devices, hardware test; S4 CLI
   loads `.inpmap`, example configs + local configs in the DSL, Kate and
