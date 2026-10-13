@@ -193,3 +193,29 @@ step (`{"tap": "KEY_A"}`) to keep it readable.
 - **Q8** Variables (A12/N6) in V1.1 or later?
 - **Q9** Which of N2–N10 do you want, and anything missing?
 - **Q10** Default key pause between macro key events (0, 10 or 20 ms)?
+
+## 5. Decisions (discussion with the user, 2026-10-13)
+
+- **Q1** structured JSON steps — agreed.
+- **Q2** A1–A14 in V1.1 (variables per Q8) — agreed.
+- **Q3** mouse output later, together with a mouse device — agreed.
+- **Q4** gamepad axis output in V1.1 — agreed. User asked for gradients.
+  Proposed (awaiting confirmation): values as fractions (−1..1 sticks,
+  0..1 triggers), ramps with `over_ms` (linear first, curves later),
+  `hold_axis` with `attack_ms` / `release_ms`, automatic re-centring on
+  release/cancel/device loss; two holders of one axis: most recent wins,
+  previous value restored when it lets go.
+- **Q5** explained (finish vs cancel); proposed `finish` default with
+  `"on_release": "cancel"` per macro — awaiting confirmation.
+- **Q6** `ignore` default, `restart` optional — agreed.
+- **Q7** explained; proposed `if_single` in V1.1 (no holding back needed in
+  our single-threaded engine), `mod_tap` later — awaiting confirmation.
+- **Q8** variables in V1.1, declared in the config — agreed.
+- **Q9** N1–N6, N8, N9 now; N7, N10 later — agreed.
+- **Q10** user disagrees with a fixed pause: 10 ms default is fine for now,
+  but pauses must become configurable globally and per key/step, and
+  durations must later support Gaussian randomization (humanizer).
+  Proposed: `key_pause_ms` global → per macro → per step now; every
+  duration accepts a number or an object
+  `{"mean_ms", "stddev_ms", "min_ms", "max_ms"}`; humanizer implementation
+  now or later — awaiting the user's choice.

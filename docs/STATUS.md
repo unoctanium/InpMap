@@ -155,7 +155,7 @@ Last updated: 2026-10-13
    b. ✅ `docs/macros-research.md` written: IR behaviour summary, design
       principles, format options, groups A (inspired), B (not
       implemented/deferred), C (new), questions Q1–Q10.
-   c. ⏳ **Discussion with the user** of Q1–Q10 — required before any spec
+   c. ⏳ **Discussion with the user**: decisions so far in macros-research.md §5; awaiting confirmation of Q4 ramps, Q5, Q7, Q10. Required before any spec
       or code. Record each decision in macros-research.md and here.
    d. Write our own JSON macro specification (`docs/macros.md`), then
       implement with tests.
