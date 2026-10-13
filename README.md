@@ -12,7 +12,7 @@ and a gamepad button). See `project_spec.md` for goals and roadmap.
 | `inpmap check` CLI | implemented |
 | Virtual keyboard / gamepad (uinput), `inpmap test-outputs` | implemented, verified on hardware |
 | Mapping engine, reference-counted press/release state | implemented, unit-tested |
-| Physical input, grab, passthrough, `inpmap run`, `inpmap devices` | implemented; verified with a synthetic keyboard, real-keyboard test pending |
+| Physical input, grab, passthrough, `inpmap run`, `inpmap devices` | implemented, verified on a real keyboard (spec §7 acceptance test passed) |
 
 ## Requirements
 
@@ -71,6 +71,9 @@ Notes and limitations:
   ("already grabbed by another program").
 - Keyboard LEDs (Caps/Num Lock) of a grabbed keyboard do not change; the
   desktop sets them on the forwarding device.
+- Force feedback (rumble) is not supported: virtual and forwarding devices
+  declare no `EV_FF`. (With it declared but unanswered, the kernel would block
+  a game's rumble request for up to 30 s.)
 - If an input device disappears, the remapper releases everything and exits
   (exit code 3); reconnect handling is future work.
 - Per-device settings in the desktop (e.g. keyboard layout per device) apply

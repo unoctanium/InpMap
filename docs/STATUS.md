@@ -12,9 +12,17 @@ Last updated: 2026-10-13
 - Milestone: **V1** (Linux, no GUI)
 - Spec steps (`project_spec.md` §11): 1 ✅ environment · 2 ✅ skeleton + JSON
   validation · 3 ✅ virtual devices · 4 ✅ mapping engine ·
-  **5 ✅ code / ⏳ real-device test** · 6 end-to-end test · 7 robustness
-- **Now: waiting for the user's real-keyboard test (step 5/6)**, see Next
-  steps 1. Instructions were given in chat on 2026-10-13.
+  5 ✅ physical input + grab · **6 ✅ end-to-end test passed** · 7 robustness
+  (next)
+- **Spec §7 acceptance test PASSED on the user's real keyboard
+  (2026-10-13)**: physical X (event7 '2.4G Dongle') → `y` typed, original
+  `x` suppressed; evtest on "InpMap Virtual Gamepad" (bus 0x3 vendor 0x1
+  product 0x2) showed BTN_SOUTH 1/0 with SYN_REPORTs; releases paired.
+- Fixed after the test: evtest showed `EV_FF` on the virtual gamepad
+  (python-evdev default max_effects=96). Kernel blocks a game's rumble upload
+  up to 30 s waiting for the uinput owner (uinput.c,
+  `wait_for_completion_timeout(..., 30 * HZ)`), so all virtual and
+  forwarding devices now use `max_effects=0`; hardware test asserts no EV_FF.
 - Step 5 done (code + tests): `src/inpmap/input.py` (InputSource/
   InputBackend protocols, InputError, InputDeviceLost),
   `src/inpmap/runtime.py` (Runtime: outputs → open inputs → wait for
@@ -78,18 +86,18 @@ Last updated: 2026-10-13
         NOT grabbed by anyone (EVIOCGRAB test), Steam not running; only
         `systemsettings` had it open. Runtime path X→BTN_SOUTH is covered by
         the passing hardware E2E test. Likely evtest was attached to another
-        device (or started before the gamepad existed). ⏳ Retest asked: start
-        `run` first, then `evtest`, check header "Input device name: InpMap
-        Virtual Gamepad"; alternatively watch KDE System Settings → Game
-        Controller.
-   - ⏳ `inpmap run config/local.json --timeout 30` with `evtest` on the virtual
-     gamepad; expected: pressing X types `y`, gamepad shows BTN_SOUTH 1/0,
-     no `x` appears, other keys work normally, everything released after
-     timeout/Ctrl+C.
-   - Record actual results here.
-2. Step 7 – robustness: SYN_DROPPED resync, hotplug/reconnect, LED
+        device (or started before the gamepad existed). ✅ Retest (run first,
+        then evtest on event26 "InpMap Virtual Gamepad") showed BTN_SOUTH
+        correctly — confirmed.
+   - ✅ Acceptance test passed (see Current position).
+2. Decide whether a "tap" output mode is needed before V1.1 (user's idea).
+3. Step 7 – robustness: SYN_DROPPED resync, hotplug/reconnect, LED
    forwarding to the physical keyboard, startup diagnostics.
-3. Later: macro spec (V1.1), systemd service.
+4. Remaining V1 definition-of-done items (spec §13): README installation +
+   test procedure for a clean machine incl. narrowly scoped uinput/input
+   permission setup (udev rule) — partly done; systemd readiness is by design
+   (Runtime separate from CLI, signal handling) but no unit file yet.
+5. Later: macro spec (V1.1, incl. tap/hold modes), systemd service (step 9).
 - Also known on this machine: the user's controller is a Razer Raiju V3 Pro
   (`Generic X-Box pad`, event11; it also exposes Keyboard/Mouse/Touchpad
   interfaces).
@@ -149,8 +157,11 @@ Last updated: 2026-10-13
   (ENODEV) — test cleanup ordering with stubs/fakes instead.
 - udev classification of both virtual devices verified (see 3d); user saw
   virtual gamepad BTN_SOUTH in evtest and virtual KEY_Y in KDE (3e).
-- Not yet verified: grab of the user's **real** keyboard and suppression of
-  the original X (step 5/6 test), SDL/KDE game controller recognition, Steam.
+- Real keyboard (user, 2026-10-13): grab, suppression of X, KEY_Y output,
+  BTN_SOUTH output, passthrough of other keys all confirmed.
+- Not yet verified: SDL/KDE game controller recognition (systemsettings had
+  the virtual gamepad open, result not reported), Steam, behaviour of the
+  remapper on device unplug with real hardware.
 
 ## Uncommitted work
 
@@ -175,5 +186,8 @@ Last updated: 2026-10-13
   User's evtest check passed (3e) → step 3 complete. Step 4 (engine, ref
   counts, 22 new tests) complete. User chose passthrough option 1. Step 5
   implemented (runtime, Linux input backend, forwarding, `devices`/`run`
-  CLI) and verified with a synthetic keyboard; real-keyboard test handed to
-  the user.
+  CLI) and verified with a synthetic keyboard. User identified event7,
+  `config/local.json` created; first real run: hold → KDE repeat explained,
+  missing BTN_SOUTH turned out to be evtest on the wrong device; retest
+  passed → **spec §7 acceptance test passed**. Removed EV_FF from all
+  virtual devices (30 s rumble block risk).

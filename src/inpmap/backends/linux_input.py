@@ -11,6 +11,7 @@ Notes:
   would generate a second, synthetic key repeat on top of forwarded repeats.
 * Keyboard LED state set by the desktop goes to the forwarding device, not
   to the grabbed physical keyboard (known limitation).
+* Force feedback (rumble) is not passed through; forwarders have no EV_FF.
 * Our own virtual devices (phys starting with "inpmap") are never opened as
   inputs, which prevents feedback loops.
 """
@@ -283,6 +284,9 @@ class LinuxInputBackend:
                 version=info.version,
                 bustype=info.bustype,
                 phys=FORWARD_PHYS,
+                # Rumble is not passed through; with effects enabled, games
+                # would block up to 30 s on unanswered uploads (see linux.py).
+                max_effects=0,
             )
         except (UInputError, OSError) as exc:
             raise InputError(

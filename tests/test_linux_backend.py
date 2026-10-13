@@ -118,6 +118,8 @@ def test_devices_are_created_with_expected_identity_and_capabilities():
             try:
                 assert node.name == CONFIG.outputs[device_id].name
                 caps = node.capabilities()
+                # Unanswered rumble uploads would block games (see linux.py).
+                assert ecodes.EV_FF not in caps
                 if device_id == "keyboard":
                     assert ecodes.KEY_Y in caps[ecodes.EV_KEY]
                     assert ecodes.EV_ABS not in caps

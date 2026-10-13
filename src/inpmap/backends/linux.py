@@ -14,6 +14,12 @@ details in docs/STATUS.md):
   for SDL's non-udev detection path (e.g. inside containers); a complete
   standard layout lets SDL generate a gamepad mapping automatically. Axes
   stay at rest; V1 never moves them.
+
+NO_FORCE_FEEDBACK: python-evdev enables EV_FF by default (max_effects=96).
+The kernel then forwards a game's rumble upload to us and blocks the game for
+up to 30 s waiting for an answer (uinput.c: wait_for_completion_timeout
+30 * HZ). We do not implement force feedback, so every device is created
+with max_effects=0, which leaves EV_FF disabled.
 """
 
 from __future__ import annotations
@@ -135,6 +141,7 @@ class LinuxOutputBackend:
                 bustype=BUSTYPE,
                 devnode=self.devnode,
                 phys=PHYS,
+                max_effects=0,  # no EV_FF; see NO_FORCE_FEEDBACK
             )
         except (UInputError, OSError) as exc:
             raise OutputError(
