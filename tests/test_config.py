@@ -43,6 +43,11 @@ def problems_of(data):
 # -- valid configurations ------------------------------------------------
 
 
+@pytest.mark.parametrize("name", ["example.json", "example-macros.json"])
+def test_all_example_configs_are_valid(name):
+    load_config(EXAMPLE.parent / name)
+
+
 def test_example_config_is_valid():
     config = load_config(EXAMPLE)
     assert config.version == 1

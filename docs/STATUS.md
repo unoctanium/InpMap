@@ -203,8 +203,17 @@ Last updated: 2026-10-13
         synthetic keyboard: X → macro taps KEY_A on keyboard + BTN_EAST on
         gamepad; W → ABS_Y ramps monotonically to −32768 and back to 0).
         Hardware suite 9/9 passed.
-      - next: G README + example config (`config/example-macros.json`),
-        then user test on the real keyboard.
+      - ✅ G (2026-10-13): README sections "Gamepad axes" and "Macros"
+        (+ status row, macro-trace usage, not-yet-supported list);
+        `config/example-macros.json` (tested as valid);
+        `inpmap check` summary lists axes, macros and variables.
+        `config/local-macros.json` (git-ignored) = example with the user's
+        keyboard path.
+      - ⏳ **User test on the real keyboard** with
+        `inpmap run config/local-macros.json --timeout 60`: F9 combo (q +
+        gamepad B), F10 tap/double/long → 1/2/3, F11 autofire gamepad A while
+        held, F12 left stick up (evtest), CapsLock alone → Esc / with another
+        key → Ctrl; X → y + gamepad A as before. Record results here.
    License note: Input Remapper is GPL-3.0; we implement independently and
    do not copy code.
 6. After macros: systemd service (step 9; runtime already separate from CLI
@@ -258,8 +267,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 288 passed, 9 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after macro step F. Hardware: 9 passed.
+- Unit tests: 290 passed, 9 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after macro step G. Hardware: 9 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and
@@ -282,7 +291,7 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- None pending.
+- Result of the real-keyboard macro test (see V1.1 item G).
 
 ## Session log
 

@@ -15,6 +15,7 @@ and a gamepad button). See `project_spec.md` for goals and roadmap.
 | Physical input, grab, passthrough, `inpmap run`, `inpmap devices` | implemented, verified on a real keyboard (spec §7 acceptance test passed) |
 | Reconnect after device loss, `SYN_DROPPED` resync, LED mirroring | implemented, tested with synthetic devices |
 | `inpmap udev-rules` (permission setup) | implemented; rules syntax-checked with `udevadm verify`, installation not yet tested |
+| Macros (V1.1), gamepad axis outputs, `inpmap macro-trace` | implemented, unit-tested and hardware-tested with synthetic devices; real-keyboard test pending |
 
 ## Installation (clean machine)
 
@@ -80,6 +81,8 @@ $EDITOR config/local.json
 .venv/bin/inpmap udev-rules config/local.json                # print permission rules (see Device permissions)
 .venv/bin/inpmap check config/example.json
 .venv/bin/inpmap run config/local.json --timeout 30          # remap; stops after 30 s, or Ctrl+C
+.venv/bin/inpmap macro-trace config/example-macros.json tap-double-long --press-at 0 --press-at 150 --hold-ms 50
+                                                             # simulate a mapping, print its timeline (no devices)
 .venv/bin/inpmap test-outputs config/example.json            # create devices, press/release each output
 .venv/bin/inpmap test-outputs config/example.json --no-emit --delay 30   # only create, for inspection
 ```
@@ -237,6 +240,52 @@ from the `input` group.
     PlayStation); label mapping is convention-dependent.
   - `consume` defaults to `true`; `false` is rejected until passthrough is
     implemented.
+
+### Gamepad axes
+
+A mapping output can hold a gamepad stick or trigger while the input is held,
+optionally ramping in and out (e.g. W pushes the left stick up):
+
+```json
+{ "device": "gamepad", "type": "axis", "code": "ABS_Y", "value": -1.0, "attack_ms": 150, "release_ms": 50 }
+```
+
+Sticks `ABS_X`, `ABS_Y`, `ABS_RX`, `ABS_RY` take −1.0 … 1.0, triggers
+`ABS_Z`, `ABS_RZ` take 0.0 … 1.0. If several mappings hold the same axis, the
+most recent one wins; when it lets go, the previous one's value applies again.
+
+### Macros
+
+A mapping output can also be a macro: a list of steps that may press keys and
+buttons and move axes on **any** output device, wait, loop, branch and use
+variables. The full specification is `docs/macros.md`; a commented collection
+of examples is `config/example-macros.json`.
+
+```json
+{ "macro": { "device": "keyboard", "steps": [
+    { "tap": ["KEY_LEFTCTRL", "KEY_C"] },
+    { "wait_ms": { "min": 40, "max": 60 } },
+    { "tap": { "code": "BTN_EAST", "device": "gamepad" } } ] } }
+```
+
+| Steps | |
+|---|---|
+| keys | `tap` (list = chord), `press`, `release`, `hold_keys`, `with_keys` |
+| axes | `axis` (move/ramp), `hold_axis` (while the input is held) |
+| flow | `wait_ms`, `repeat`, `while_held`, `toggle`, `parallel` |
+| conditions | `if_tap` (tap / double tap / long press), `if_single` (alone vs. with another key), `if_eq` (variable), `if_led` (Caps/Num/Scroll Lock) |
+| variables | `set`, `add` (declared in top-level `variables`) |
+
+Per macro: `on_release` (`finish` or `cancel`), `on_retrigger` (`ignore` or
+`restart`), `release_steps`, `key_pause_ms` (default from
+`settings.key_pause_ms`, 10 ms), `max_run_ms` (default 1 minute).
+Everything a macro presses or moves is released or re-centred when it ends,
+is cancelled, loses its input device, or the remapper stops. Try macros
+safely with `inpmap macro-trace` before running them.
+
+Not supported yet: mouse movement, dual-role keys that hold back other keys
+(`mod_tap`), conditions on other held inputs, named reusable macros,
+Gaussian "humanizer" delays, layout-aware text typing.
 
 Validation rejects unknown keys, unknown device references, unknown or
 mismatched codes, duplicate ids, the same input in two mappings, and devices not

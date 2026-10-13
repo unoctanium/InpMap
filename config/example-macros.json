@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "settings": { "key_pause_ms": 10 },
+  "variables": { "presses": 0 },
+  "inputs": {
+    "physical-keyboard": { "name": "AT Translated Set 2 keyboard" }
+  },
+  "outputs": {
+    "keyboard": { "type": "keyboard", "name": "InpMap Virtual Keyboard" },
+    "gamepad": { "type": "gamepad", "name": "InpMap Virtual Gamepad" }
+  },
+  "mappings": [
+    {
+      "id": "x-to-y-and-gamepad-a",
+      "description": "Plain outputs: X holds KEY_Y and the gamepad's south button",
+      "input": { "device": "physical-keyboard", "type": "key", "code": "KEY_X" },
+      "outputs": [
+        { "device": "keyboard", "type": "key", "code": "KEY_Y" },
+        { "device": "gamepad", "type": "button", "code": "BTN_SOUTH" }
+      ]
+    },
+    {
+      "id": "combo-keyboard-and-gamepad",
+      "description": "F9: tap Q, wait 40-60 ms, tap the gamepad's east button",
+      "input": { "device": "physical-keyboard", "type": "key", "code": "KEY_F9" },
+      "outputs": [
+        { "macro": { "steps": [
+          { "tap": { "code": "KEY_Q", "device": "keyboard" } },
+          { "wait_ms": { "min": 40, "max": 60 } },
+          { "tap": { "code": "BTN_EAST", "device": "gamepad" } },
+          { "add": { "var": "presses", "value": 1 } }
+        ] } }
+      ]
+    },
+    {
+      "id": "tap-double-long",
+      "description": "F10: tap types 1, double tap types 2, long press types 3",
+      "input": { "device": "physical-keyboard", "type": "key", "code": "KEY_F10" },
+      "outputs": [
+        { "macro": { "device": "keyboard", "steps": [
+          { "if_tap": {
+            "then": [ { "if_tap": {
+              "then": [ { "tap": "KEY_2" } ],
+              "else": [ { "tap": "KEY_1" } ] } } ],
+            "else": [ { "tap": "KEY_3" } ] } }
+        ] } }
+      ]
+    },
+    {
+      "id": "autofire",
+      "description": "F11: fire the gamepad's south button while held, stop at once on release",
+      "input": { "device": "physical-keyboard", "type": "key", "code": "KEY_F11" },
+      "outputs": [
+        { "macro": { "device": "gamepad", "on_release": "cancel", "steps": [
+          { "while_held": [ { "tap": "BTN_SOUTH", "pause_ms": 30 } ] }
+        ] } }
+      ]
+    },
+    {
+      "id": "stick-up",
+      "description": "F12: push the left stick up within 150 ms, return within 50 ms",
+      "input": { "device": "physical-keyboard", "type": "key", "code": "KEY_F12" },
+      "outputs": [
+        { "device": "gamepad", "type": "axis", "code": "ABS_Y", "value": -1.0,
+          "attack_ms": 150, "release_ms": 50 }
+      ]
+    },
+    {
+      "id": "capslock-escape-or-ctrl",
+      "description": "Caps Lock alone is Escape; held together with another key it is Ctrl",
+      "input": { "device": "physical-keyboard", "type": "key", "code": "KEY_CAPSLOCK" },
+      "outputs": [
+        { "macro": { "device": "keyboard", "steps": [
+          { "if_single": {
+            "then": [ { "tap": "KEY_ESC" } ],
+            "else": [ { "hold_keys": "KEY_LEFTCTRL" } ] } }
+        ] } }
+      ]
+    }
+  ]
+}

@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from . import __version__, codes
 from .config import ConfigError, load_config
 from .input import InputError
-from .macros import Led
+from .macros import AXIS_NAMES, Led
 from .models import Config, OutputMode
 from .output import OutputError, OutputManager
 from .runtime import CleanupError, Runtime
@@ -354,13 +354,21 @@ def describe_config(config: Config) -> str:
         lines.append(f"  {out.id}: {out.kind.value} '{out.name}'")
     lines.append("mappings:")
     for rule in config.mappings:
-        targets = ", ".join(
+        targets = [
             f"{action.device} {codes.code_name(action.code)}"
             + (f" ({action.mode.value})" if action.mode is not OutputMode.HOLD else "")
             for action in rule.outputs
-        )
+        ]
+        targets += [f"{axis.device} {AXIS_NAMES[axis.code]} {axis.value:+g}" for axis in rule.axes]
+        targets += [
+            f"macro ({len(macro.steps)} step{'s' if len(macro.steps) != 1 else ''})"
+            for macro in rule.macros
+        ]
         trigger = f"{rule.trigger.device} {codes.code_name(rule.trigger.code)}"
-        lines.append(f"  {rule.id}: {trigger} -> {targets}")
+        lines.append(f"  {rule.id}: {trigger} -> {', '.join(targets)}")
+    if config.variables:
+        lines.append("variables:")
+        lines += [f"  {name} = {value!r}" for name, value in config.variables.items()]
     return "\n".join(lines)
 
 
