@@ -15,9 +15,14 @@ for the user; keyd/xremap/kanata apply a mapping to every device the
 config covers; Input Remapper groups all event nodes of one physical
 device by bus/vendor/product/uniq/phys-prefix).
 
-1. 🔧 **Emergency stop** (keyd-like): Backspace + Escape + Enter held
-   together on configured inputs stops InpMap (cleanup, exit 0 so the
-   service is not restarted). No language change.
+1. ✅ **Emergency stop** (keyd-like, 2026-10-14): Backspace + Escape + Enter
+   held together on grabbed inputs (any order, may be spread over devices;
+   counted whatever the config maps them to) → `StopReason.EMERGENCY`,
+   normal cleanup, exit 0 (service not restarted). `runtime.EMERGENCY_KEYS`;
+   held state per (device, code), dropped when a device is lost. Tests in
+   `tests/test_runtime.py` (fakes). Docs: usage.md (run behaviour,
+   troubleshooting), installation.md §6, README. Not yet tried on real
+   hardware (part of the user's service test).
 2. ⏳ **Language changes — spec text first, needs user approval** (CLAUDE.md §7):
    a. **Unprefixed triggers apply to every input** (user decision "1 b"):
       `map KEY_X` = mapped on every configured input that has KEY_X;
@@ -368,7 +373,7 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 414 passed, 10 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 417 passed, 10 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after the user service (JSON-file tests were
   dropped earlier). Hardware: 10 passed (S3), not re-run since.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the

@@ -61,7 +61,8 @@ InpMap was started for needs it covers less well:
 - `inpmap macro-trace` shows the exact timeline of a mapping without
   touching any device.
 - Runs in the foreground or as a systemd user service that starts at
-  login.
+  login. Holding Backspace + Escape + Enter always stops it (emergency
+  stop).
 
 Not yet: mouse output, a GUI, Windows, a system-wide service.
 

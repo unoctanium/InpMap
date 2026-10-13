@@ -303,6 +303,47 @@ def test_wait_for_inputs_logs_a_changed_reason_again(h, caplog):
     ]
 
 
+KEY_BACKSPACE, KEY_ESC, KEY_ENTER = c("KEY_BACKSPACE"), c("KEY_ESC"), c("KEY_ENTER")
+
+
+def test_emergency_stop_by_backspace_escape_enter(h):
+    h.inputs.stop = None  # only the emergency keys can end this run
+    h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 1), SYN]))  # X held: outputs active
+    h.step(lambda: h.kbd.queue.extend([key_raw(KEY_ESC, 1), key_raw(KEY_BACKSPACE, 1), SYN]))
+    h.step(lambda: h.kbd.queue.extend([key_raw(KEY_ENTER, 1), SYN]))
+    h.step(lambda: pytest.fail("the runtime should have stopped"))
+    assert h.run() is StopReason.EMERGENCY
+    assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]  # released on the way out
+    h.assert_all_cleaned_up()
+
+
+def test_emergency_keys_must_be_held_together(h):
+    for code in (KEY_BACKSPACE, KEY_ESC):
+        h.step(lambda code=code: h.kbd.queue.extend([key_raw(code, 1), key_raw(code, 0), SYN]))
+    h.step(lambda: h.kbd.queue.extend([key_raw(KEY_ENTER, 1), SYN]))
+    assert h.run() is StopReason.STOPPED  # ended by the script, not by the keys
+
+
+def test_emergency_keys_count_across_devices_and_reset_on_loss(h):
+    h.inputs.replacements["kbd"] = []
+
+    def unplug_with_escape_held():
+        h.kbd.queue.extend([key_raw(KEY_ESC, 1), SYN])
+        h.kbd.lost = True
+        h.inputs.open_error["kbd"] = InputError("not found")
+
+    h.step(lambda: h.pad.queue.extend([key_raw(KEY_BACKSPACE, 1), key_raw(KEY_ENTER, 1), SYN]))
+    h.step(unplug_with_escape_held)
+    h.idle()
+    assert h.run() is StopReason.STOPPED  # Escape vanished with its device
+
+    h2 = Harness()
+    h2.inputs.stop = None
+    h2.step(lambda: h2.pad.queue.extend([key_raw(KEY_BACKSPACE, 1), key_raw(KEY_ENTER, 1), SYN]))
+    h2.step(lambda: h2.kbd.queue.extend([key_raw(KEY_ESC, 1), SYN]))
+    assert h2.run() is StopReason.EMERGENCY
+
+
 def test_grab_failure_releases_earlier_grab(h):
     h.pad.grab_error = InputError("busy")
     with pytest.raises(InputError, match="busy"):

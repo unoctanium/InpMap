@@ -135,12 +135,19 @@ Runs the remapper in the foreground:
 3. opens the configured input devices and checks that each has the keys and
    buttons mapped for it;
 4. waits until no key is held on a device, then grabs it;
-5. remaps until Ctrl+C, `SIGTERM`, `SIGHUP` (terminal closed) or the
-   `--timeout`;
+5. remaps until Ctrl+C, `SIGTERM`, `SIGHUP` (terminal closed), the
+   `--timeout` or the emergency stop (below);
 6. releases everything, ungrabs and removes the virtual devices.
 
 Behaviour while running:
 
+- **Emergency stop**: hold **Backspace, Escape and Enter** at the same time
+  (in any order) on a remapped device, and InpMap stops at once, releases
+  everything and gives the devices back to the desktop. Use it when a
+  configuration makes the keyboard unusable. It always works, whatever the
+  configuration maps these keys to; the keys also reach the focused
+  application as usual. A stopped service stays stopped until you start it
+  again or log in again.
 - **Device lost** (unplugged, wireless sleep): its held outputs are released
   at once; other devices keep working; InpMap checks every second and
   grabs the device again when it is back. A device missing at **startup**
@@ -270,4 +277,5 @@ installed; see
 | a key types the wrong character | codes are key positions: `KEY_Y` types `z` on a German layout |
 | holding a mapped key types `yyyy` | that is the desktop's key repeat for a held key; use `tap` for a single press |
 | a game ignores very short taps | increase the key pause (`settings { key_pause = 30ms }`) |
+| the keyboard is unusable because of a mapping | hold Backspace + Escape + Enter together: InpMap stops (emergency stop) |
 | more detail needed | run with `inpmap -v run …` for debug logging |

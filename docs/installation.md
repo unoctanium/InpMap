@@ -143,6 +143,9 @@ your configuration file into the unit. Run it again if you move either.
   problem with its line number. Other failures (e.g. device permissions
   not ready right after login) are retried every 3 seconds, at most 5 times
   per minute.
+- If a configuration makes your keyboard unusable, hold **Backspace,
+  Escape and Enter** together: InpMap stops at once (emergency stop) and is
+  not restarted until you start it again or log in again.
 - While the service runs, it holds your devices: stop it before running
   `inpmap run` by hand, otherwise that reports "already grabbed by another
   program".

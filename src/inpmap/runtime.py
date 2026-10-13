@@ -19,6 +19,10 @@ starts in the absent state instead, so a gamepad that is switched off at
 login does not stop the remapper; why it is absent is logged. Cleanup
 on every exit path: release engine outputs, ungrab and close inputs
 (releasing forwarded keys), destroy the virtual devices.
+
+Emergency stop: holding Backspace, Escape and Enter together on the grabbed
+inputs stops the runtime like a signal does. It is the way out when a
+configuration makes the keyboard unusable while InpMap runs as a service.
 """
 
 from __future__ import annotations
@@ -30,11 +34,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
+from . import codes
 from .config import Config
 from .engine import MappingEngine
 from .input import InputBackend, InputDeviceLost, InputError, InputSource
 from .macros import Led
-from .models import InputDeviceSpec
+from .models import InputDeviceSpec, KeyAction
 from .output import OutputBackend, OutputError, OutputManager
 
 log = logging.getLogger(__name__)
@@ -43,6 +48,12 @@ log = logging.getLogger(__name__)
 class StopReason(Enum):
     STOPPED = "stopped"  # stop was requested (signal)
     TIMEOUT = "timeout"  # the configured run time elapsed
+    EMERGENCY = "emergency stop: Backspace+Escape+Enter"
+
+
+EMERGENCY_KEYS = frozenset(
+    codes.code_from_name(n) for n in ("KEY_BACKSPACE", "KEY_ESC", "KEY_ENTER")
+)
 
 
 class StopFlag(Protocol):
@@ -90,6 +101,8 @@ class Runtime:
         self._slots: list[_Slot] = []
         self._engine: MappingEngine | None = None
         self._all_grabbed_announced = False
+        # (device id, code) of emergency keys currently held on grabbed inputs
+        self._emergency_held: set[tuple[str, int]] = set()
 
     def run(self, stop: StopFlag, timeout: float | None = None) -> StopReason:
         """Run until ``stop`` is set or ``timeout`` seconds have passed.
@@ -226,6 +239,20 @@ class Runtime:
             consumed = event is not None and self._engine.handle(event)
             if not consumed:
                 slot.source.forward(raw)
+            if event is not None and event.code in EMERGENCY_KEYS:
+                self._track_emergency_key(slot.spec.id, event.code, event.action)
+                if self._emergency_requested():
+                    log.warning("emergency stop requested (Backspace+Escape+Enter held)")
+                    return
+
+    def _track_emergency_key(self, device_id: str, code: int, action: KeyAction) -> None:
+        if action is KeyAction.PRESS:
+            self._emergency_held.add((device_id, code))
+        elif action is KeyAction.RELEASE:
+            self._emergency_held.discard((device_id, code))
+
+    def _emergency_requested(self) -> bool:
+        return {code for _, code in self._emergency_held} >= EMERGENCY_KEYS
 
     def _lose(self, slot: _Slot) -> None:
         assert self._engine is not None and slot.source is not None
@@ -234,6 +261,7 @@ class Runtime:
             slot.source.description,
         )
         self._engine.release_device(slot.spec.id)
+        self._emergency_held = {k for k in self._emergency_held if k[0] != slot.spec.id}
         try:
             slot.source.close()
         except InputError as exc:
@@ -245,6 +273,8 @@ class Runtime:
         self._all_grabbed_announced = False
 
     def _should_stop(self, stop: StopFlag, deadline: float | None) -> StopReason | None:
+        if self._emergency_requested():
+            return StopReason.EMERGENCY
         if stop.is_set():
             return StopReason.STOPPED
         if deadline is not None and self._clock() >= deadline:
