@@ -861,11 +861,19 @@ key: it prints e.g. `code 45 (KEY_X)`. Some frequently used ones:
 | Editing | `KEY_ENTER`, `KEY_ESC`, `KEY_BACKSPACE`, `KEY_TAB`, `KEY_SPACE`, `KEY_DELETE`, `KEY_INSERT` |
 | Navigation | `KEY_UP`, `KEY_DOWN`, `KEY_LEFT`, `KEY_RIGHT`, `KEY_HOME`, `KEY_END`, `KEY_PAGEUP`, `KEY_PAGEDOWN` |
 | Locks | `KEY_CAPSLOCK`, `KEY_NUMLOCK`, `KEY_SCROLLLOCK` |
+| Numpad | `KEY_KP0` … `KEY_KP9`, `KEY_KPDOT`, `KEY_KPENTER`, `KEY_KPPLUS`, `KEY_KPMINUS`, `KEY_KPASTERISK`, `KEY_KPSLASH`, `KEY_KPEQUAL`, `KEY_KPCOMMA` |
+| Other | `KEY_SYSRQ` (Print Screen), `KEY_PAUSE`, `KEY_COMPOSE` (menu key), `KEY_F13` … `KEY_F24` (no physical key on most keyboards; useful as distinct keys for games) |
 | Punctuation (US positions) | `KEY_MINUS`, `KEY_EQUAL`, `KEY_LEFTBRACE`, `KEY_RIGHTBRACE`, `KEY_SEMICOLON`, `KEY_APOSTROPHE`, `KEY_GRAVE`, `KEY_BACKSLASH`, `KEY_COMMA`, `KEY_DOT`, `KEY_SLASH` |
 | Media | `KEY_MUTE`, `KEY_VOLUMEUP`, `KEY_VOLUMEDOWN`, `KEY_PLAYPAUSE`, `KEY_NEXTSONG`, `KEY_PREVIOUSSONG` |
 
 Remember that these are positions: `KEY_LEFTBRACE` is the key right of P,
 which is `[` on a US layout and `ü` on a German one.
+
+Numpad keys are separate codes from the digit row: `KEY_KP1` is the 1 on
+the numpad, `KEY_1` the 1 above the letters, and games that tell them apart
+(flight simulators, for example) see different keys. What a numpad key
+types in a text field depends on the Num Lock state, as on a real
+keyboard.
 
 ### 12.2 Gamepad buttons and axes
 

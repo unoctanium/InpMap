@@ -77,8 +77,9 @@ device by bus/vendor/product/uniq/phys-prefix).
 - `inpmap codes [FILTER]`: list valid key/button names.
 - Analog triggers and sticks as buttons (threshold, like Input
   Remapper's `analog_threshold`; e.g. Razer L2/R2 are analog).
-- Layout-aware output by character (Input Remapper resolves symbol names
-  through the keyboard layout).
+- ~~Layout-aware output by character~~ — not wanted: the user prefers key
+  codes (2026-10-14; e.g. numpad keys `KEY_KP*` for DCS World / flight
+  simulators, which work already and are now listed in the reference).
 - Mouse output; gamepad as mouse (sensitivity, deadzone, expo).
 - Mappings per application (xremap, keyd application mapper).
 - Layers / modes (keyd layers, xremap `set_mode`).
