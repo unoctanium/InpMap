@@ -17,7 +17,7 @@ button). See `project_spec.md` for goals and roadmap.
 | Reconnect after device loss, `SYN_DROPPED` resync, LED mirroring | implemented, tested with synthetic devices |
 | `inpmap udev-rules` (permission setup) | implemented; rules syntax-checked with `udevadm verify`, installation not yet tested |
 | Macros (V1.1), gamepad axis outputs, `inpmap macro-trace` | implemented, verified on a real keyboard |
-| Configuration language (`.inpmap`), modifiers, editor syntax files | implemented, unit-tested, hardware-tested with synthetic devices; real-keyboard test pending |
+| Configuration language (`.inpmap`), modifiers, editor syntax files | implemented, verified on a real keyboard and gamepad (nano syntax file untested) |
 
 ## Installation (clean machine)
 

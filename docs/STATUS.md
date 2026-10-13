@@ -346,7 +346,10 @@ Last updated: 2026-10-13
   ✅ macro-trace `--modifiers NAMES|none` (default: the mapping's own
   requirement) and shows when modifiers are hidden/restored; previews of
   case 1 and 2 match the user's description.
-  **DSL implementation complete.** Next: (a) user's real-keyboard test of
+  ✅ **User's real-device test passed (2026-10-13, "all works")**: all mappings of
+  `config/local.inpmap` incl. case 1 (KDE saw a plain Enter; Ctrl restored afterwards),
+  case 2 on the Razer pad, Shift+X passthrough.
+  **DSL implementation complete.** Next: (a) [done] user's real-keyboard test of
   `config/local.inpmap` (case 1 bracket_combo: KDE must see a plain Enter;
   case 2 alternate on the Razer pad; modifiers); (b) user decides whether
   to drop JSON completely (then remove JSON loading/docs, update
