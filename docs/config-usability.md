@@ -266,3 +266,50 @@ Open decisions:
 3. If JSON stays a user format: JSONC comments as well?
 4. Naming style in KDL: kebab-case (`key-pause-ms`, KDL convention) vs.
    today's snake_case.
+
+## Parser check (2026-10-13, second round)
+
+- **kdl-py (github.com/tabatkins/kdlpy, = PyPI `kdl-py`)**: main branch is
+  KDL 2.0.0 compliant since 2025-01-18 (commit "The upgrade to kdl v2 is
+  done."), last commit 2025-02-19. **Not released**: `semver.txt` on main
+  still says 1.2.0, the only tag is v1.2.0 ("Final planned KDL1 release …
+  with major version 2, we'll be on KDL2"), highest PyPI version is 1.2.0
+  (KDL 1). Pure Python, MIT. Syntax errors carry a location (via the
+  input stream); nodes carry **no** source positions.
+  Using it for KDL 2 means installing from a pinned git commit or vendoring
+  it (MIT allows copying with the license notice).
+- **ckdl 1.0** (PyPI, released 2024-12, wheels rebuilt 2025-11): KDL 2 and
+  1, C backend, wheels for CPython 3.6–3.14 (Linux x86_64/aarch64/i686 incl.
+  musl, Windows, macOS), sdist; API `ckdl.parse(text, version=...)` —
+  default `version=1`, must pass 2. Documented `Node` attributes have **no**
+  source positions; whether `ParseError` includes line/column is not
+  documented (to test).
+- Neither library gives node positions, so semantic errors are reported by
+  path (`mapping 'combo' > macro > step 2 (tap)`), like JSON paths today.
+
+## Replacing JSON completely by KDL (analysis)
+
+Advantages:
+- one format: one loader, one set of docs and examples, no conversion, no
+  question "which format?", no naming bridge;
+- comments everywhere, compact syntax; Kate highlights `*.kdl`;
+- the validator keeps working unchanged: KDL is translated to the same
+  internal data shape, and unit tests that build configs as Python dicts
+  stay as they are.
+
+Disadvantages:
+- loading a configuration requires a third-party parser (today: stdlib
+  `json` only) — installation gets a dependency (ckdl: compiled wheels;
+  kdl-py: unreleased code, pinned or vendored);
+- tooling is smaller than JSON's (no `jq`, JSON Schema editors, every
+  language's stdlib); scripts or a future GUI must read/write KDL through a
+  library; comments in hand-written files are lost when a tool rewrites
+  them (same as JSON, which has no comments at all);
+- less widely known than JSON;
+- spec and CLAUDE.md say "JSON is the required format" → both must be
+  updated (user has approved changing the spec);
+- the existing JSON example/local configs need converting (small).
+
+Cost of keeping JSON as a secondary format: very low, because the
+internal data shape *is* JSON-shaped; only the file loader and a
+`convert` command would remain.
