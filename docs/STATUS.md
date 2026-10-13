@@ -66,6 +66,22 @@ Last updated: 2026-10-13
    - ✅ `config/local.json` (git-ignored, exists only on the dev machine)
      created with that `path` and the example mapping; `inpmap check` OK.
      Recreate it from `config/example.json` if missing.
+   - First real run (user, 2026-10-13): X typed `y` (mapping fired, X
+     suppressed). Findings:
+     1. Holding X gives `yyyy` in text fields: KDE's own autorepeat of a held
+        key (we hold KEY_Y; physical repeats are swallowed; virtual keyboard
+        has no EV_REP). Correct for "hold" semantics; games see one press.
+        User wondered about a "one y only" case → that is a different mode
+        ("tap": press+release on input press). Proposed for V1.1 macro work.
+     2. User saw no BTN_SOUTH in evtest and suggested BTN_A (same code 304,
+        alias, would change nothing). Diagnosis by Claude: virtual gamepad is
+        NOT grabbed by anyone (EVIOCGRAB test), Steam not running; only
+        `systemsettings` had it open. Runtime path X→BTN_SOUTH is covered by
+        the passing hardware E2E test. Likely evtest was attached to another
+        device (or started before the gamepad existed). ⏳ Retest asked: start
+        `run` first, then `evtest`, check header "Input device name: InpMap
+        Virtual Gamepad"; alternatively watch KDE System Settings → Game
+        Controller.
    - ⏳ `inpmap run config/local.json --timeout 30` with `evtest` on the virtual
      gamepad; expected: pressing X types `y`, gamepad shows BTN_SOUTH 1/0,
      no `x` appears, other keys work normally, everything released after
