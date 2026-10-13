@@ -60,15 +60,13 @@ Last updated: 2026-10-13
 ## Next steps (in order)
 
 1. **User's real-keyboard test** (spec §7 acceptance test):
-   - Identify which node of the user's wireless keyboard sends letter keys:
-     candidates from `inpmap devices` are `2.4G Dongle` (event7,
-     `/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd`) and
-     `2.4G Dongle Keyboard` (event8,
-     `/dev/input/by-id/usb-4348_2.4G_Dongle-if01-event-kbd`); user checks with
-     `evtest` which one reports `KEY_X` (code 45).
-   - Create git-ignored `config/local.json` from `config/example.json` with
-     that `path`.
-   - `inpmap run config/local.json --timeout 30` with `evtest` on the virtual
+   - ✅ User identified the letter-key node with evtest: **event7, '2.4G
+     Dongle'**, `/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd` (declares
+     KEY_X). (event8 '2.4G Dongle Keyboard' is the other interface.)
+   - ✅ `config/local.json` (git-ignored, exists only on the dev machine)
+     created with that `path` and the example mapping; `inpmap check` OK.
+     Recreate it from `config/example.json` if missing.
+   - ⏳ `inpmap run config/local.json --timeout 30` with `evtest` on the virtual
      gamepad; expected: pressing X types `y`, gamepad shows BTN_SOUTH 1/0,
      no `x` appears, other keys work normally, everything released after
      timeout/Ctrl+C.
