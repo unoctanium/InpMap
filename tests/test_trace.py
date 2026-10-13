@@ -114,26 +114,12 @@ def test_format():
 
 
 def test_cli(tmp_path: Path, capsys):
-    import json
-
-    path = tmp_path / "c.json"
+    path = tmp_path / "c.inpmap"
     path.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "inputs": {"kbd": {"name": "Demo"}},
-                "outputs": {"keyboard": {"type": "keyboard"}},
-                "mappings": [
-                    {
-                        "id": "m",
-                        "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
-                        "outputs": [{"macro": {"device": "keyboard", "steps": [{"tap": "KEY_A"}]}}],
-                    }
-                ],
-            }
-        )
+        'version 1\ninput kbd { name = "Demo" }\noutput keyboard { type = keyboard }\n'
+        "map KEY_X { tap KEY_A }\n"
     )
-    assert main(["macro-trace", str(path), "m", "--hold-ms", "50"]) == EXIT_OK
+    assert main(["macro-trace", str(path), "KEY_X", "--hold-ms", "50"]) == EXIT_OK
     assert "keyboard   KEY_A            down" in capsys.readouterr().out
     assert main(["macro-trace", str(path), "x"]) == EXIT_USAGE
 

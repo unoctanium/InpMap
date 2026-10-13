@@ -1,22 +1,25 @@
-"""Load and validate the JSON configuration.
+"""Validate configuration data and convert it into the model.
+
+The configuration language compiler (:mod:`inpmap.dsl.compiler`) produces
+plain data (dicts and lists) that this module validates; it maps every
+problem back to the source line and column. Keeping this data layer means
+all validation rules live in one place, independent of the file syntax.
 
 Validation is strict: unknown keys, unknown device references, unknown or
 mismatched codes and duplicates are rejected before any device is touched.
 All problems are collected and reported together.
 
-Schema version policy: ``version`` is a required integer. Only versions in
-:data:`SUPPORTED_VERSIONS` are accepted. Incompatible format changes will bump
-the version; older versions are then either migrated explicitly or rejected
+Version policy: ``version`` is a required integer. Only versions in
+:data:`SUPPORTED_VERSIONS` are accepted. Incompatible changes will bump the
+version; older versions are then either migrated explicitly or rejected
 with a message naming the supported versions.
 """
 
 from __future__ import annotations
 
 import difflib
-import json
 import re
 from collections.abc import Iterable
-from pathlib import Path
 
 from . import codes
 from .config_macros import MacroParser, is_number, macro_devices, value_type
@@ -83,25 +86,6 @@ class ConfigError(Exception):
         lines = [f"{self.source}: invalid configuration"]
         lines += [f"  - {problem}" for problem in self.problems]
         return "\n".join(lines)
-
-
-def load_config(path: str | Path) -> Config:
-    """Read, parse and validate a configuration file."""
-    path = Path(path)
-    source = str(path)
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise ConfigError(source, [f"cannot read file: {exc.strerror or exc}"]) from exc
-    except UnicodeDecodeError as exc:
-        raise ConfigError(source, [f"file is not valid UTF-8: {exc}"]) from exc
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ConfigError(
-            source, [f"invalid JSON at line {exc.lineno}, column {exc.colno}: {exc.msg}"]
-        ) from exc
-    return parse_config(data, source=source)
 
 
 def parse_config(data: object, source: str = "<config>") -> Config:

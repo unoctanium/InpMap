@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "inpmap"
 dynamic = ["version"]
-description = "Configuration-driven input remapper (JSON rules, multiple virtual output devices)"
+description = "Configuration-driven input remapper (own configuration language, multiple virtual output devices)"
 readme = "README.md"
 # Baseline: 3.11 (PEP 604 unions, dataclasses, enum). Developed and tested on 3.14.
 requires-python = ">=3.11"

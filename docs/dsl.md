@@ -360,7 +360,7 @@ keys are reference-counted, shared axes use "most recent holder wins".
 
 ## 8. Translation into the model (coverage)
 
-| Model (`docs/macros.md`) | Language |
+| Internal model (`src/inpmap/macros.py`, `models.py`) | Language |
 |---|---|
 | inputs / outputs, `name` / `path` / `type` | `input` / `output` blocks |
 | `settings.key_pause_ms` | `settings { key_pause = … }` |
@@ -399,7 +399,7 @@ humanizer, layout-aware text typing, a Lua `script` statement.
 
 ## 11. Complete example
 
-The example configuration of `config/example-macros.json`, written in the
+The example configuration `config/example.inpmap` (formerly a JSON file), written in the
 language. Device prefixes are omitted where unambiguous (one keyboard, one
 gamepad).
 

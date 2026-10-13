@@ -1,7 +1,4 @@
 import copy
-import json
-import re
-from pathlib import Path
 
 import pytest
 
@@ -30,8 +27,6 @@ from inpmap.macros import (
     Wait,
     WhileHeld,
 )
-
-SPEC = Path(__file__).resolve().parent.parent / "docs" / "macros.md"
 
 BASE = {
     "version": 1,
@@ -406,14 +401,3 @@ def test_mapping_mixing_outputs_axes_and_macros():
         )
     ).mappings[1]
     assert (len(rule.outputs), len(rule.axes), len(rule.macros)) == (1, 1, 1)
-
-
-def spec_examples():
-    text = SPEC.read_text()
-    section = text.split("## 10. Examples", 1)[1]
-    return [json.loads(block) for block in re.findall(r"```json\n(.*?)```", section, re.S)]
-
-
-@pytest.mark.parametrize("example", spec_examples())
-def test_spec_examples_are_valid(example):
-    parse_config(config_with(example))

@@ -87,7 +87,7 @@ def test_device_rule_rejects_unsafe_names(name):
 
 
 def test_render_rules_contains_uinput_and_inputs_and_instructions():
-    text = render_rules(config_with({"name": "2.4G Dongle"}), [KBD], "config/local.json")
+    text = render_rules(config_with({"name": "2.4G Dongle"}), [KBD], "config/local.inpmap")
     assert UINPUT_RULE in text
     assert device_rule(KBD) in text
     assert "# Input 'kbd': 2.4G Dongle (currently event7)" in text

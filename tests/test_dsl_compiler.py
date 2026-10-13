@@ -2,9 +2,10 @@ import re
 from pathlib import Path
 
 import pytest
+from golden_example_traces import SCENARIOS, TIMELINES
 
 from inpmap.codes import code_from_name as c
-from inpmap.config import ConfigError, load_config
+from inpmap.config import ConfigError
 from inpmap.dsl.compiler import compile_text
 from inpmap.macros import (
     GAMEPAD_AXES,
@@ -71,30 +72,13 @@ def complete_example() -> str:
     return re.search(r"## 11\. Complete example.*?```\n(.*?)```", SPEC.read_text(), re.S).group(1)
 
 
-PAIRS = {
-    "x-to-y-and-gamepad-a": "KEY_X",
-    "combo-keyboard-and-gamepad": "combo",
-    "tap-double-long": "KEY_F10",
-    "autofire": "autofire",
-    "stick-up": "KEY_F12",
-    "capslock-escape-or-ctrl": "KEY_CAPSLOCK",
-}
-SCENARIOS = [
-    {"hold_ms": 50},
-    {"hold_ms": 500},
-    {"hold_ms": 40, "press_at": [0, 120]},
-    {"hold_ms": 300, "other_key_at": [100]},
-]
-
-
-@pytest.mark.parametrize("json_id, dsl_id", PAIRS.items())
-@pytest.mark.parametrize("scenario", SCENARIOS)
-def test_complete_example_behaves_like_the_json_example(json_id, dsl_id, scenario):
-    json_config = load_config(ROOT / "config" / "example-macros.json")
-    dsl_config = compile_text(complete_example(), "example.inpmap").config
-    expected = [(t.ms, t.text) for t in trace(json_config, json_id, seed=7, **scenario)]
-    actual = [(t.ms, t.text) for t in trace(dsl_config, dsl_id, seed=7, **scenario)]
-    assert actual == expected
+@pytest.mark.parametrize("mapping, scenario_index", sorted(TIMELINES))
+def test_complete_example_matches_reference_timelines(mapping, scenario_index):
+    """Behaviour of the example equals the former, verified JSON example."""
+    config = compile_text(complete_example(), "example.inpmap").config
+    scenario = SCENARIOS[scenario_index]
+    actual = [(t.ms, t.text) for t in trace(config, mapping, seed=7, **scenario)]
+    assert actual == TIMELINES[(mapping, scenario_index)]
 
 
 def test_more_examples_compile():

@@ -9,7 +9,7 @@ button). See `project_spec.md` for goals and roadmap.
 
 | Area | State |
 |---|---|
-| Configuration loading and validation (`.inpmap` and JSON) | implemented, unit-tested |
+| Configuration loading and validation (`.inpmap`) | implemented, unit-tested |
 | `inpmap check` CLI | implemented |
 | Virtual keyboard / gamepad (uinput), `inpmap test-outputs` | implemented, verified on hardware |
 | Mapping engine, reference-counted press/release state | implemented, unit-tested |
@@ -332,16 +332,8 @@ Gaussian "humanizer", layout-aware text typing.
 
 To remove: delete the copied file or the `include` line.
 
-### JSON (machine format)
-
-The same model can also be written as JSON (any file not ending in
-`.inpmap`), e.g. for tools or a future GUI: `config/example.json`,
-`config/example-macros.json`; the JSON structure of macros is described in
-`docs/macros.md`. The language is the recommended format for writing by
-hand.
-
-**Version policy:** `version` is required in both formats. Incompatible
-changes increase it; older versions are then migrated explicitly or
+**Version policy:** `version` is required. Incompatible changes increase
+it; older versions are then migrated explicitly or
 rejected with a clear message.
 
 ## Tests

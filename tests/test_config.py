@@ -1,14 +1,10 @@
 import copy
-import json
-from pathlib import Path
 
 import pytest
 
 from inpmap.codes import code_from_name
-from inpmap.config import ConfigError, load_config, parse_config
+from inpmap.config import ConfigError, parse_config
 from inpmap.models import OutputKind
-
-EXAMPLE = Path(__file__).resolve().parent.parent / "config" / "example.json"
 
 VALID = {
     "version": 1,
@@ -41,17 +37,6 @@ def problems_of(data):
 
 
 # -- valid configurations ------------------------------------------------
-
-
-@pytest.mark.parametrize("name", ["example.json", "example-macros.json"])
-def test_all_example_configs_are_valid(name):
-    load_config(EXAMPLE.parent / name)
-
-
-def test_example_config_is_valid():
-    config = load_config(EXAMPLE)
-    assert config.version == 1
-    assert [rule.id for rule in config.mappings] == ["keyboard-x-to-y-and-gamepad-a"]
 
 
 def test_valid_config_is_converted_to_models():
@@ -118,32 +103,16 @@ def test_gamepad_buttons_as_input():
     assert len(parse_config(data).mappings) == 2
 
 
-# -- file-level errors ---------------------------------------------------
+# -- error reporting ---------------------------------------------------
 
 
-def test_missing_file(tmp_path):
-    with pytest.raises(ConfigError, match="cannot read file"):
-        load_config(tmp_path / "missing.json")
-
-
-def test_invalid_json_reports_position(tmp_path):
-    path = tmp_path / "bad.json"
-    path.write_text('{"version": 1,\n  "inputs": }')
-    with pytest.raises(ConfigError) as info:
-        load_config(path)
-    assert str(path) in str(info.value)
-    assert "line 2" in str(info.value)
-
-
-def test_error_message_includes_source_path(tmp_path):
+def test_error_message_includes_source_and_mapping_id():
     data = valid()
     data["mappings"][0]["outputs"][0]["device"] = "nope"
-    path = tmp_path / "cfg.json"
-    path.write_text(json.dumps(data))
     with pytest.raises(ConfigError) as info:
-        load_config(path)
+        parse_config(data, source="my.inpmap")
     message = str(info.value)
-    assert message.startswith(f"{path}: invalid configuration")
+    assert message.startswith("my.inpmap: invalid configuration")
     assert "'x'" in message
 
 
