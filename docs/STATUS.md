@@ -102,8 +102,14 @@ Last updated: 2026-10-13
      `test_runtime_survives_unplug_and_reconnects` (synthetic keyboard
      destroyed while X held → KEY_Y and BTN_SOUTH released; recreated → X
      remaps again) passed 2026-10-13.
-   - 7b SYN_DROPPED: discard until next SYN_REPORT, then resync key state via
-     EVIOCGKEY and synthesize the differences (Linux backend).
+   - ✅ 7b SYN_DROPPED (`LinuxInputSource.read`): tracks key state seen in
+     the stream (`_down`, initialized from EVIOCGKEY at open); on
+     SYN_DROPPED ignores events up to and including the next SYN_REPORT,
+     then compares with `active_keys()` and synthesizes missed
+     releases/presses (+ SYN_REPORT) as normal events, so the engine and
+     the forwarder stay consistent. Only keys are resynced, not axes.
+     Stub-based tests in `tests/test_linux_input.py` (can't provoke a real
+     overflow reliably).
    - 7c LED feedback: read EV_LED written by the desktop to the forwarding
      device and apply it to the physical keyboard (Linux backend).
 3. Installation for other PCs: clean-machine guide, narrowly scoped udev
@@ -158,8 +164,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 139 passed, 5 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after step 7a. Hardware: 5 passed.
+- Unit tests: 143 passed, 5 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after step 7b. Hardware: 5 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

@@ -128,6 +128,15 @@ def list_input_devices() -> tuple[list[DeviceInfo], list[str]]:
     return devices, unreadable
 
 
+@dataclass(frozen=True)
+class _SyntheticEvent:
+    """Raw event made up during resynchronization (forwardable like evdev's)."""
+
+    type: int
+    code: int
+    value: int
+
+
 def _io_error(exc: OSError, description: str, action: str) -> InputError:
     if exc.errno == errno.ENODEV:
         return InputDeviceLost(f"{description} disappeared while {action}")
@@ -146,6 +155,16 @@ class LinuxInputSource:
         self._forwarder = forwarder
         self._grabbed = False
         self._forwarded_held: set[int] = set()
+        # Key state as seen in the event stream we consumed; used to
+        # resynchronize after SYN_DROPPED.
+        self._down: set[int] = set(self._query_keys_or_empty())
+        self._dropping = False
+
+    def _query_keys_or_empty(self) -> list[int]:
+        try:
+            return list(self._device.active_keys())
+        except OSError:
+            return []
 
     @property
     def spec(self) -> InputDeviceSpec:
@@ -185,16 +204,54 @@ class LinuxInputSource:
             raise _io_error(exc, self.description, "reading") from exc
         result: list[tuple[InputEvent | None, object]] = []
         for raw in raw_events:
-            if raw.type == ecodes.EV_KEY and raw.value in _KEY_ACTIONS:
+            if raw.type == ecodes.EV_SYN and raw.code == ecodes.SYN_DROPPED:
+                # Kernel buffer overflow: events were lost. Per the evdev
+                # protocol, ignore everything up to and including the next
+                # SYN_REPORT, then query the device state.
+                log.warning("events dropped by the kernel on %s; resynchronizing", self.description)
+                self._dropping = True
+            elif self._dropping:
+                if raw.type == ecodes.EV_SYN and raw.code == ecodes.SYN_REPORT:
+                    self._dropping = False
+                    result += self._resync()
+            elif raw.type == ecodes.EV_KEY and raw.value in _KEY_ACTIONS:
+                self._track(raw.code, raw.value)
                 event = InputEvent(self._spec.id, raw.code, _KEY_ACTIONS[raw.value])
                 result.append((event, raw))
-            elif raw.type == ecodes.EV_SYN and raw.code == ecodes.SYN_DROPPED:
-                # The kernel buffer overflowed; some events were lost. Full
-                # state resynchronization is future work (see STATUS).
-                log.warning("events dropped by the kernel on %s", self.description)
             else:
                 result.append((None, raw))
         return result
+
+    def _track(self, code: int, value: int) -> None:
+        if value == 1:
+            self._down.add(code)
+        elif value == 0:
+            self._down.discard(code)
+
+    def _resync(self) -> list[tuple[InputEvent | None, object]]:
+        """Synthesize key events for state changes hidden by dropped events.
+
+        Only key state is resynchronized; absolute axes of forwarded devices
+        are not (they are refreshed by the next movement).
+        """
+        try:
+            current = set(self._device.active_keys())
+        except OSError as exc:
+            raise _io_error(exc, self.description, "resynchronizing") from exc
+        result: list[tuple[InputEvent | None, object]] = []
+        for code in sorted(self._down - current):
+            result.append(self._synthetic_key(code, 0))
+        for code in sorted(current - self._down):
+            result.append(self._synthetic_key(code, 1))
+        if result:
+            result.append((None, _SyntheticEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0)))
+            log.info("resynchronized %d key(s) on %s", len(result) - 1, self.description)
+        return result
+
+    def _synthetic_key(self, code: int, value: int) -> tuple[InputEvent, object]:
+        self._track(code, value)
+        event = InputEvent(self._spec.id, code, _KEY_ACTIONS[value])
+        return event, _SyntheticEvent(ecodes.EV_KEY, code, value)
 
     def forward(self, raw: object) -> None:
         etype, code, value = raw.type, raw.code, raw.value  # type: ignore[attr-defined]

@@ -224,6 +224,13 @@ class StubDevice:
         self._events = list(events)
         self._read_error = read_error
         self._ungrab_error = ungrab_error
+        self.active = []  # what EVIOCGKEY would report
+
+    def active_keys(self):
+        return list(self.active)
+
+    def feed(self, *events):
+        self._events += events
 
     def read(self):
         if self._read_error:
@@ -273,7 +280,6 @@ def test_read_translates_key_events_and_keeps_others_raw():
         StubEvent(ecodes.EV_MSC, ecodes.MSC_SCAN, 0x7001B),
         StubEvent(ecodes.EV_KEY, ecodes.KEY_X, 1),
         StubEvent(ecodes.EV_KEY, ecodes.KEY_X, 2),
-        StubEvent(ecodes.EV_SYN, ecodes.SYN_DROPPED, 0),
         StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
     ]
     source, _, _ = make_source(events=events)
@@ -282,9 +288,78 @@ def test_read_translates_key_events_and_keeps_others_raw():
         None,
         InputEvent("kbd", ecodes.KEY_X, KeyAction.PRESS),
         InputEvent("kbd", ecodes.KEY_X, KeyAction.REPEAT),
-        None,  # SYN_REPORT; SYN_DROPPED is not passed on
+        None,
     ]
+    assert result[0][1] is events[0]  # raw events are passed on unchanged
     assert source.read() == []  # nothing pending
+
+
+def key_events(result):
+    return [(e.code, e.action.value) for e, _ in result if e is not None]
+
+
+def raw_triples(result):
+    return [(r.type, r.code, r.value) for _, r in result]
+
+
+def test_syn_dropped_synthesizes_missed_release():
+    source, device, _ = make_source()
+    device.feed(StubEvent(ecodes.EV_KEY, ecodes.KEY_X, 1), StubEvent(ecodes.EV_SYN, 0, 0))
+    source.read()
+    # The release of X was lost in the overflow; X is no longer down.
+    device.active = []
+    device.feed(
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_DROPPED, 0),
+        StubEvent(ecodes.EV_KEY, ecodes.KEY_B, 1),  # incomplete frame: ignored
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+        StubEvent(ecodes.EV_KEY, ecodes.KEY_C, 1),  # normal again
+    )
+    result = source.read()
+    assert key_events(result) == [(ecodes.KEY_X, 0), (ecodes.KEY_C, 1)]
+    # the synthesized release is forwardable and followed by a SYN_REPORT
+    assert raw_triples(result)[:2] == [
+        (ecodes.EV_KEY, ecodes.KEY_X, 0),
+        (ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+    ]
+
+
+def test_syn_dropped_synthesizes_missed_press():
+    source, device, _ = make_source()
+    device.active = [ecodes.KEY_A]
+    device.feed(
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_DROPPED, 0),
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+    )
+    assert key_events(source.read()) == [(ecodes.KEY_A, 1)]
+    # later release is handled normally
+    device.active = []
+    device.feed(StubEvent(ecodes.EV_KEY, ecodes.KEY_A, 0))
+    assert key_events(source.read()) == [(ecodes.KEY_A, 0)]
+
+
+def test_syn_dropped_across_reads_and_no_changes():
+    source, device, _ = make_source()
+    device.feed(StubEvent(ecodes.EV_SYN, ecodes.SYN_DROPPED, 0))
+    assert source.read() == []
+    device.feed(
+        StubEvent(ecodes.EV_KEY, ecodes.KEY_Q, 1),  # still dropping
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+    )
+    assert source.read() == []  # state unchanged: nothing synthesized
+
+
+def test_keys_held_at_open_are_known():
+    from inpmap.backends.linux_input import LinuxInputSource
+
+    device = StubDevice()
+    device.active = [ecodes.KEY_LEFTSHIFT]
+    source = LinuxInputSource(CONFIG.inputs["kbd"], device, StubForwarder())
+    device.active = []  # shift released during an overflow
+    device.feed(
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_DROPPED, 0),
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+    )
+    assert key_events(source.read()) == [(ecodes.KEY_LEFTSHIFT, 0)]
 
 
 def test_read_on_vanished_device_raises_device_lost():
