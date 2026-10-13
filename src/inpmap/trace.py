@@ -91,8 +91,10 @@ def trace(
         rng=random.Random(seed),
         inputs=recorder,
     )
-    trigger = (rule.trigger.device, rule.trigger.code)
-    other = (rule.trigger.device, _unmapped_code(config, rule.trigger.device))
+    # A mapping for every input is simulated on the first declared input.
+    device = rule.trigger.device or next(iter(config.inputs))
+    trigger = (device, rule.trigger.code)
+    other = (device, _unmapped_code(config, device))
 
     script: list[tuple[float, int, tuple[str, int], KeyAction, str]] = []
     for at in press_at or [0.0]:
@@ -108,7 +110,7 @@ def trace(
         names = ", ".join(codes.code_name(code) for code in held)
         recorder.lines.append(TraceLine(0.0, f">> holding {names}"))
     for code in held:
-        engine.handle(InputEvent(rule.trigger.device, code, KeyAction.PRESS))
+        engine.handle(InputEvent(device, code, KeyAction.PRESS))
 
     for at, _order, (device, code), action, label in script:
         if until_ms is not None and at > until_ms:
@@ -159,7 +161,7 @@ def _advance(engine: MappingEngine, clock: _Clock, target: float) -> None:
 
 
 def _unmapped_code(config: Config, device: str) -> int:
-    mapped = {r.trigger.code for r in config.mappings if r.trigger.device == device}
+    mapped = {r.trigger.code for r in config.mappings if r.trigger.device in (device, None)}
     for name in ("KEY_F13", "KEY_F14", "KEY_F15", "KEY_F16"):
         code = codes.code_from_name(name)
         if code is not None and code not in mapped:

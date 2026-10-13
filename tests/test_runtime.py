@@ -582,3 +582,50 @@ map KEY_LEFTBRACE modifiers(ctrl, shift) { tap KEY_ENTER (pause 0ms) }
     inputs.script.append(lambda: None)
     Runtime(config, inputs, outputs).run(stop)
     assert [r for r in kbd.forwarded if r[0] == "key"][-1] == key_raw(ctrl, 0)
+
+
+# Mappings without a device: they apply to every input that has the key.
+TO_Y = {"device": "vkbd", "type": "key", "code": "KEY_Y"}
+SHARED = parse_config(
+    {
+        "version": 1,
+        "inputs": {"kbd": {"name": "Kbd"}, "pad": {"name": "Pad"}},
+        "outputs": {"vkbd": {"type": "keyboard"}},
+        "mappings": [
+            {"id": "x", "input": {"type": "key", "code": "KEY_X"}, "outputs": [TO_Y]},
+            {"id": "q", "input": {"type": "key", "code": "KEY_Q"}, "outputs": [TO_Y]},
+        ],
+    }
+)
+
+
+def run_shared(kbd_keys, pad_keys, caplog, wait_for_inputs=False, pad_error=None):
+    stop = threading.Event()
+    kbd = FakeInputSource(SHARED.inputs["kbd"], keys=frozenset(kbd_keys))
+    pad = FakeInputSource(SHARED.inputs["pad"], keys=frozenset(pad_keys))
+    inputs = FakeInputBackend({"kbd": kbd, "pad": pad}, stop=stop)
+    if pad_error:
+        inputs.open_error["pad"] = pad_error
+        inputs.script.append(lambda: inputs.open_error.pop("pad"))
+        inputs.script.append(lambda: None)
+    runtime = Runtime(
+        SHARED, inputs, FakeOutputBackend(), reconnect_interval=0.0, wait_for_inputs=wait_for_inputs
+    )
+    with caplog.at_level("WARNING", logger="inpmap.runtime"):
+        runtime.run(stop)
+    return [r.getMessage() for r in caplog.records if "can never fire" in r.getMessage()]
+
+
+def test_warns_about_keys_no_input_has(caplog):
+    assert run_shared({KEY_X}, {BTN_EAST}, caplog) == [
+        "no input device has KEY_Q, so its mappings can never fire"
+    ]
+
+
+def test_no_warning_when_some_input_has_the_key(caplog):
+    assert run_shared({KEY_X}, {c("KEY_Q")}, caplog) == []
+
+
+def test_key_check_waits_until_every_input_was_opened(caplog):
+    found = run_shared({KEY_X}, {c("KEY_Q")}, caplog, True, InputError("not yet"))
+    assert found == []  # KEY_Q is on the pad, which was only opened later

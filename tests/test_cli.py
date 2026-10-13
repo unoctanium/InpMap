@@ -32,8 +32,8 @@ def test_check_example(capsys):
     assert main(["check", str(EXAMPLE)]) == EXIT_OK
     out = capsys.readouterr().out
     assert "OK (version 1)" in out
-    assert "KEY_X: kbd KEY_X -> keyboard KEY_Y, gamepad BTN_SOUTH" in out
-    assert "combo: kbd KEY_F9 -> macro (4 steps)" in out
+    assert "KEY_X: every input KEY_X -> keyboard KEY_Y, gamepad BTN_SOUTH" in out
+    assert "combo: every input KEY_F9 -> macro (4 steps)" in out
 
 
 def test_check_reports_positions_and_warnings(tmp_path, capsys):

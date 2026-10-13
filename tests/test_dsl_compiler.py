@@ -307,9 +307,48 @@ def test_ambiguous_devices():
     header = HEADER.replace("output gamepad", "output kb2 { type = keyboard }\noutput gamepad")
     found = problems(header + "map KEY_X { tap KEY_A }")
     assert any("KEY_A could go to kb2 or keyboard" in p for p in found)
-    two_inputs = HEADER + 'input pad { name = "P" }\n'
-    found = problems(two_inputs + "map KEY_X { tap KEY_A }")
-    assert any("several input devices are declared" in p for p in found)
+
+
+TWO_INPUTS = HEADER + 'input pad { name = "P" }\n'
+
+
+def test_trigger_without_device_applies_to_every_input():
+    config = compile_maps("map KEY_X { tap KEY_A }\nmap pad.KEY_X { tap KEY_B }", TWO_INPUTS)
+    every, pad = config.mappings[:2]
+    assert (every.id, every.trigger.device) == ("KEY_X", None)
+    assert (pad.id, pad.trigger.device) == ("pad.KEY_X", "pad")
+    assert config.shared_codes() == {c("KEY_X"), c("KEY_F24")}
+    assert config.input_codes("pad") == {c("KEY_X")}
+
+
+def test_same_trigger_text_twice_is_an_error():
+    found = problems(TWO_INPUTS + "map KEY_X { tap KEY_A }\nmap KEY_X { tap KEY_B }" + ANCHOR)
+    assert any("already mapped at line 6" in p for p in found)
+
+
+def test_disable():
+    config = compile_maps("map KEY_INSERT { disable }\nmap KEY_Q modifiers(ctrl) { disable }")
+    insert, ctrl_q = config.mappings[:2]
+    assert insert.disabled and not insert.outputs and not insert.macros
+    assert ctrl_q.disabled and ctrl_q.id == "KEY_Q+ctrl"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "map KEY_X { disable; tap KEY_A }",
+        "map KEY_X {\n    cancel on release\n    disable\n}",
+        "map KEY_X { repeat 2 { disable } }",
+    ],
+)
+def test_disable_must_be_alone(body):
+    found = problems(HEADER + body + ANCHOR)
+    assert any("'disable' must be the only statement of its mapping" in p for p in found)
+
+
+def test_disable_is_reserved():
+    found = problems(HEADER + "let disable = 1\nmap KEY_X { tap KEY_A }" + ANCHOR)
+    assert found
 
 
 def test_syntax_error_is_a_config_error():

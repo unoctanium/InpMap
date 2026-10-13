@@ -33,6 +33,10 @@ class FakeInputSource:
     lit: set = field(default_factory=set)  # Led values
     masked: set = field(default_factory=set)
     physically_down: set = field(default_factory=set)
+    keys: frozenset | None = None  # reported key codes; None: every code
+
+    def key_codes(self) -> frozenset[int]:
+        return frozenset(range(0x300)) if self.keys is None else self.keys
 
     @property
     def description(self) -> str:

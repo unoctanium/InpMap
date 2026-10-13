@@ -39,6 +39,10 @@ class InputSource(Protocol):
         """Keys/buttons currently held down on the physical device."""
         ...
 
+    def key_codes(self) -> frozenset[int]:
+        """All keys/buttons the device can report."""
+        ...
+
     def leds(self) -> frozenset[Led]:
         """Lock LEDs currently lit on the device (empty if it has none)."""
         ...

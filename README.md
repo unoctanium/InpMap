@@ -49,7 +49,9 @@ InpMap was started for needs it covers less well:
 ## Features
 
 - Keyboard keys and gamepad buttons as triggers, optionally with modifiers
-  (`modifiers(ctrl, shift)`), from any number of physical devices.
+  (`modifiers(ctrl, shift)`), from any number of physical devices. A
+  mapping applies to every configured device that has the key, or to one
+  device only (`pad.BTN_EAST`). Keys can be disabled.
 - Virtual keyboards and gamepads (buttons, D-pad, sticks, triggers).
 - Hold, tap, chords (`ctrl + KEY_C`), sequences with waits and random
   waits, loops, autofire, toggles, parallel branches, stick movements with

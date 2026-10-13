@@ -43,7 +43,7 @@ RESERVED = {
     *"""version settings let input output map as hold tap press release with wait
     random repeat while held toggle parallel branch on double_tap long_press if
     else single not and within after axis move to over cancel restart keep
-    modifiers ignore key_pause max_run none true false""".split(),
+    modifiers ignore key_pause max_run none true false disable""".split(),
     *LEDS,
     *MODIFIER_NAMES,
 }
@@ -185,7 +185,7 @@ class _Compiler:
             trigger = mapping["input"]
             modifiers = trigger.get("modifiers", [])
             key = (
-                trigger["device"],
+                trigger.get("device"),
                 trigger["code"],
                 modifiers if isinstance(modifiers, str) else tuple(sorted(modifiers)),
             )
@@ -432,6 +432,12 @@ class _Compiler:
         if not statements:
             self.error(block, "this mapping does nothing; add statements")
             return None
+        if any(s.data == "disable" for s in statements):
+            if len(statements) > 1:
+                first = next(s for s in statements if s.data == "disable")
+                self.error(first, "'disable' must be the only statement of its mapping")
+                return None
+            return {"id": mapping_id, "input": trigger, "disable": True}
         options, body, release_stmt = self.split_options(statements)
         mapping: dict = {"id": mapping_id, "input": trigger}
         if options.pop("keep_modifiers", False):
@@ -468,6 +474,7 @@ class _Compiler:
 
     def trigger(self, ref: Tree, modifiers: Tree | None, path: str) -> dict | None:
         tokens = [str(t) for t in ref.children]
+        device: str | None = None  # without a device: every input (§5.1)
         if len(tokens) == 2:
             device, code = tokens
             if device not in self.inputs:
@@ -476,14 +483,6 @@ class _Compiler:
                 return None
         else:
             code = tokens[0]
-            if len(self.inputs) != 1:
-                self.error(
-                    ref,
-                    f"several input devices are declared; write e.g. "
-                    f"{sorted(self.inputs)[0] if self.inputs else 'kbd'}.{code}",
-                )
-                return None
-            device = next(iter(self.inputs))
         if code in OUTPUT_ALIASES:
             self.error(ref, f"'{code}' is a modifier and cannot be a trigger")
             return None
@@ -495,7 +494,9 @@ class _Compiler:
             self.error(ref, f"a trigger must be a KEY_* or BTN_* name, got '{code}'")
             return None
         self.check_confusing(ref, code)
-        trigger: dict = {"device": device, "type": kind, "code": code}
+        trigger: dict = {"type": kind, "code": code}
+        if device is not None:
+            trigger["device"] = device
         self.record(path, ref)
         self.record(f"{path}.code", ref)
         if modifiers is not None:
@@ -765,6 +766,10 @@ class _Compiler:
 
     def step_toggle(self, stmt: Tree, path: str) -> dict | None:
         return {"toggle": self.block_steps(stmt.children[0], f"{path}.toggle")}
+
+    def step_disable(self, stmt: Tree, path: str) -> dict | None:
+        self.error(stmt, "'disable' must be the only statement of its mapping")
+        return None
 
     def step_parallel(self, stmt: Tree, path: str) -> dict | None:
         branches = [

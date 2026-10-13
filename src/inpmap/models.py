@@ -98,14 +98,17 @@ class ModifierRequirement:
 
 @dataclass(frozen=True)
 class InputTrigger:
-    """A key/button on a named physical input device.
+    """A key/button on one named physical input device, or on every input.
+
+    ``device`` None means every configured input that has the key; each
+    device then runs the mapping independently (docs/configuration.md §5.1).
 
     ``modifiers`` lists the modifier state required when the key is pressed
     (exactly these, no others); empty means "no modifier held". With
     ``any_modifiers`` the modifier state does not matter.
     """
 
-    device: str
+    device: str | None
     code: int
     modifiers: frozenset[ModifierRequirement] = frozenset()
     any_modifiers: bool = False
@@ -158,6 +161,7 @@ class MappingRule:
     axes: tuple[AxisOutput, ...] = ()
     macros: tuple[Macro, ...] = ()
     keep_modifiers: bool = False
+    disabled: bool = False  # `disable`: the key is suppressed, nothing is sent
 
 
 @dataclass(frozen=True)
@@ -195,7 +199,15 @@ class Config:
         return frozenset(codes)
 
     def input_codes(self, device_id: str) -> frozenset[int]:
-        """Codes mapped on a physical input device."""
+        """Codes that mappings name for this input device (``kbd.KEY_X``).
+
+        The device must have all of them; codes of mappings without a device
+        (``shared_codes``) apply only where the device has them.
+        """
         return frozenset(
             rule.trigger.code for rule in self.mappings if rule.trigger.device == device_id
         )
+
+    def shared_codes(self) -> frozenset[int]:
+        """Codes of mappings without a device name (they apply to every input)."""
+        return frozenset(rule.trigger.code for rule in self.mappings if rule.trigger.device is None)

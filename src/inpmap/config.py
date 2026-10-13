@@ -63,7 +63,15 @@ _AXIS_OUTPUT_KEYS = {"device", "type", "code", "value", "attack_ms", "release_ms
 _VARIABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _INPUT_DEVICE_KEYS = {"name", "path"}
 _OUTPUT_DEVICE_KEYS = {"type", "name"}
-_MAPPING_KEYS = {"id", "description", "input", "outputs", "consume", "keep_modifiers"}
+_MAPPING_KEYS = {
+    "id",
+    "description",
+    "input",
+    "outputs",
+    "consume",
+    "keep_modifiers",
+    "disable",
+}
 _EVENT_KEYS = {"device", "type", "code"}
 
 # Event "type" -> required code-name prefix. Both are EV_KEY in Linux; the
@@ -313,7 +321,7 @@ class _Validator:
             if key in trigger_owner:
                 self.error(
                     f"{where}.input",
-                    f"{rule.trigger.device} {codes.code_name(rule.trigger.code)}"
+                    f"{rule.trigger.device or 'every input'} {codes.code_name(rule.trigger.code)}"
                     f"{_describe_modifiers(rule.trigger)} is already mapped by "
                     f"'{trigger_owner[key]}'; list all outputs in one mapping",
                 )
@@ -337,7 +345,14 @@ class _Validator:
         id_ok = self.check_id(rule_id, f"{where}.id") if "id" in raw else False
         if id_ok:
             where = _mapping_where(index, rule_id)
-        self.check_keys(raw, where, _MAPPING_KEYS, required=("id", "input", "outputs"))
+        disabled = raw.get("disable", False)
+        if not isinstance(disabled, bool):
+            self.error(f"{where}.disable", "must be true or false")
+            disabled = False
+        required = ("id", "input") if disabled else ("id", "input", "outputs")
+        self.check_keys(raw, where, _MAPPING_KEYS, required=required)
+        if disabled and "outputs" in raw:
+            self.error(f"{where}.outputs", "a disabled mapping has no outputs")
         problems_before = len(self.problems)
 
         description = raw.get("description")
@@ -355,11 +370,12 @@ class _Validator:
         trigger = (
             self.trigger(raw.get("input"), f"{where}.input", inputs) if "input" in raw else None
         )
-        parsed = (
-            self.mapping_outputs(raw.get("outputs"), f"{where}.outputs", outputs)
-            if "outputs" in raw
-            else None
-        )
+        if disabled:
+            parsed: tuple | None = ((), (), ())
+        elif "outputs" in raw:
+            parsed = self.mapping_outputs(raw.get("outputs"), f"{where}.outputs", outputs)
+        else:
+            parsed = None
 
         keep_modifiers = raw.get("keep_modifiers", False)
         if not isinstance(keep_modifiers, bool):
@@ -380,12 +396,14 @@ class _Validator:
             axes=axes,
             macros=macros,
             keep_modifiers=keep_modifiers,
+            disabled=disabled,
         )
 
     def trigger(
         self, raw: object, where: str, inputs: dict[str, InputDeviceSpec]
     ) -> InputTrigger | None:
-        event = self.event(raw, where, optional_keys={"modifiers"})
+        # Without "device" the trigger applies to every input (§5.1).
+        event = self.event(raw, where, optional_keys={"modifiers"}, device_optional=True)
         if event is None:
             return None
         device, _event_type, code = event
@@ -398,7 +416,7 @@ class _Validator:
                 "remove it from settings.modifiers to map it as a normal key",
             )
             return None
-        if device not in inputs:
+        if device is not None and device not in inputs:
             self.error(f"{where}.device", self.unknown_device(device, "input", inputs))
             return None
         if code is None or modifiers is None:
@@ -586,8 +604,12 @@ class _Validator:
         return OutputMode(value)
 
     def event(
-        self, raw: object, where: str, optional_keys: set[str] | None = None
-    ) -> tuple[str, str, int | None] | None:
+        self,
+        raw: object,
+        where: str,
+        optional_keys: set[str] | None = None,
+        device_optional: bool = False,
+    ) -> tuple[str | None, str, int | None] | None:
         """Validate a {device, type, code} object.
 
         Returns (device, type, code) when device and type are usable; code is
@@ -597,7 +619,8 @@ class _Validator:
             return None
         assert isinstance(raw, dict)
         allowed = _EVENT_KEYS | (optional_keys or set())
-        self.check_keys(raw, where, allowed, required=sorted(_EVENT_KEYS))
+        required = sorted(_EVENT_KEYS - ({"device"} if device_optional else set()))
+        self.check_keys(raw, where, allowed, required=required)
         device = raw.get("device")
         event_type = raw.get("type")
         if "device" in raw and not isinstance(device, str):
@@ -608,7 +631,8 @@ class _Validator:
                 f"unsupported event type {event_type!r} "
                 f"(expected one of: {', '.join(_EVENT_TYPES)})",
             )
-        if not isinstance(device, str) or event_type not in _EVENT_TYPES:
+        device_ok = isinstance(device, str) or (device_optional and "device" not in raw)
+        if not device_ok or event_type not in _EVENT_TYPES:
             return None
         code = self.code(raw.get("code"), f"{where}.code", event_type) if "code" in raw else None
         return device, event_type, code
@@ -644,9 +668,10 @@ class _Validator:
         if self.problems:
             return
         used_inputs = {rule.trigger.device for rule in mappings}
-        if any(rule.trigger.modifiers for rule in mappings):
-            # Any input device may provide modifiers (e.g. a keyboard that
-            # is configured only for Ctrl used with gamepad buttons).
+        if None in used_inputs or any(rule.trigger.modifiers for rule in mappings):
+            # Mappings without a device apply to every input; and any input
+            # may provide modifiers (e.g. a keyboard configured only for Ctrl
+            # used with gamepad buttons).
             used_inputs = set(inputs)
         used_outputs = set()
         for rule in mappings:

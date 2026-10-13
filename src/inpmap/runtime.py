@@ -75,6 +75,7 @@ class _Slot:
     waiting_announced: bool = False
     retry_at: float = 0.0
     open_error: str | None = None  # last reason the device could not be opened
+    key_codes: frozenset[int] | None = None  # known once the device was opened
 
 
 class Runtime:
@@ -103,6 +104,7 @@ class Runtime:
         self._all_grabbed_announced = False
         # (device id, code) of emergency keys currently held on grabbed inputs
         self._emergency_held: set[tuple[str, int]] = set()
+        self._shared_codes_checked = False
 
     def run(self, stop: StopFlag, timeout: float | None = None) -> StopReason:
         """Run until ``stop`` is set or ``timeout`` seconds have passed.
@@ -135,6 +137,7 @@ class Runtime:
             else:
                 slot.source = self._inputs.open(spec, slot.codes)
                 log.info("opened input '%s': %s", device_id, slot.source.description)
+                self._opened(slot)
         while True:
             reason = self._should_stop(stop, deadline)
             if reason is not None:
@@ -211,6 +214,24 @@ class Runtime:
             return
         slot.open_error = None
         log.info("opened input '%s': %s", slot.spec.id, slot.source.description)
+        self._opened(slot)
+
+    def _opened(self, slot: _Slot) -> None:
+        """Note the device's keys; once every input has been seen, check that
+        each key mapped for every input exists somewhere (§3.1)."""
+        assert slot.source is not None
+        slot.key_codes = slot.source.key_codes()
+        if self._shared_codes_checked or any(s.key_codes is None for s in self._slots):
+            return
+        if len(self._slots) < len(self._config.inputs):
+            return  # still opening the inputs at startup
+        self._shared_codes_checked = True
+        available = frozenset().union(*(s.key_codes or frozenset() for s in self._slots))
+        for code in sorted(self._config.shared_codes() - available):
+            log.warning(
+                "no input device has %s, so its mappings can never fire",
+                codes.code_name(code),
+            )
 
     def _wait_and_process(self, deadline: float | None) -> None:
         assert self._engine is not None

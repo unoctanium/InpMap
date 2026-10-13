@@ -511,6 +511,9 @@ class StubDevice:
     def active_keys(self):
         return list(self.active)
 
+    def capabilities(self):
+        return {ecodes.EV_KEY: [ecodes.KEY_A, ecodes.KEY_X]}
+
     def feed(self, *events):
         self._events += events
 

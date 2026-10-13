@@ -433,7 +433,10 @@ def describe_config(config: Config) -> str:
             f"macro ({len(macro.steps)} step{'s' if len(macro.steps) != 1 else ''})"
             for macro in rule.macros
         ]
-        trigger = f"{rule.trigger.device} {codes.code_name(rule.trigger.code)}"
+        if rule.disabled:
+            targets = ["disabled"]
+        device = rule.trigger.device or "every input"
+        trigger = f"{device} {codes.code_name(rule.trigger.code)}"
         if rule.trigger.any_modifiers:
             trigger += " (any modifiers)"
         elif rule.trigger.modifiers:

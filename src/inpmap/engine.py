@@ -49,7 +49,10 @@ from .state import OutputKey, OutputRefCounts
 log = logging.getLogger(__name__)
 
 InputKey = tuple[str, int]  # (input device id, code)
-Slot = tuple[str, int]  # (mapping id, macro index)
+# A mapping without a device runs independently on every input device, so
+# runs and masks belong to an instance: (mapping id, input device id).
+Instance = tuple[str, str]
+Slot = tuple[str, str, int]  # (mapping id, input device id, macro index)
 
 # How long a tap output stays pressed. Long enough for games that sample key
 # state once per frame (16.7 ms at 60 fps) to see it.
@@ -84,7 +87,7 @@ class _NoInputControl:
 class _MaskOwner:
     """Modifier keys hidden for one activation of a mapping with modifiers."""
 
-    rule_id: str
+    instance: Instance
     keys: frozenset[tuple[str, int]]
     released: bool = False
 
@@ -119,7 +122,8 @@ class MappingEngine:
         self._input_control: InputControl = inputs or _NoInputControl()
         self._modifiers = ModifierState(config.settings.modifiers)
         # Several rules per key are possible (different modifier requirements).
-        self._rules: dict[InputKey, list[MappingRule]] = {}
+        # Device None: rules without a device name, for every input.
+        self._rules: dict[tuple[str | None, int], list[MappingRule]] = {}
         for rule in config.mappings:
             key = (rule.trigger.device, rule.trigger.code)
             self._rules.setdefault(key, []).append(rule)
@@ -151,15 +155,14 @@ class MappingEngine:
         self._modifiers.update(event.device, event.code, event.action)
         if event.action is KeyAction.PRESS:
             self._offer_other_press(key)
-        candidates = self._rules.get(key)
-        if not candidates:
+        if not self.is_mapped(event.device, event.code):
             return False
         active = self._active.get(key)
         if event.action is KeyAction.PRESS:
             if active is not None:
                 log.debug("ignoring duplicate press for mapping '%s'", active.id)
                 return active.consume
-            rule = choose(candidates, self._modifiers)
+            rule = self._choose(event.device, event.code)
             if rule is None:
                 return False  # no mapping fits the held modifiers: pass through
             self._activate(key, rule)
@@ -200,7 +203,15 @@ class MappingEngine:
     # -- queries -------------------------------------------------------------
 
     def is_mapped(self, device_id: str, code: int) -> bool:
-        return (device_id, code) in self._rules
+        return (device_id, code) in self._rules or (None, code) in self._rules
+
+    def _choose(self, device_id: str, code: int) -> MappingRule | None:
+        """Mappings naming the device first, then those for every input (§5.1)."""
+        for device in (device_id, None):
+            rule = choose(self._rules.get((device, code), []), self._modifiers)
+            if rule is not None:
+                return rule
+        return None
 
     def active_rules(self) -> list[str]:
         """Ids of rules whose input is currently held."""
@@ -272,10 +283,10 @@ class MappingEngine:
     # -- activation --------------------------------------------------------------
 
     def _activate(self, key: InputKey, rule: MappingRule) -> None:
-        if rule.trigger.modifiers and not rule.keep_modifiers:
+        if rule.trigger.modifiers and not rule.keep_modifiers and not rule.disabled:
             # Hide the held modifiers from the desktop before any output, so
             # the outputs are not modified by them (docs/configuration.md §5.2 rule 8).
-            self._mask(rule, self._modifiers.held_keys())
+            self._mask((rule.id, key[0]), self._modifiers.held_keys())
         self._active[key] = rule
         log.debug("mapping '%s' activated", rule.id)
         failures: list[str] = []
@@ -306,29 +317,30 @@ class MappingEngine:
             self._release_keys(held, "release")
         except OutputError as exc:
             failures.append(str(exc))
-        for slot in self._slots(rule):
+        for slot in self._slots(rule, key[0]):
             run = self._runs.get(slot)
             if run is not None and run.active:
                 try:
                     run.on_release()
                 except OutputError as exc:
                     failures.append(str(exc))
+        instance = (rule.id, key[0])
         owner = next(
-            (o for o in self._mask_owners if o.rule_id == rule.id and not o.released), None
+            (o for o in self._mask_owners if o.instance == instance and not o.released), None
         )
         if owner is not None:
             owner.released = True
-            self._unmask_finished(rule.id)
+            self._unmask_finished(instance)
         if failures:
             raise OutputError(f"mapping '{rule.id}': " + "; ".join(failures))
 
     # -- macros -------------------------------------------------------------------
 
-    def _slots(self, rule: MappingRule) -> list[Slot]:
-        return [(rule.id, index) for index in range(len(self._macros[rule.id]))]
+    def _slots(self, rule: MappingRule, device_id: str) -> list[Slot]:
+        return [(rule.id, device_id, index) for index in range(len(self._macros[rule.id]))]
 
     def _press_macros(self, key: InputKey, rule: MappingRule) -> None:
-        for slot, macro in zip(self._slots(rule), self._macros[rule.id], strict=True):
+        for slot, macro in zip(self._slots(rule, key[0]), self._macros[rule.id], strict=True):
             run = self._runs.get(slot)
             if run is None or not run.active:
                 self._start_run(slot, key, macro)
@@ -341,7 +353,7 @@ class MappingEngine:
                     self._start_run(slot, key, macro)
 
     def _start_run(self, slot: Slot, key: InputKey, macro: Macro) -> None:
-        name = f"mapping '{slot[0]}' macro {slot[1]}"
+        name = f"mapping '{slot[0]}' on {slot[1]} macro {slot[2]}"
         run = MacroRun(self, macro, key[0], lambda r: self._run_finished(slot, r), name)
         self._runs[slot] = run
         self._run_trigger[slot] = key
@@ -351,22 +363,22 @@ class MappingEngine:
         if self._runs.get(slot) is run:
             del self._runs[slot]
             del self._run_trigger[slot]
-        self._unmask_finished(slot[0])
+        self._unmask_finished((slot[0], slot[1]))
 
     # -- modifier masking --------------------------------------------------------
 
-    def _mask(self, rule: MappingRule, keys: frozenset[tuple[str, int]]) -> None:
+    def _mask(self, instance: Instance, keys: frozenset[tuple[str, int]]) -> None:
         for key in sorted(keys):
             if self._masked[key] == 0:
                 self._input_control.mask(*key)
             self._masked[key] += 1
-        self._mask_owners.append(_MaskOwner(rule.id, keys))
+        self._mask_owners.append(_MaskOwner(instance, keys))
 
-    def _unmask_finished(self, rule_id: str) -> None:
+    def _unmask_finished(self, instance: Instance) -> None:
         """Give modifiers back once the mapping is released and no run is left."""
-        if any(slot[0] == rule_id and run.active for slot, run in self._runs.items()):
+        if any(slot[:2] == instance and run.active for slot, run in self._runs.items()):
             return
-        for owner in [o for o in self._mask_owners if o.rule_id == rule_id and o.released]:
+        for owner in [o for o in self._mask_owners if o.instance == instance and o.released]:
             self._mask_owners.remove(owner)
             for key in sorted(owner.keys):
                 self._masked[key] -= 1

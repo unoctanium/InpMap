@@ -29,6 +29,7 @@ block: "{" _sep? (stmt (_sep stmt)*)? _sep? "}"
 ?stmt: hold | tap | press | release | with | axis | move | wait | repeat
      | while_held | toggle | parallel | if_stmt | gesture | on_release
      | assign | augassign | opt_cancel | opt_restart | opt_keep | opt_kv
+     | disable
 
 hold: "hold" keys
 tap: "tap" keys options?
@@ -56,6 +57,7 @@ opt_cancel: "cancel" "on" "release"
 opt_restart: "restart" "on" "press"
 opt_keep: "keep" "modifiers"
 opt_kv: NAME value
+disable: "disable"
 
 options: "(" _nl? option ("," _nl? option)* _nl? ")"
 option: (NAME | RELEASE_KW) duration

@@ -283,3 +283,56 @@ def test_device_loss_drops_modifier_state_and_masks():
     rig.engine.release_device("kbd")
     rig.release("BTN_SOUTH", device="pad")
     assert ("unmask", "KEY_LEFTCTRL") not in rig.log()  # never re-pressed on a lost device
+
+
+# -- mappings for every input (docs/configuration.md §5.1) -------------------------------
+
+
+def test_mapping_without_device_works_on_every_input():
+    rig = Rig("map KEY_X { hold KEY_Y }")
+    assert rig.press("KEY_X", "kbd") is True
+    assert rig.press("KEY_X", "pad") is True
+    rig.release("KEY_X", "kbd")
+    assert rig.log() == [("down", "KEY_Y")]  # still held by the pad's press
+    rig.release("KEY_X", "pad")
+    assert rig.log() == [("down", "KEY_Y"), ("up", "KEY_Y")]
+
+
+def test_device_named_mapping_wins_on_its_device():
+    rig = Rig("map KEY_X { hold KEY_Y }\nmap pad.KEY_X modifiers(ignore) { hold KEY_Z }")
+    rig.press("KEY_X", "pad")  # device first, even though 'ignore' is less specific
+    rig.release("KEY_X", "pad")
+    rig.press("KEY_X", "kbd")
+    rig.release("KEY_X", "kbd")
+    assert [name for _, name in rig.log()] == ["KEY_Z", "KEY_Z", "KEY_Y", "KEY_Y"]
+
+
+def test_falls_back_to_every_input_mapping_when_device_mapping_does_not_match():
+    rig = Rig("map KEY_X { hold KEY_Y }\nmap kbd.KEY_X modifiers(ctrl) { hold KEY_Z }")
+    rig.press("KEY_X")  # no Ctrl: kbd.KEY_X does not match, KEY_X does
+    rig.release("KEY_X")
+    assert [name for _, name in rig.log()] == ["KEY_Y", "KEY_Y"]
+
+
+def test_runs_are_independent_per_device():
+    rig = Rig("map KEY_F1 { toggle { tap KEY_A (pause 50ms) } }")
+    rig.press("KEY_F1", "kbd")
+    rig.release("KEY_F1", "kbd")
+    rig.press("KEY_F1", "pad")  # starts a second toggle instead of stopping the first
+    rig.release("KEY_F1", "pad")
+    assert len(rig.engine.running_macros()) == 2
+    rig.press("KEY_F1", "kbd")  # stops only the keyboard's toggle
+    rig.at(500)
+    assert [slot[1] for slot in rig.engine.running_macros()] == ["pad"]
+
+
+def test_disable_suppresses_without_output_or_masking():
+    rig = Rig("map KEY_INSERT { disable }\nmap kbd.KEY_Q modifiers(ctrl) { disable }")
+    assert rig.press("KEY_INSERT") is True
+    assert rig.release("KEY_INSERT") is True
+    rig.press("KEY_LEFTCTRL")
+    assert rig.press("KEY_Q") is True
+    rig.release("KEY_Q")
+    assert rig.log() == []
+    rig.release("KEY_LEFTCTRL")
+    assert rig.press("KEY_Q") is False  # Q alone passes through

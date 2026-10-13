@@ -119,14 +119,18 @@ Each input names a physical device with exactly one of:
 `inpmap devices` lists the names and paths of your devices
 ([usage.md](usage.md#inpmap-devices)).
 
-Every input must be used by at least one mapping. Exception: when any
-mapping requires [modifiers](#52-modifiers), an input may be configured only
-to provide modifiers (e.g. a keyboard whose Ctrl is combined with gamepad
-buttons).
+Every input must be used: a mapping names it (`kbd.KEY_X`), or at least
+one mapping has no device name and so applies to every input (§5.1).
+Exception: when any mapping requires [modifiers](#52-modifiers), an input
+may be configured only to provide modifiers (e.g. a keyboard whose Ctrl is
+combined with gamepad buttons).
 
-When InpMap starts, it checks that each input device has every key or
-button mapped for it. While running, an input device that disappears (unplugged,
-wireless sleep) is picked up again automatically when it returns.
+When InpMap opens an input device, it checks that the device has every key
+or button that a mapping names for it (`kbd.KEY_X`). Mappings without a
+device name apply to those inputs that have the key; if none of the
+connected inputs has it, InpMap writes a warning to its log. While
+running, an input device that disappears (unplugged, wireless sleep) is
+picked up again automatically when it returns.
 
 ### 3.2 Output devices
 
@@ -216,11 +220,29 @@ map TRIGGER [as NAME] {
 
 ### 5.1 Trigger and name
 
-The **trigger** is one key or button of an input device:
+The **trigger** is one key or button:
 
-- `KEY_F9` — when exactly one input device is declared;
-- `kbd.KEY_F9`, `pad.BTN_EAST` — the input's name, a dot and the code; required
-  when there are several input devices.
+- `KEY_F9` — on **every** input device that has this key;
+- `kbd.KEY_F9`, `pad.BTN_EAST` — the input's name, a dot and the code:
+  only on that input device.
+
+With one input device, both mean the same. With two keyboards,
+`map KEY_CAPSLOCK { … }` remaps Caps Lock on both. The mapping works on
+each device independently, as if it were written once per device:
+pressing the key on two keyboards at once starts two runs, and a `toggle`
+started from one keyboard is stopped from the same keyboard.
+
+```inpmap
+version 1
+input laptop   { name = "AT Translated Set 2 keyboard" }
+input external { path = "/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd" }
+output keyboard { type = keyboard }
+
+map KEY_CAPSLOCK { tap KEY_ESC }            # on both keyboards
+map external.KEY_F1 { tap KEY_MUTE }        # only on the external one
+map KEY_F2 { tap KEY_VOLUMEDOWN }           # F2 on every keyboard ...
+map external.KEY_F2 { tap KEY_VOLUMEUP }    # ... except the external one, which does this
+```
 
 The trigger may be followed by `modifiers(…)` (§5.2).
 
@@ -235,8 +257,18 @@ the trigger key, only what the mapping does.
 (`KEY_F9`, `pad.BTN_EAST`), with the modifiers appended by `+`
 (`KEY_LEFTBRACE+ctrl+shift`, `KEY_F5+ignore`).
 
-The same trigger may be mapped several times only with different modifier
-requirements.
+A key may be mapped several times: with different modifier requirements
+(§5.2), and with and without a device name. Which mapping fires when the
+key is pressed on a device:
+
+1. The mappings that **name this device** come first. If one of them
+   matches the held modifiers, the most specific of those fires (§5.2
+   rule 5).
+2. Only if none of them matches, the mappings **without a device name**
+   are considered the same way.
+
+Mapping the same trigger text with the same modifier requirement twice is
+an error.
 
 ### 5.2 Modifiers
 
@@ -269,8 +301,9 @@ Rules:
 5. **Most specific wins**: if several mappings of the same key match, an
    exact side (`right_ctrl`) beats either side (`ctrl`), and every exact
    requirement — including "no modifiers" — beats `ignore`, which is the
-   fallback. Two mappings with the same key and the same requirement are an
-   error.
+   fallback. A mapping that names the device is chosen before any mapping
+   without a device name (§5.1). Two mappings with the same trigger and the
+   same requirement are an error.
 6. **From any device**: modifiers held on any configured input count, so a
    gamepad button can be combined with Ctrl on the keyboard. Modifiers of
    devices that are not configured are not seen.
@@ -338,6 +371,7 @@ never delay other input (§7).
 | Decisions | `if … else if … else`, `on tap` / `on double_tap` / `on long_press` |
 | After release | `on release` |
 | Variables | `=`, `+=`, `-=` |
+| Doing nothing | `disable` |
 
 ### 6.1 Holding: `hold` and `axis`
 
@@ -473,7 +507,7 @@ else { … }
 | `single` / `single within D` | the trigger is released before any other key or button is pressed on any input device. If another key comes first, the `else` branch runs **before** that key is processed. With `within D` it is also false after `D`. |
 | `NAME == VALUE`, `NAME != VALUE` | compares a variable with a value of the same type |
 | `NAME` | a boolean variable is `true` |
-| `capslock`, `numlock`, `scrolllock` | that LED is on, on the trigger's input device (false for devices without LEDs) |
+| `capslock`, `numlock`, `scrolllock` | that LED is on, on the input device where the trigger was pressed (false for devices without LEDs) |
 | `not CONDITION` | negation |
 
 ```inpmap
@@ -542,6 +576,16 @@ map KEY_F12 {                        # alternate between two actions
 }
 ```
 
+### 6.9 Disabling a key: `disable`
+
+```inpmap
+map KEY_INSERT { disable }                  # Insert does nothing
+map KEY_Q modifiers(ctrl) { disable }       # Ctrl+Q does nothing; Q alone still types q
+```
+
+The key is suppressed and nothing is sent instead. `disable` must be the
+only statement of the mapping, without options.
+
 ## 7. How mappings run
 
 ### 7.1 A run
@@ -608,8 +652,8 @@ config/my.inpmap:14:9: unknown key code 'KEY_QQ' (did you mean 'KEY_Q'?)
 Errors include: syntax errors; unknown names and codes; codes the device
 cannot emit; a device part left out where several outputs could emit the
 code; the same trigger and modifiers mapped twice; duplicate names; options
-after statements; `toggle` not alone; values out of range; values of the
-wrong type; `release` of keys never pressed; unused devices.
+after statements; `toggle` or `disable` not alone; values out of range;
+values of the wrong type; `release` of keys never pressed; unused devices.
 
 Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3).
 
@@ -702,7 +746,7 @@ map KEY_CAPSLOCK {
 
 ## 11. More examples
 
-A keyboard and a gamepad as inputs, so triggers name their device:
+A keyboard and a gamepad as inputs; each trigger names its device:
 
 ```inpmap
 version 1
@@ -835,7 +879,7 @@ random repeat while held toggle parallel branch on double_tap long_press if
 else single not and keep modifiers ignore ctrl shift alt meta left_ctrl
 right_ctrl left_shift right_shift left_alt right_alt left_meta right_meta
 within after axis move to over cancel restart key_pause max_run none true
-false capslock numlock scrolllock
+false capslock numlock scrolllock disable
 ```
 
 ## About this document

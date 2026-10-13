@@ -168,6 +168,7 @@ class LinuxInputSource:
         self._dropping = False
         self._led_warning_logged = False
         self._masked: set[int] = set()
+        self._key_codes = frozenset(device.capabilities().get(ecodes.EV_KEY, []))
 
     def _query_keys_or_empty(self) -> list[int]:
         try:
@@ -220,6 +221,9 @@ class LinuxInputSource:
             log.debug("reading LEDs of %s failed: %s", self.description, exc)
             return frozenset()
         return frozenset(_LEDS[code] for code in lit if code in _LEDS)
+
+    def key_codes(self) -> frozenset[int]:
+        return self._key_codes
 
     def held_codes(self) -> frozenset[int]:
         try:

@@ -23,14 +23,28 @@ device by bus/vendor/product/uniq/phys-prefix).
    `tests/test_runtime.py` (fakes). Docs: usage.md (run behaviour,
    troubleshooting), installation.md §6, README. Not yet tried on real
    hardware (part of the user's service test).
-2. ⏳ **Language changes — spec text first, needs user approval** (CLAUDE.md §7):
-   a. **Unprefixed triggers apply to every input** (user decision "1 b"):
-      `map KEY_X` = mapped on every configured input that has KEY_X;
-      `kbd.KEY_X` restricts to one device and beats the unprefixed one on
-      that device. Makes multi-keyboard configs possible without
-      duplication and removes the "add a 2nd device → all triggers become
-      errors" problem.
-   b. **Disable a key**: `map KEY_INSERT { disable }`.
+2. ✅ **Language changes** (spec approved by the user 2026-10-14,
+   implemented 2026-10-14):
+   a. **Unprefixed triggers apply to every input**: model
+      `InputTrigger.device = None`; compiler no longer infers the single
+      input (so `inpmap check` shows "every input KEY_X"); validator: input
+      `device` optional, inputs count as used when any unprefixed mapping
+      exists, `Config.shared_codes()`; engine: rules keyed (device|None,
+      code), `_choose` takes device-named rules first, then unprefixed;
+      runs and modifier masks per instance (mapping id, input device), so
+      devices run a mapping independently; runtime: `InputSource.key_codes()`
+      (Linux: EV_KEY capabilities, cached), warning "no input device has
+      KEY_Q, so its mappings can never fire" once every input has been opened
+      (startup check stays strict for device-named codes); trace simulates an
+      unprefixed mapping on the first declared input.
+   b. **`disable`**: grammar statement + reserved word; must be the only
+      statement (also nested → error); data key `"disable": true` →
+      `MappingRule.disabled`; engine suppresses the key, no outputs, no
+      modifier masking. Kate/nano files have the keyword (Kate checked with
+      ksyntaxhighlighter6).
+   Tests: compiler, engine (`tests/test_modifiers.py` "every input"
+   section), runtime warning, docs examples; hardware 10/10 passed after
+   the change. Deliberate test update: `inpmap check` summary text.
 3. **`inpmap input-config CONFIG`** (name chosen by the user): interactive
    device picker for existing or new files; numbers toggle, `i` identifies
    a device by key press, `w` checks + writes (text insertion of `input`
@@ -373,7 +387,7 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 417 passed, 10 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 434 passed, 10 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after the user service (JSON-file tests were
   dropped earlier). Hardware: 10 passed (S3), not re-run since.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
