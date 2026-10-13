@@ -91,7 +91,7 @@ Last updated: 2026-10-13
         correctly — confirmed.
    - ✅ Acceptance test passed (see Current position).
    User's order (2026-10-13): **robustness → installation → tap mode**.
-2. 🔧 **Step 7 – robustness** (in progress):
+2. ✅ **Step 7 – robustness**:
    - ✅ 7a reconnect: `runtime.py` is a per-device state machine (`_Slot`:
      opened → waiting for no key held → grabbed; lost → release its outputs,
      close, retry `open` every `reconnect_interval` (1 s) → re-grab). Events
@@ -110,8 +110,14 @@ Last updated: 2026-10-13
      the forwarder stay consistent. Only keys are resynced, not axes.
      Stub-based tests in `tests/test_linux_input.py` (can't provoke a real
      overflow reliably).
-   - 7c LED feedback: read EV_LED written by the desktop to the forwarding
-     device and apply it to the physical keyboard (Linux backend).
+   - ✅ 7c LED feedback: verified by probe that EV_LED written to a uinput
+     device's event node arrives on the owner's (non-blocking) uinput fd.
+     `LinuxInputBackend.wait()` also selects on each forwarder's fd and calls
+     `pump_feedback()`, which applies EV_LED to the physical device
+     (`set_led`; failure logged once). Hardware test
+     `test_led_state_set_on_forwarder_reaches_physical_keyboard` passed.
+     Not yet checked with the user's real keyboard (may have no LEDs).
+   - **Step 7 complete.** Next: installation (item 3).
 3. Installation for other PCs: clean-machine guide, narrowly scoped udev
    rule(s), install/uninstall script if justified.
 4. Tap output mode (`"mode": "hold" | "tap"`), user's idea.
@@ -164,8 +170,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 143 passed, 5 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after step 7b. Hardware: 5 passed.
+- Unit tests: 145 passed, 6 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after step 7c. Hardware: 6 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

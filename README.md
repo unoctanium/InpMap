@@ -69,8 +69,10 @@ Notes and limitations:
   released automatically when it expires.
 - A device grabbed by another program (e.g. input-remapper) cannot be grabbed
   ("already grabbed by another program").
-- Keyboard LEDs (Caps/Num Lock) of a grabbed keyboard do not change; the
-  desktop sets them on the forwarding device.
+- Keyboard LEDs (Caps/Num/Scroll Lock): the desktop sets them on the
+  forwarding device; InpMap copies the changes to the physical keyboard.
+- If the kernel drops events under heavy load (`SYN_DROPPED`), key state is
+  resynchronized so no key stays stuck.
 - Force feedback (rumble) is not supported: virtual and forwarding devices
   declare no `EV_FF`. (With it declared but unanswered, the kernel would block
   a game's rumble request for up to 30 s.)

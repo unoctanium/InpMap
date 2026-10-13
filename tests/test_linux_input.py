@@ -206,6 +206,50 @@ def test_runtime_survives_unplug_and_reconnects():
     assert result.get("reason") is StopReason.STOPPED, result.get("error")
 
 
+@pytest.mark.hardware
+def test_led_state_set_on_forwarder_reaches_physical_keyboard():
+    physical = UInput(
+        {ecodes.EV_KEY: [ecodes.KEY_X], ecodes.EV_LED: [ecodes.LED_CAPSL, ecodes.LED_NUML]},
+        name=PHYSICAL_NAME,
+        phys="pytest-physical",
+        max_effects=0,
+    )
+    stop = threading.Event()
+    result: dict = {}
+    forwarder = None
+
+    def run():
+        try:
+            runtime = Runtime(CONFIG, LinuxInputBackend(), LinuxOutputBackend())
+            result["reason"] = runtime.run(stop, timeout=20)
+        except BaseException as exc:
+            result["error"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    try:
+        thread.start()
+        forwarder = find_device(forward_name(PHYSICAL_NAME))
+        time.sleep(0.3)
+        # drain LED writes the desktop may have made on its own
+        while select.select([physical.fd], [], [], 0.2)[0]:
+            list(physical.read())
+        forwarder.set_led(ecodes.LED_CAPSL, 1)  # what the desktop does on Caps Lock
+        leds = []
+        deadline = time.monotonic() + 2.0
+        while (ecodes.LED_CAPSL, 1) not in leds and time.monotonic() < deadline:
+            if select.select([physical.fd], [], [], 0.2)[0]:
+                leds += [(e.code, e.value) for e in physical.read() if e.type == ecodes.EV_LED]
+        assert (ecodes.LED_CAPSL, 1) in leds
+        forwarder.set_led(ecodes.LED_CAPSL, 0)
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        if forwarder is not None:
+            forwarder.close()
+        physical.close()
+    assert result.get("reason") is StopReason.STOPPED, result.get("error")
+
+
 # -- LinuxInputSource with stand-ins for evdev objects ---------------------
 # (Events on a destroyed uinput device cannot be read back, so cleanup
 # ordering is checked here instead of against real devices.)
@@ -240,6 +284,13 @@ class StubDevice:
         events, self._events = self._events, []
         return iter(events)
 
+    led_error = None
+
+    def set_led(self, code, value):
+        if self.led_error:
+            raise self.led_error
+        self.calls.append(("led", code, value))
+
     def grab(self):
         self.calls.append("grab")
 
@@ -255,6 +306,13 @@ class StubDevice:
 class StubForwarder:
     def __init__(self):
         self.calls = []
+        self.feedback = []  # events the desktop wrote to the forwarder
+
+    def read(self):
+        if not self.feedback:
+            raise BlockingIOError
+        events, self.feedback = self.feedback, []
+        return iter(events)
 
     def write(self, etype, code, value):
         self.calls.append(("write", etype, code, value))
@@ -346,6 +404,26 @@ def test_syn_dropped_across_reads_and_no_changes():
         StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
     )
     assert source.read() == []  # state unchanged: nothing synthesized
+
+
+def test_pump_feedback_applies_leds_only():
+    source, device, forwarder = make_source()
+    forwarder.feedback = [
+        StubEvent(ecodes.EV_LED, ecodes.LED_CAPSL, 1),
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+        StubEvent(ecodes.EV_LED, ecodes.LED_NUML, 0),
+    ]
+    source.pump_feedback()
+    assert device.calls == [("led", ecodes.LED_CAPSL, 1), ("led", ecodes.LED_NUML, 0)]
+    source.pump_feedback()  # nothing pending: no error
+
+
+def test_pump_feedback_led_failure_is_logged_once(caplog):
+    source, device, forwarder = make_source()
+    device.led_error = OSError(9, "Bad file descriptor")
+    forwarder.feedback = [StubEvent(ecodes.EV_LED, ecodes.LED_CAPSL, 1)] * 3
+    source.pump_feedback()
+    assert sum("cannot set LEDs" in r.message for r in caplog.records) == 1
 
 
 def test_keys_held_at_open_are_known():

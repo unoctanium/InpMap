@@ -9,8 +9,9 @@ device that mirrors the physical device's capabilities and identity.
 Notes:
 * ``EV_REP`` is not copied to the forwarding device, otherwise the kernel
   would generate a second, synthetic key repeat on top of forwarded repeats.
-* Keyboard LED state set by the desktop goes to the forwarding device, not
-  to the grabbed physical keyboard (known limitation).
+* Keyboard LED state (Caps/Num/Scroll Lock) is set by the desktop on the
+  forwarding device; it is read back from the uinput descriptor and applied
+  to the physical device.
 * Force feedback (rumble) is not passed through; forwarders have no EV_FF.
 * Our own virtual devices (phys starting with "inpmap") are never opened as
   inputs, which prevents feedback loops.
@@ -159,6 +160,7 @@ class LinuxInputSource:
         # resynchronize after SYN_DROPPED.
         self._down: set[int] = set(self._query_keys_or_empty())
         self._dropping = False
+        self._led_warning_logged = False
 
     def _query_keys_or_empty(self) -> list[int]:
         try:
@@ -176,6 +178,33 @@ class LinuxInputSource:
 
     def fileno(self) -> int:
         return self._device.fd
+
+    def feedback_fileno(self) -> int:
+        """Descriptor on which the desktop's writes to the forwarder arrive."""
+        return self._forwarder.fd
+
+    def pump_feedback(self) -> None:
+        """Apply LED changes the desktop made on the forwarder to the device.
+
+        The desktop sees the forwarder as the keyboard, so Caps/Num/Scroll
+        Lock state lands there; without this the physical LEDs would freeze.
+        """
+        try:
+            events = list(self._forwarder.read())
+        except BlockingIOError:
+            return
+        except OSError as exc:
+            log.warning("reading feedback for %s failed: %s", self.description, exc)
+            return
+        for event in events:
+            if event.type != ecodes.EV_LED:
+                continue
+            try:
+                self._device.set_led(event.code, event.value)
+            except OSError as exc:
+                if not self._led_warning_logged:
+                    log.warning("cannot set LEDs on %s: %s", self.description, exc)
+                    self._led_warning_logged = True
 
     def held_codes(self) -> frozenset[int]:
         try:
@@ -316,8 +345,13 @@ class LinuxInputBackend:
             # All inputs absent (e.g. unplugged): sleep instead of spinning.
             time.sleep(timeout)
             return []
-        ready, _, _ = select.select(list(sources), [], [], timeout)
-        return ready
+        inputs = {source.fileno(): source for source in sources}
+        feedback = {source.feedback_fileno(): source for source in sources}
+        ready, _, _ = select.select([*inputs, *feedback], [], [], timeout)
+        for fd in ready:
+            if fd in feedback:
+                feedback[fd].pump_feedback()
+        return [inputs[fd] for fd in ready if fd in inputs]
 
     def _prepare(
         self, spec: InputDeviceSpec, device: InputDevice, mapped_codes: frozenset[int]
