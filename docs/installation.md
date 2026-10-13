@@ -101,21 +101,72 @@ device, write a configuration, check it, try it.
 - **nano**: add `include "/path/to/InpMap/editors/inpmap.nanorc"` to
   `~/.config/nano/nanorc` (or `~/.nanorc`). Not tested yet.
 
-## Running in the background
+## 6. Running in the background (user service)
 
-InpMap currently runs in the foreground (`inpmap run`). Running it as a
-systemd service, started automatically, is being implemented next; this
-section will describe its installation.
+Once a configuration works with `inpmap run`, let systemd start InpMap
+automatically whenever you log in. It runs as a **user service**
+(`systemctl --user`): as your user, without root, with the device access of
+your login session (step 3).
+
+**Install:**
+
+```sh
+mkdir -p ~/.config/systemd/user
+.venv/bin/inpmap service-unit config/local.inpmap > ~/.config/systemd/user/inpmap.service
+cat ~/.config/systemd/user/inpmap.service      # review
+systemctl --user daemon-reload
+systemctl --user enable --now inpmap.service
+```
+
+`inpmap service-unit` writes the absolute paths of this installation and of
+your configuration file into the unit. Run it again if you move either.
+
+**Everyday commands:**
+
+| Task | Command |
+|---|---|
+| Is it running? | `systemctl --user status inpmap` |
+| Show its log | `journalctl --user -u inpmap` (add `-f` to follow) |
+| Apply an edited configuration | `.venv/bin/inpmap check config/local.inpmap`, then `systemctl --user restart inpmap` |
+| Stop until the next login | `systemctl --user stop inpmap` |
+| Do not start at login any more | `systemctl --user disable inpmap` |
+
+**How it behaves:**
+
+- It starts when you log in and stops when your last session ends.
+  It does not run at the login screen.
+- An input device that is missing at startup (e.g. a gamepad that is still
+  switched off) does not stop the service: InpMap waits for it and grabs it
+  when it appears. The log says why it is waiting.
+- If the configuration is invalid, the service stops with an error and is
+  not restarted; `systemctl --user status inpmap` and the log show the
+  problem with its line number. Other failures (e.g. device permissions
+  not ready right after login) are retried every 3 seconds, at most 5 times
+  per minute.
+- While the service runs, it holds your devices: stop it before running
+  `inpmap run` by hand, otherwise that reports "already grabbed by another
+  program".
+
+A system-wide service (running without anyone logged in) is not supported.
+
+**Remove:**
+
+```sh
+systemctl --user disable --now inpmap.service
+rm ~/.config/systemd/user/inpmap.service
+systemctl --user daemon-reload
+```
 
 ## Uninstall
 
-1. If you installed the udev rules:
+1. If you installed the user service: remove it as described in §6.
+2. If you installed the udev rules:
    ```sh
    sudo rm /etc/udev/rules.d/70-inpmap.rules
    sudo udevadm control --reload
    sudo udevadm trigger --subsystem-match=input --subsystem-match=misc
    ```
-2. If you joined the `input` group only for InpMap:
+3. If you joined the `input` group only for InpMap:
    `sudo gpasswd -d "$USER" input` (takes effect at the next login).
-3. Remove the editor files you copied, if any.
-4. Delete the InpMap directory (including `.venv`).
+4. Remove the editor files you copied, if any.
+5. Delete the InpMap directory (including `.venv`).

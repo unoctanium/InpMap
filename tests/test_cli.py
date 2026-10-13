@@ -72,6 +72,25 @@ def test_missing_file(tmp_path, capsys):
     assert "cannot read file" in capsys.readouterr().err
 
 
+# -- service-unit ----------------------------------------------------------------------------
+
+
+def test_service_unit_uses_absolute_paths(simple, capsys, monkeypatch, tmp_path):
+    import sys
+
+    monkeypatch.chdir(tmp_path)
+    assert main(["service-unit", "simple.inpmap"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert f'"{sys.executable}" -m inpmap run --wait-for-devices "{simple}"' in out
+
+
+def test_service_unit_checks_the_configuration(tmp_path, capsys):
+    bad = tmp_path / "bad.inpmap"
+    bad.write_text("version 1\nmap\n")
+    assert main(["service-unit", str(bad)]) == EXIT_CONFIG_ERROR
+    assert capsys.readouterr().out == ""
+
+
 # -- macro-trace -----------------------------------------------------------------------------
 
 
@@ -172,6 +191,16 @@ def test_run_input_error_exit_code(fake_run_backends, simple, capsys):
     inputs.open_error["kbd"] = InputError("no readable device named X")
     assert main(["run", simple, "--timeout", "1"]) == EXIT_DEVICE_ERROR
     assert "no readable device named X" in capsys.readouterr().err
+    assert all(device.closed for device in outputs.created.values())
+
+
+def test_run_wait_for_devices_starts_without_the_device(fake_run_backends, simple, capsys):
+    from inpmap.input import InputError
+
+    inputs, outputs = fake_run_backends
+    inputs.open_error["kbd"] = InputError("no readable device named X")
+    assert main(["run", simple, "--timeout", "0.05", "--wait-for-devices"]) == EXIT_OK
+    assert "stopped (timeout)" in capsys.readouterr().out
     assert all(device.closed for device in outputs.created.values())
 
 

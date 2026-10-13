@@ -12,8 +12,11 @@ tests share it. Each configured input device moves through these states:
 * absent: the device disappeared. Outputs it held are released, its
   resources closed, and opening is retried periodically.
 
-Startup creates the virtual outputs first, then opens all inputs; a missing
-input at startup is a hard error (likely a configuration mistake). Cleanup
+Startup creates the virtual outputs first, then opens all inputs. By default
+an input that cannot be opened at startup is a hard error (likely a
+configuration mistake). With ``wait_for_inputs`` (used by the service) it
+starts in the absent state instead, so a gamepad that is switched off at
+login does not stop the remapper; why it is absent is logged. Cleanup
 on every exit path: release engine outputs, ungrab and close inputs
 (releasing forwarded keys), destroy the virtual devices.
 """
@@ -60,6 +63,7 @@ class _Slot:
     grabbed: bool = False
     waiting_announced: bool = False
     retry_at: float = 0.0
+    open_error: str | None = None  # last reason the device could not be opened
 
 
 class Runtime:
@@ -73,6 +77,7 @@ class Runtime:
         *,
         poll_interval: float = 0.1,
         reconnect_interval: float = 1.0,
+        wait_for_inputs: bool = False,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._config = config
@@ -80,6 +85,7 @@ class Runtime:
         self._outputs = OutputManager(output_backend, config)
         self._poll_interval = poll_interval
         self._reconnect_interval = reconnect_interval
+        self._wait_for_inputs = wait_for_inputs
         self._clock = clock
         self._slots: list[_Slot] = []
         self._engine: MappingEngine | None = None
@@ -111,8 +117,11 @@ class Runtime:
         for device_id, spec in self._config.inputs.items():
             slot = _Slot(spec=spec, codes=self._config.input_codes(device_id))
             self._slots.append(slot)
-            slot.source = self._inputs.open(spec, slot.codes)
-            log.info("opened input '%s': %s", device_id, slot.source.description)
+            if self._wait_for_inputs:
+                self._try_open(slot)
+            else:
+                slot.source = self._inputs.open(spec, slot.codes)
+                log.info("opened input '%s': %s", device_id, slot.source.description)
         while True:
             reason = self._should_stop(stop, deadline)
             if reason is not None:
@@ -126,7 +135,7 @@ class Runtime:
         """Move a slot towards 'grabbed': reconnect or grab when possible."""
         if slot.source is None:
             if self._clock() >= slot.retry_at:
-                self._try_reopen(slot)
+                self._try_open(slot)
             return
         if slot.grabbed:
             return
@@ -174,14 +183,21 @@ class Runtime:
                 return slot.source.leds()
         return frozenset()
 
-    def _try_reopen(self, slot: _Slot) -> None:
+    def _try_open(self, slot: _Slot) -> None:
         try:
             slot.source = self._inputs.open(slot.spec, slot.codes)
         except InputError as exc:
-            log.debug("input '%s' not available yet: %s", slot.spec.id, exc)
+            # Log each distinct reason once: the device being away is normal,
+            # but a lasting permission or selector problem must be visible.
+            if str(exc) != slot.open_error:
+                log.warning("waiting for input '%s': %s", slot.spec.id, exc)
+            else:
+                log.debug("input '%s' still not available", slot.spec.id)
+            slot.open_error = str(exc)
             slot.retry_at = self._clock() + self._reconnect_interval
             return
-        log.info("input '%s' reconnected: %s", slot.spec.id, slot.source.description)
+        slot.open_error = None
+        log.info("opened input '%s': %s", slot.spec.id, slot.source.description)
 
     def _wait_and_process(self, deadline: float | None) -> None:
         assert self._engine is not None

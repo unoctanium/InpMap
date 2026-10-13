@@ -13,8 +13,34 @@ Last updated: 2026-10-13
   complete and verified on real hardware. JSON was removed completely
   (user's Option A): `.inpmap` is the only configuration format;
   `project_spec.md` (change note at the top) and `CLAUDE.md` §7 updated.
-  Next: systemd service (spec step 9) — user said to continue with it
-  after the docs rework.**
+  Spec step 9 (service) implemented as a **systemd user service**
+  (user decision 2026-10-13, after discussing user vs. system service: user
+  service fits uaccess rules, no root; system service possible later with a
+  different unit + dedicated user, no code changes). ⏳ **Next: user's
+  real-hardware test of the service** (user is currently remote on an
+  iPad; needs to be at the PC).**
+- **User service (2026-10-13):** `inpmap service-unit CONFIG`
+  (`src/inpmap/backends/linux_service.py`) prints a user unit: Type=exec,
+  `ExecStart="<venv python>" -m inpmap run --wait-for-devices "<abs
+  config>"` (venv python not resolved, it is a symlink), Restart=on-failure,
+  RestartSec=3, StartLimit 5/60s, RestartPreventExitStatus=1 2 (config/usage
+  errors don't loop), PYTHONUNBUFFERED, NoNewPrivileges, WantedBy=
+  default.target; comments with install/logs/remove commands. Paths with
+  `$` (both), or `"`/`\` (command path) are rejected — verified with
+  `systemd-analyze --user verify` (spaces/`%%` OK; systemd rejects quotes in
+  the command path; `$$` stays literal there). Runtime: `wait_for_inputs`
+  / `run --wait-for-devices`: inputs that can't be opened at startup start
+  absent and are retried every second; each distinct reason is logged once
+  as a warning (also for reconnects; was debug before). Logging goes to
+  stderr → journald. Docs: installation.md §6, usage.md (`service-unit`,
+  `--wait-for-devices`, troubleshooting), README, development.md.
+  Tests: `tests/test_linux_service.py`, runtime wait tests, CLI tests.
+  **Not yet run:** installing/enabling the unit on the dev machine (grabs the
+  real keyboard — needs the user present). Planned user test:
+  generate + install unit, `enable --now`, check `status`/journal, X → y,
+  `restart` after a config edit, invalid config → failed without restart
+  loop, gamepad switched off at start → waits, then grabbed when switched
+  on; logout/login starts it again; `disable --now` removes all devices.
 - **Docs reworked for newcomers (user request 2026-10-13):** README
   (what/why, features, docs index, quick start, Claude Code workflow);
   `docs/installation.md`, `docs/usage.md` (workflow, every command/option,
@@ -297,8 +323,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 402 passed, 10 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after the docs rework (JSON-file tests were
+- Unit tests: 414 passed, 10 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after the user service (JSON-file tests were
   dropped earlier). Hardware: 10 passed (S3), not re-run since.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,

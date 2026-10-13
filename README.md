@@ -60,15 +60,16 @@ InpMap was started for needs it covers less well:
   are unplugged and plugged in again are picked up automatically.
 - `inpmap macro-trace` shows the exact timeline of a mapping without
   touching any device.
+- Runs in the foreground or as a systemd user service that starts at
+  login.
 
-Not yet: mouse output, a GUI, Windows, running as a background service
-(in progress).
+Not yet: mouse output, a GUI, Windows, a system-wide service.
 
 ## Documentation
 
 | Document | Contents |
 |---|---|
-| [docs/installation.md](docs/installation.md) | requirements, installation, device permissions, uninstall |
+| [docs/installation.md](docs/installation.md) | requirements, installation, device permissions, user service, uninstall |
 | [docs/usage.md](docs/usage.md) | first configuration step by step, all commands and options, troubleshooting |
 | [docs/configuration.md](docs/configuration.md) | **reference** of the configuration language: every feature with examples |
 | [docs/development.md](docs/development.md) | for contributors: tests, architecture |
@@ -90,10 +91,11 @@ Device permissions may be needed first: see
 
 ## Status
 
-Version 0.1, Linux only, foreground operation. Verified on CachyOS / KDE
-Plasma (Wayland) with a real keyboard and gamepad: remapping, suppression
-of the original keys, passthrough, macros, modifiers and the configuration
-language. Next: running as a systemd service. Later: Windows, then GUIs.
+Version 0.1, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
+real keyboard and gamepad: remapping, suppression of the original keys,
+passthrough, macros, modifiers and the configuration language. The user
+service is new and not yet tested on real hardware. Later: Windows, then
+GUIs.
 
 ## Working with Claude Code
 

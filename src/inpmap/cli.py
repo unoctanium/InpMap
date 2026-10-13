@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import threading
@@ -124,7 +125,25 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SECONDS",
         help="stop automatically after this many seconds (recommended for first tests)",
     )
+    run.add_argument(
+        "--wait-for-devices",
+        action="store_true",
+        help="if an input device cannot be opened at startup, wait for it instead of "
+        "failing (used by the service)",
+    )
     run.set_defaults(handler=_cmd_run)
+
+    service_unit = commands.add_parser(
+        "service-unit",
+        help="print a systemd user unit that runs CONFIG at login",
+        description=(
+            "Print a systemd user unit (systemctl --user) that runs 'inpmap run' for "
+            "CONFIG with this installation's Python. Nothing is installed; the output "
+            "contains the install and removal commands."
+        ),
+    )
+    service_unit.add_argument("config", help="path to the .inpmap configuration file")
+    service_unit.set_defaults(handler=_cmd_service_unit)
 
     test_outputs = commands.add_parser(
         "test-outputs",
@@ -271,7 +290,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
     stop_signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
     previous = {sig: signal.signal(sig, request_stop) for sig in stop_signals}
     try:
-        runtime = Runtime(config, LinuxInputBackend(), LinuxOutputBackend())
+        runtime = Runtime(
+            config,
+            LinuxInputBackend(),
+            LinuxOutputBackend(),
+            wait_for_inputs=args.wait_for_devices,
+        )
         if args.timeout is not None:
             print(f"will stop automatically after {args.timeout:g}s", flush=True)
         reason = runtime.run(stop, timeout=args.timeout)
@@ -283,6 +307,24 @@ def _cmd_run(args: argparse.Namespace) -> int:
     finally:
         for sig, handler in previous.items():
             signal.signal(sig, handler)
+
+
+def _cmd_service_unit(args: argparse.Namespace) -> int:
+    from .backends.linux_service import UnitError, render_unit
+
+    try:
+        _load(args.config)
+    except ConfigError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    # Not resolved: a virtual environment's python is a symlink that must stay one.
+    python = os.path.abspath(sys.executable)
+    try:
+        print(render_unit(python, os.path.abspath(args.config), args.config), end="")
+    except UnitError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    return EXIT_OK
 
 
 def _cmd_check(args: argparse.Namespace) -> int:

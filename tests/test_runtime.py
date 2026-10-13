@@ -57,9 +57,14 @@ class Harness:
         for _ in range(count):
             self.step(lambda: None)
 
-    def run(self, timeout=None):
+    def run(self, timeout=None, wait_for_inputs=False):
         runtime = Runtime(
-            CONFIG, self.inputs, self.outputs, clock=self.clock, reconnect_interval=0.0
+            CONFIG,
+            self.inputs,
+            self.outputs,
+            clock=self.clock,
+            reconnect_interval=0.0,
+            wait_for_inputs=wait_for_inputs,
         )
         return runtime.run(self.stop, timeout=timeout)
 
@@ -259,6 +264,43 @@ def test_input_open_failure_cleans_up_without_grabbing(h):
     assert not any(entry.startswith("grab") for entry in h.journal)
     assert h.kbd.closed  # already opened source is closed again
     assert all(d.closed for d in h.outputs.created.values())
+
+
+def test_wait_for_inputs_starts_without_a_missing_device(h, caplog):
+    h.inputs.open_error["pad"] = InputError("no such device")
+    h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 1), SYN, key_raw(KEY_X, 0), SYN]))
+    h.idle(2)  # retries fail with the same reason: logged only once
+
+    def plug_in():
+        del h.inputs.open_error["pad"]
+
+    h.step(plug_in)
+    h.idle()  # opened and grabbed at the start of the next iteration
+
+    def press_on_pad():
+        assert h.pad.grabbed
+        h.pad.queue.extend([key_raw(BTN_EAST, 1), SYN, key_raw(BTN_EAST, 0), SYN])
+
+    h.step(press_on_pad)
+    with caplog.at_level("INFO", logger="inpmap.runtime"):
+        assert h.run(wait_for_inputs=True) is StopReason.STOPPED
+    assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)] * 2
+    waiting = [r for r in caplog.records if r.getMessage().startswith("waiting for input")]
+    assert [r.getMessage() for r in waiting] == ["waiting for input 'pad': no such device"]
+    assert h.inputs.open_attempts["pad"] >= 3
+    h.assert_all_cleaned_up()
+
+
+def test_wait_for_inputs_logs_a_changed_reason_again(h, caplog):
+    h.inputs.open_error["pad"] = InputError("no such device")
+    h.step(lambda: h.inputs.open_error.update(pad=InputError("no read access")))
+    h.idle()
+    with caplog.at_level("WARNING", logger="inpmap.runtime"):
+        h.run(wait_for_inputs=True)
+    assert [r.getMessage() for r in caplog.records] == [
+        "waiting for input 'pad': no such device",
+        "waiting for input 'pad': no read access",
+    ]
 
 
 def test_grab_failure_releases_earlier_grab(h):

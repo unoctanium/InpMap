@@ -120,8 +120,13 @@ selected by an `input` block.
 ### `inpmap run`
 
 ```text
-inpmap run FILE [--timeout SECONDS]
+inpmap run FILE [--timeout SECONDS] [--wait-for-devices]
 ```
+
+- `--timeout SECONDS`: stop by itself after this time.
+- `--wait-for-devices`: if an input device cannot be opened at startup
+  (missing, no permission), wait for it instead of failing. The service
+  uses this.
 
 Runs the remapper in the foreground:
 
@@ -139,7 +144,8 @@ Behaviour while running:
 - **Device lost** (unplugged, wireless sleep): its held outputs are released
   at once; other devices keep working; InpMap checks every second and
   grabs the device again when it is back. A device missing at **startup**
-  is an error, because it usually means a wrong `name` or `path`.
+  is an error, because it usually means a wrong `name` or `path`, unless
+  `--wait-for-devices` is given.
 - **Keyboard LEDs** (Caps Lock, Num Lock, Scroll Lock): the desktop sets
   them on the forwarding device; InpMap copies them to the physical
   keyboard.
@@ -219,6 +225,17 @@ Prints udev rules that give your login session access to `/dev/uinput` and
 the input devices of `FILE`, which must be connected. Nothing is installed;
 see [installation.md](installation.md#3-device-permissions).
 
+### `inpmap service-unit`
+
+```text
+inpmap service-unit FILE
+```
+
+Prints a systemd user unit that runs `inpmap run --wait-for-devices FILE`
+at login, with the absolute paths of this installation. Nothing is
+installed; see
+[installation.md §6](installation.md#6-running-in-the-background-user-service).
+
 ### Exit codes
 
 | Code | Meaning |
@@ -247,7 +264,8 @@ see [installation.md](installation.md#3-device-permissions).
 | "cannot create virtual …" or "no read access to …" | set up permissions ([installation.md §3](installation.md#3-device-permissions)) |
 | "no readable device named …" | the `name` is wrong, the device is not connected, or you lack permission; check `inpmap devices`, or use `path` |
 | "N devices are named …" | use `path` with a `/dev/input/by-id` link instead of `name` |
-| "already grabbed by another program" | stop the other remapper (e.g. Input Remapper) for that device |
+| "already grabbed by another program" | the InpMap service is running (`systemctl --user stop inpmap`), or another remapper (e.g. Input Remapper) uses the device |
+| the service does not run | `systemctl --user status inpmap` and `journalctl --user -u inpmap` show the reason (an invalid configuration is reported with its line number) |
 | a mapped key does nothing | the trigger may be on another entry of the same keyboard (check with `evtest`); a mapping without `modifiers(…)` does not fire while a modifier is held |
 | a key types the wrong character | codes are key positions: `KEY_Y` types `z` on a German layout |
 | holding a mapped key types `yyyy` | that is the desktop's key repeat for a held key; use `tap` for a single press |
