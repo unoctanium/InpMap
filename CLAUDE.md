@@ -15,7 +15,7 @@ Do not duplicate the full product specification here. Keep this file focused on 
 
 ### Product direction
 
-- V1: Linux, Python, JSON configuration, physical keyboard and digital gamepad buttons, virtual keyboard/gamepad output, no GUI.
+- V1: Linux, Python, configuration in the InpMap configuration language (`.inpmap`, originally JSON), physical keyboard and digital gamepad buttons, virtual keyboard/gamepad output, no GUI.
 - V1.1: extend mapping and macro capabilities based on a careful study of Input Remapper's documentation and source.
 - V2: Windows backend, no GUI.
 - V3: Windows GUI.
@@ -82,7 +82,7 @@ Keep the core mapping logic independent of the operating-system backend.
 
 A reasonable initial separation is:
 
-- Configuration: load and validate JSON.
+- Configuration: parse, compile and validate `.inpmap` files.
 - Models: typed internal representations of devices, inputs, rules, and actions.
 - Input layer: normalize physical input events.
 - Mapping engine: match normalized inputs to rules.
@@ -133,21 +133,21 @@ Do not assume every target machine is CachyOS. Keep distribution-specific instru
 
 Do not run destructive commands, modify system configuration, install packages globally, or change device permissions without explaining the effect and obtaining user confirmation when the action is consequential.
 
-## 7. JSON configuration
+## 7. Configuration language
 
-JSON is the required user-facing configuration format. Do not introduce YAML as an alternative unless the product specification is explicitly changed.
+The InpMap configuration language (`.inpmap` files, specified in `docs/dsl.md`) is the only user-facing configuration format. It replaced JSON on 2026-10-13 by decision of the user. Do not introduce another format (JSON, YAML, TOML, Lua, …) unless the product specification is explicitly changed.
 
+- Change the language only by first updating `docs/dsl.md` and getting the user's approval; keep the grammar (`src/inpmap/dsl/inpmap.lark`), the compiler, the editor syntax files (`editors/`) and the examples consistent with it.
 - Validate the configuration at startup before creating or grabbing input devices.
 - Reject unknown device references, unsupported event types, invalid codes, duplicate identifiers, and malformed rules with useful error messages.
-- Include the file path and relevant mapping identifier in diagnostics where possible.
-- Keep configuration parsing separate from execution.
-- Convert validated JSON into internal models once; avoid repeated ad hoc parsing throughout the runtime.
-- Include a configuration version and a clear policy for future schema changes.
-- Provide an example configuration that is valid against the current implementation.
+- Report every problem as `FILE:LINE:COLUMN: message`, all problems of a file together, and name the mapping where it helps.
+- Keep configuration parsing separate from execution: parser → compiler → validated data → internal models, once; avoid repeated ad hoc parsing throughout the runtime.
+- Include a language version and a clear policy for future incompatible changes.
+- Provide an example configuration (`config/example.inpmap`) that is valid against the current implementation and tested.
 - Test both valid and invalid configurations.
-- Never execute arbitrary Python code from a configuration file.
+- Never execute arbitrary code from a configuration file; the language stays declarative.
 
-If JSON Schema or a validation library is considered, justify the dependency. A small hand-written validator may be sufficient initially.
+The parser uses `lark`. Justify any further parsing or validation dependency.
 
 ## 8. Input remapping correctness and safety
 
@@ -210,7 +210,7 @@ The core mapping and state logic should be testable without:
 Use small fakes or test doubles for input and output backends. Avoid elaborate mocking frameworks unless necessary.
 
 Cover at least:
-- JSON parsing and validation;
+- configuration parsing and validation (including error positions);
 - mapping match/no-match behavior;
 - one input producing multiple outputs;
 - press and release;
@@ -263,7 +263,7 @@ Design for a future Linux daemon managed by `systemd`, but do not implement a fu
 The eventual daemon should:
 - run without an interactive terminal or GUI;
 - use the same runtime and mapping engine as foreground mode;
-- load a defined JSON configuration path;
+- load a defined configuration file path;
 - log to journald or a documented logging destination;
 - handle termination signals and clean up active outputs, virtual devices, and input grabs;
 - handle device hotplug and configuration errors predictably;
@@ -283,7 +283,7 @@ Maintain:
 - `README.md`: project overview, supported scope, setup, configuration, run, test, troubleshooting, and current limitations.
 - `project_spec.md`: product specification and milestones.
 - `CLAUDE.md`: these development instructions.
-- example JSON configuration(s) that are tested against the current implementation.
+- example configuration(s) (`config/example.inpmap`) that are tested against the current implementation.
 - installation scripts only when their behavior is clear, safe, and justified.
 
 Any installation script must:
@@ -320,7 +320,7 @@ When implementing macro or mapping features:
 5. Decide whether to implement the behavior independently or adapt code with license compliance.
 6. Add tests for the chosen semantics before broadening the implementation.
 
-Do not assume our JSON syntax must match Input Remapper's syntax. Our format should be coherent, versioned, documented, and suitable for multiple output devices and future backends.
+Do not assume our configuration syntax must match Input Remapper's syntax. Our format should be coherent, versioned, documented, and suitable for multiple output devices and future backends.
 
 ## 15. Definition of done for a coding task
 

@@ -9,6 +9,14 @@ Last updated: 2026-10-13
 
 ## Current position
 
+- **Now (2026-10-13): V1, V1.1 macros and the configuration language are
+  complete and verified on real hardware. JSON was removed completely
+  (user's Option A): `.inpmap` is the only configuration format;
+  `project_spec.md` (change note at the top) and `CLAUDE.md` §7 updated.
+  Next: systemd service (spec step 9) — ask the user before starting.**
+- The user's old `config/local.json`, `local-macros.json`, `local-tap.json`
+  (git-ignored) can no longer be loaded; `config/local.inpmap` replaces
+  them. Left in place for the user to delete.
 - Milestone: **V1** (Linux, no GUI)
 - Spec steps (`project_spec.md` §11): 1 ✅ environment · 2 ✅ skeleton + JSON
   validation · 3 ✅ virtual devices · 4 ✅ mapping engine ·
@@ -271,8 +279,9 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 400 passed, 10 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after DSL step S4. Hardware: 10 passed (S3).
+- Unit tests: 390 passed, 10 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after the JSON removal (fewer tests: JSON-file
+  tests dropped). Hardware: 10 passed (S3).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and
@@ -351,6 +360,15 @@ Last updated: 2026-10-13
   ✅ **User's real-device test passed (2026-10-13, "all works")**: all mappings of
   `config/local.inpmap` incl. case 1 (KDE saw a plain Enter; Ctrl restored afterwards),
   case 2 on the Razer pad, Shift+X passthrough.
+  ✅ (4) **JSON removed (user chose Option A, 2026-10-13)**: grammar moved to
+  `src/inpmap/dsl/inpmap.lark` (commit cc4f20d); JSON loading, `load_config`,
+  `config/example*.json` removed, tests converted (golden timelines in
+  `tests/golden_example_traces.py`), README/docs updated (a61c8d8);
+  `CLAUDE.md` (§7 "Configuration language" + scattered mentions) and
+  `project_spec.md` (change note; normative JSON statements replaced;
+  historical steps and the JSON draft kept, marked historical). The JSON
+  *data layer* (`config.parse_config` on dicts) stays as the compiler's
+  internal target. → (5) **systemd service is next.**
   **DSL implementation complete.** Next: (a) [done] user's real-keyboard test of
   `config/local.inpmap` (case 1 bracket_combo: KDE must see a plain Enter;
   case 2 alternate on the Razer pad; modifiers); (b) user decides whether
@@ -385,3 +403,7 @@ Last updated: 2026-10-13
   missing BTN_SOUTH turned out to be evtest on the wrong device; retest
   passed → **spec §7 acceptance test passed**. Removed EV_FF from all
   virtual devices (30 s rumble block risk).
+- **2026-10-13 (later)** – Robustness, installation, tap mode, V1.1 macros,
+  DSL spec + implementation, all verified by the user. Grammar moved to
+  `inpmap.lark`; user gave general clearance (settings.local.json);
+  JSON removed completely incl. CLAUDE.md/project_spec.md updates.

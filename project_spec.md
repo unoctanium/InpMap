@@ -1,5 +1,7 @@
 # Projektbriefing: Cross-Platform Input Remapper – Linux V1
 
+> **Änderung 2026-10-13:** Die InpMap-Konfigurationssprache (Dateiendung `.inpmap`, Spezifikation in `docs/dsl.md`) ersetzt JSON als einziges Konfigurationsformat. JSON-Konfigurationsdateien werden nicht mehr unterstützt. Die Arbeitsschritte in §11 und §14 sowie der JSON-Entwurf in §7 sind historisch und beschreiben den ursprünglichen Weg.
+
 ## 1. Rolle und Arbeitsweise
 
 Du bist mein technischer Projektpartner und leitender Softwareentwickler für die Entwicklung eines eigenen Input Remappers.
@@ -36,7 +38,7 @@ Input Remapper dient als Referenz für:
 
 Wir wollen die relevanten Dokumentations- und Quellcodebereiche untersuchen und daraus eine eigene technische Spezifikation ableiten.
 
-Wir wollen nicht einfach eine GUI nachbauen. Unser Ziel ist ein schlanker, zunächst GUI-loser Remapper, dessen Regeln vollständig in JSON definiert werden.
+Wir wollen nicht einfach eine GUI nachbauen. Unser Ziel ist ein schlanker, zunächst GUI-loser Remapper, dessen Regeln vollständig in einer Konfigurationsdatei (InpMap-Konfigurationssprache, `.inpmap`) definiert werden.
 
 Der entscheidende funktionale Unterschied: **Eine einzelne Eingabe kann mehrere Aktionen auf unterschiedlichen virtuellen Geräten auslösen.** Beispielsweise kann ein Tastendruck gleichzeitig eine andere Taste auf einer virtuellen Tastatur und einen Button auf einem virtuellen Gamepad aktivieren.
 
@@ -56,7 +58,7 @@ Spätere Versionen sollen komplexe Makros und weitere Eingabegeräte unterstütz
 ### Programmiersprache und Technologien
 
 - Python 3
-- JSON als einziges Konfigurationsformat für Mapping-Regeln
+- die InpMap-Konfigurationssprache (`.inpmap`, `docs/dsl.md`) als einziges Konfigurationsformat für Mapping-Regeln (ursprünglich JSON)
 - `evdev` zum Lesen physischer Eingabeereignisse
 - `uinput` zum Erzeugen virtueller Eingabegeräte
 - `pytest` für automatisierte Tests
@@ -77,7 +79,7 @@ Die folgenden Meilensteine definieren die beabsichtigte Produktentwicklung.
 
 - Physische Tastatur und digitale Gamepad-Buttons lesen.
 - Eingaben erkennen und eindeutig identifizieren.
-- Mapping-Regeln aus JSON laden und validieren.
+- Mapping-Regeln aus der Konfigurationsdatei laden und validieren.
 - Regeln auf Eingaben anwenden.
 - Virtuelle Tastatur und virtuellen Gamecontroller erzeugen.
 - Ausgaben an mehrere virtuelle Geräte verteilen.
@@ -110,7 +112,7 @@ Definiere die Semantik dieser Funktionen anhand einer dokumentierten Spezifikati
 ### V2 – Windows, ohne GUI
 
 - Windows-spezifische Eingabeerkennung und Ausgabe implementieren.
-- Mapping-Engine und JSON-Konfigurationsmodell soweit möglich wiederverwenden.
+- Mapping-Engine, Konfigurationssprache und Konfigurationsmodell soweit möglich wiederverwenden.
 - Geeignete Lösungen für virtuelle Tastatur- und Gamepad-Geräte untersuchen.
 - Treiberanforderungen, Berechtigungen und Installation dokumentieren.
 
@@ -138,7 +140,7 @@ Der Remapper soll später als Hintergrunddienst laufen können, ohne dass ein Te
 
 Anforderungen an die spätere Daemon-Ausführung:
 - Starten, Stoppen und Neustarten über `systemd`.
-- Konfiguration aus einer definierten JSON-Datei laden.
+- Konfiguration aus einer definierten `.inpmap`-Datei laden.
 - Logs über `journald` oder einen klar definierten Logging-Mechanismus bereitstellen.
 - Beim Start Geräte erkennen und beim Gerätewechsel angemessen reagieren.
 - Fehler und Neustarts nachvollziehbar protokollieren.
@@ -224,7 +226,9 @@ Verwende für den Gamecontroller zunächst `BTN_SOUTH`, sofern das für den gew�
 
 Verwende zunächst eine eindeutige Tastenidentifikation. Berücksichtige, dass Linux-Keycodes und Zeichen auf Tastaturlayouts nicht dasselbe sind. Die erste Implementierung darf `KEY_Y` als Linux-Keycode ausgeben; eine weitergehende layoutbewusste Zeichenausgabe muss separat spezifiziert werden.
 
-### Vorgeschlagene JSON-Konfiguration
+### Vorgeschlagene JSON-Konfiguration (historisch)
+
+Historisch: JSON wurde durch die Konfigurationssprache ersetzt; dasselbe Mapping lautet heute `map KEY_X { hold KEY_Y; hold BTN_SOUTH }` (siehe `config/example.inpmap`).
 
 Das folgende Format ist ein erster Entwurf. Prüfe und verbessere es bei Bedarf, bevor du es verbindlich implementierst.
 
@@ -265,7 +269,7 @@ Das folgende Format ist ein erster Entwurf. Prüfe und verbessere es bei Bedarf,
 }
 ```
 
-Das JSON-Modell muss validiert werden. Ungültige Gerätereferenzen, unbekannte Event-Typen und ungültige Event-Codes müssen mit verständlichen Fehlermeldungen abgewiesen werden.
+Die Konfiguration muss validiert werden; Fehler werden mit Position (`DATEI:ZEILE:SPALTE`) gemeldet. Ungültige Gerätereferenzen, unbekannte Event-Typen und ungültige Event-Codes müssen mit verständlichen Fehlermeldungen abgewiesen werden.
 
 Die Konfiguration muss nicht von Anfang an alle späteren Makrofunktionen enthalten. Sie muss aber so gestaltet sein, dass wir später Makroaktionen ergänzen können, ohne das Format vollständig zu ersetzen.
 
@@ -278,7 +282,7 @@ input-remapper-next/
 ├── pyproject.toml
 ├── README.md
 ├── config/
-│   └── example.json
+│   └── example.inpmap
 ├── src/
 │   └── remapper/
 │       ├── __init__.py
@@ -309,7 +313,7 @@ Passe die Struktur an, falls sich im Laufe der Implementierung eine einfachere L
 - Konfigurationsprüfung und Diagnose
 
 `config.py`
-- JSON laden
+- Konfigurationsdatei parsen und übersetzen
 - Schema und Referenzen validieren
 - verständliche Fehler melden
 
@@ -346,7 +350,7 @@ Schreibe Tests frühzeitig. Verwende für die Kernlogik möglichst Unit-Tests oh
 
 ### Automatisierte Tests
 
-1. JSON-Konfiguration ist gültig.
+1. Gültige Konfiguration wird akzeptiert.
 2. Fehlerhafte Konfigurationen werden abgewiesen.
 3. Eine Eingabe aktiviert genau die konfigurierten Ausgaben.
 4. Mehrere Ausgaben auf verschiedenen virtuellen Geräten funktionieren.
@@ -479,7 +483,7 @@ Bitte beachte bei jeder Antwort:
 
 Der erste Prototyp gilt als erfolgreich, wenn:
 
-- die JSON-Konfiguration validiert wird;
+- die Konfiguration validiert wird (ursprünglich JSON, heute `.inpmap`);
 - die virtuelle Tastatur und der virtuelle Gamecontroller von Linux erkannt werden;
 - physisches `X` die virtuelle Taste `KEY_Y` und den Gamepad-Button `BTN_SOUTH` aktiviert;
 - beide virtuellen Ausgaben beim Loslassen von `X` wieder freigegeben werden;
