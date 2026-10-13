@@ -11,9 +11,11 @@ Last updated: 2026-10-13
 
 - Milestone: **V1** (Linux, no GUI)
 - Spec steps (`project_spec.md` §11): 1 ✅ environment · 2 ✅ skeleton + JSON
-  validation · **3 🔧 virtual devices (in progress)** · 4 mapping engine ·
+  validation · 3 ✅ virtual devices · **4 🔧 mapping engine (in progress)** ·
   5 physical input + grab · 6 end-to-end test · 7 robustness
-- Work in progress: step 3.
+- Work in progress: step 4 (see Next steps). Nothing half-finished on disk
+  unless listed under "Uncommitted work".
+- Step 3 record (complete):
   - ✅ 3a: backend-independent output layer `src/inpmap/output.py`
     (`OutputBackend`/`OutputDevice` protocols, `OutputManager` that tracks held
     codes, ignores redundant transitions, releases everything on close/error,
@@ -29,33 +31,32 @@ Last updated: 2026-10-13
     `test-outputs --no-emit`: keyboard `ID_INPUT_KEY=1 ID_INPUT_KEYBOARD=1`,
     gamepad `ID_INPUT_JOYSTICK=1` (no `ID_INPUT_KEY`) — as predicted. SIGTERM
     → "outputs released and devices removed", exit 130; nodes gone afterwards.
-  - ⏳ 3e: **waiting for the user's manual `evtest` result** (instructions
-    given in chat 2026-10-13): run `.venv/bin/inpmap test-outputs
-    config/example.json --delay 15`, attach `evtest` to the printed gamepad
-    and keyboard nodes; expect `BTN_SOUTH` (code 304) value 1 then 0, and
-    `KEY_Y` (code 21) value 1 then 0. Optional: KDE System Settings → Game
-    Controller lists "InpMap Virtual Gamepad" (SDL-based recognition).
-    Not installed, optional: `libinput list-devices`, SDL test tools.
-
+  - ✅ 3e (user, 2026-10-13): `evtest` on the virtual gamepad showed
+    `BTN_SOUTH` (304) value 1, SYN, value 0 after 0.2 s, SYN; then "No such
+    device" when test-outputs removed it (expected). The virtual keyboard's
+    KEY_Y arrived in the focused terminal as `y` via KDE/libinput (no
+    repeat → release delivered). User layout maps KEY_Y → `y`.
+  - Still unverified (optional, not blocking): KDE Game Controller page /
+    SDL recognition of the gamepad, Steam behaviour.
 ## Next steps (in order)
 
-1. **Step 3 – virtual devices** (`src/inpmap/backends/linux.py` or similar):
-   - Output backend interface in the core (press/release/close), with a fake
-     implementation for unit tests.
-   - Linux implementation via `evdev.UInput`: one device per configured
-     output, declaring only needed `EV_KEY` codes (`Config.output_codes`).
-     Research first whether SDL/Steam/games need additional gamepad
-     capabilities (axes, standard buttons) to recognise the virtual gamepad;
-     document the result before deciding.
-   - Verify the evdev 2.0.0 `UInput` API against the installed library, do not
-     assume it.
-   - CLI subcommand to create the devices and emit a test press/release
-     (safe: grabs nothing). Running it needs user approval (not allowlisted).
-   - Manual check by the user with `evtest`.
-2. Step 4 – mapping engine + reference-counted state manager (pure unit tests).
-3. Step 5 – physical input reading, device selection, `EVIOCGRAB`. Before the
-   user's first real grab test: auto-exit timeout option, grab only the
-   configured device, release on every exit path.
+1. **Step 4 – mapping engine + state manager** (pure, no hardware):
+   - Neutral input event model (device id, code, press/release/repeat).
+   - `state.py`: reference counts per (output device, code); output pressed on
+     0→1, released on 1→0.
+   - `engine.py`: rules indexed by (input device, code); press activates the
+     rule's outputs, release deactivates; duplicate presses / releases
+     without press ignored; repeat events of mapped inputs consumed without
+     action; unmapped events reported as not handled (passthrough decided in
+     step 5); `release_device(id)` for device loss; `release_all()`.
+     Output errors: process all outputs, keep state coherent, then raise.
+   - Unit tests per spec §9: match/no-match, multi-output, press/release,
+     repeat, shared outputs (two inputs → KEY_Y), device loss, errors.
+2. Step 5 – physical input reading, device selection, `EVIOCGRAB`, passthrough
+   of unmapped events. Before the user's first real grab test: auto-exit
+   timeout option, grab only the configured device, release on every exit
+   path.
+3. Step 6 – end-to-end test with physical `X` (user).
 
 ## Decisions (and why)
 
@@ -109,7 +110,7 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- Result of the manual `evtest` check (step 3e)?
+- None pending.
 
 ## Session log
 
@@ -123,4 +124,4 @@ Last updated: 2026-10-13
   manager (3a), research on device recognition, Linux uinput backend,
   `test-outputs` CLI (3b/3c); hardware tests + udev classification passed
   (3d, one test fixed: cannot read events after device destruction).
-  Waiting for user's evtest result (3e).
+  User's evtest check passed (3e) → step 3 complete. Started step 4.
