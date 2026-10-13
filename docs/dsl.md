@@ -446,3 +446,61 @@ map KEY_F5 {
     if capslock { tap KEY_1 } else { tap KEY_2 }
 }
 ```
+
+## 12. Review notes (user review, 2026-10-13)
+
+The user tested the draft with two cases.
+
+**Case 2 works with the draft** (alternating actions via a variable):
+
+```
+let bracket_mode = false
+
+map pad.BTN_WEST as alternate {
+    if bracket_mode == false {
+        bracket_mode = true
+        tap KEY_ENTER
+        tap KEY_LEFTCTRL + KEY_LEFTSHIFT + KEY_LEFTBRACE
+    } else {
+        bracket_mode = false
+        tap KEY_LEFTCTRL + KEY_LEFTSHIFT + KEY_LEFTBRACE
+        wait 500ms
+        tap KEY_ENTER
+        tap KEY_ESC
+        tap BTN_EAST
+    }
+}
+```
+
+**Case 1 needs a combination trigger, not in the draft or the model:**
+
+```
+map KEY_LEFTCTRL + KEY_LEFTSHIFT + KEY_LEFTBRACE as bracket_combo {
+    tap KEY_ENTER
+    wait random(20ms, 60ms)
+    hold KEY_LEFTCTRL + KEY_LEFTSHIFT + KEY_LEFTBRACE
+    on release {
+        wait 200ms
+        tap KEY_ENTER
+        tap KEY_ESC
+        tap BTN_EAST
+    }
+}
+```
+
+Proposed additions (awaiting user decision):
+
+1. **Combination triggers** (`map A + B + C { … }`): fires when the last key
+   is pressed while the others are held (order irrelevant); released as
+   soon as any of its keys is released; when it fires, keys of the
+   combination that were already passed through to the desktop (e.g.
+   Ctrl, Shift) are released on the forwarding device first, so outputs
+   are not modified by them; a longer combination wins over a shorter one
+   or a single-key mapping on the same key. Needs new engine functionality;
+   study Input Remapper's combination handling (`combination_handler.py`)
+   before specifying details.
+2. **Bool variables as conditions**: `if bracket_mode`, `if not bracket_mode`.
+3. Optional aliases `ctrl`, `shift`, `alt`, `meta` = left or right key.
+
+Layout note: `KEY_LEFTBRACE` is the key right of P (`[` on US layouts, `ü`
+on German layouts, where `[` is AltGr+8).
