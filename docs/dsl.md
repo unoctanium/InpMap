@@ -38,10 +38,11 @@ File extension: `.inpmap` (e.g. `config/example.inpmap`).
 - **Keywords** (reserved, cannot be names): `version settings let input
   output map as hold tap press release with wait random repeat while held
   toggle parallel branch on double_tap long_press if else single not and
-  keep modifiers left_ctrl right_ctrl left_shift right_shift left_alt
-  right_alt
+  keep modifiers ignore left_ctrl right_ctrl left_shift right_shift left_alt
+  right_alt left_meta right_meta
   within after axis move to over cancel restart key_pause max_run none
   true false capslock numlock scrolllock ctrl shift alt meta`.
+  (`modifiers` is also a keyword.)
 
 ## 3. File structure
 
@@ -75,7 +76,7 @@ settings {
 | Setting | Type | Default | Meaning |
 |---|---|---|---|
 | `key_pause` | duration | `10ms` | pause after every key press and release made by `tap`, `press`, `release`, `hold`, `with` |
-| `modifiers` | list of `ctrl`, `shift`, `alt` (`meta` open) | `ctrl, shift, alt` | keys treated as modifiers (§4.0); all others are normal keys |
+| `modifiers` | list of `ctrl`, `shift`, `alt`, `meta` | `ctrl, shift, alt, meta` | keys treated as modifiers (§4.0); all others are normal keys |
 
 ### 3.3 Variables
 
@@ -150,26 +151,30 @@ map KEY_LEFTBRACE modifiers(ctrl, shift) { … }
 map KEY_P modifiers(right_ctrl, right_alt) { … }
 map pad.BTN_SOUTH modifiers(ctrl) { … }      # Ctrl from the keyboard
 map pad.BTN_SOUTH { … }                      # the same button without modifiers
+map KEY_F5 modifiers(ignore) { … }           # F5, whatever modifiers are held
 ```
 
 Rules:
 
-1. **Modifier keys**: by default `ctrl`, `shift`, `alt` (left and right
-   keys each). `settings { modifiers = ctrl, alt }` chooses the set; a key
-   that is not in the set (e.g. Shift above) is a normal key and can be
-   mapped. A modifier key cannot be a trigger. *(Open: whether `meta` is a
-   default modifier.)*
-2. **Names**: `ctrl`, `shift`, `alt` = either side; `left_ctrl`,
-   `right_ctrl`, `left_shift`, `right_shift`, `left_alt`, `right_alt` =
-   exactly that side.
+1. **Modifier keys**: by default `ctrl`, `shift`, `alt` and `meta`
+   (Super/Windows key), left and right keys each.
+   `settings { modifiers = ctrl, alt }` chooses the set; a key that is not
+   in the set (e.g. Shift above) is a normal key and can be mapped. A
+   modifier key cannot be a trigger.
+2. **Names**: `ctrl`, `shift`, `alt`, `meta` = either side; `left_ctrl`,
+   `right_ctrl`, `left_shift`, `right_shift`, `left_alt`, `right_alt`,
+   `left_meta`, `right_meta` = exactly that side. `ignore` = see rule 3.
 3. **Exact match**: the mapping fires when the key is pressed while the
    required modifiers are held and **no other modifier** is held. A trigger
    without `modifiers(…)` fires only when no modifier is held; otherwise
    the key passes through unchanged (e.g. Shift+A stays a capital A).
-4. **Specificity**: if several mappings of the same key match (e.g.
-   `modifiers(ctrl)` and `modifiers(right_ctrl)` with right Ctrl held), the
-   more specific side wins. Two mappings with the same key and the same
-   modifier requirement are an error.
+   `modifiers(ignore)` fires whatever modifiers are held (or none); it
+   cannot be combined with other names.
+4. **Specificity**: if several mappings of the same key match, the most
+   specific one wins: an exact side (`right_ctrl`) beats either side
+   (`ctrl`), and any exact requirement — including "no modifiers" — beats
+   `ignore`, which is the fallback. Two mappings with the same key and the
+   same modifier requirement are an error.
 5. **Shared state**: the modifier state is the union of all configured
    input devices, so a gamepad button can be combined with Ctrl on the
    keyboard. Modifiers of devices that are not configured (not grabbed)
@@ -187,6 +192,9 @@ Rules:
    forwarding device, so e.g. a following Ctrl+C works. Keys typed during
    the run arrive without those modifiers. Mapping option `keep modifiers`
    disables the temporary release (then e.g. Shift applies to the output).
+   With `modifiers(ignore)` nothing is required, so nothing is released:
+   held modifiers apply to the output like normal typing
+   (`map KEY_A modifiers(ignore) { tap KEY_B }`: Shift+A gives a capital B).
 8. **Autorepeat** of the key is ignored, as for all triggers.
 
 ### 4.1 Output references
@@ -588,3 +596,9 @@ map KEY_LEFTBRACE modifiers(ctrl, shift) as bracket_combo {
     }
 }
 ```
+
+**Review decisions (user, 2026-10-13):** exact modifier matching confirmed,
+extended by `modifiers(ignore)` (fires regardless of modifiers, lowest
+priority, no temporary release); re-pressing modifiers only after the
+mapping's run has completely finished — confirmed; `meta` is a default
+modifier.
