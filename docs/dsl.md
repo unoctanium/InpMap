@@ -1,6 +1,6 @@
 # InpMap configuration language (DSL) — specification draft
 
-Status: **draft for review** (2026-10-13). Not implemented. Based on the
+Status: **approved by the user (2026-10-13)**; implementation in progress. Based on the
 user's sketch and the decisions in `docs/config-usability.md` and
 `docs/format-comparison.md`.
 

@@ -296,7 +296,16 @@ Last updated: 2026-10-13
 - Config format (user decision 2026-10-13): **custom DSL** becomes the
   user-facing format (see `docs/config-usability.md` "Decision",
   `docs/format-comparison.md`). **Agreed order:** (1) write complete DSL
-  spec `docs/dsl.md` (✅ draft written, commit 9ceee44) → (2) ⏳ user review in progress: user replaced combination triggers by **one key + modifier state** (`modifiers(ctrl, shift)`, §4.0; exact match + `modifiers(ignore)`, re-press after the run, `meta` as default modifier — all confirmed), bool conditions and ctrl/shift/alt/meta aliases now specified; **awaiting the user's approval of the complete spec** → (3) implement
+  spec `docs/dsl.md` (✅ draft written, commit 9ceee44) → (2) ✅ **spec approved by the user 2026-10-13** (published for review at https://claude.ai/artifact/QNvunSJmmSuaDfq3TcdqNZ). Review history: user replaced combination triggers by **one key + modifier state** (`modifiers(ctrl, shift)`, §4.0; exact match + `modifiers(ignore)`, re-press after the run, `meta` as default modifier — all confirmed), bool conditions and ctrl/shift/alt/meta aliases now specified; complete spec approved.
+  (3) 🔧 Implementing the DSL, sub-steps (commit after each):
+  S1 parser (`lark` grammar → AST with positions, syntax errors as
+  FILE:LINE:COLUMN); S2 compiler AST → existing config data (+ new model
+  fields: trigger modifiers, settings.modifiers), positions for all
+  semantic errors, BTN_X/BTN_Y warning; S3 engine/runtime: modifier
+  matching (exact, sides, ignore, specificity) and temporary release /
+  re-press of modifiers on the forwarding devices, hardware test; S4 CLI
+  loads `.inpmap`, example configs + local configs in the DSL, Kate and
+  nano syntax files; S5 README/docs. → (3) implement
   the DSL → (4) user decides whether to drop JSON completely; if so, remove
   JSON support and update CLAUDE.md and all documentation → (5) systemd
   service. `project_spec.md`/`CLAUDE.md` still say "JSON only" until step 4.
