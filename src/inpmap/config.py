@@ -29,16 +29,20 @@ from .macros import (
     axis_range,
 )
 from .models import (
+    MODIFIER_KEYS,
     AxisOutput,
     Config,
     InputDeviceSpec,
     InputTrigger,
     MappingRule,
+    Modifier,
+    ModifierRequirement,
     OutputAction,
     OutputDeviceSpec,
     OutputKind,
     OutputMode,
     Settings,
+    Side,
 )
 
 SUPPORTED_VERSIONS = frozenset({1})
@@ -47,16 +51,16 @@ SUPPORTED_VERSIONS = frozenset({1})
 # bytes including the terminating NUL.
 MAX_DEVICE_NAME_BYTES = 79
 
-_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$")
 
 _REQUIRED_TOP_KEYS = ("inputs", "mappings", "outputs", "version")
 _TOP_KEYS = {*_REQUIRED_TOP_KEYS, "settings", "variables"}
-_SETTINGS_KEYS = {"key_pause_ms"}
+_SETTINGS_KEYS = {"key_pause_ms", "modifiers"}
 _AXIS_OUTPUT_KEYS = {"device", "type", "code", "value", "attack_ms", "release_ms"}
 _VARIABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _INPUT_DEVICE_KEYS = {"name", "path"}
 _OUTPUT_DEVICE_KEYS = {"type", "name"}
-_MAPPING_KEYS = {"id", "description", "input", "outputs", "consume"}
+_MAPPING_KEYS = {"id", "description", "input", "outputs", "consume", "keep_modifiers"}
 _EVENT_KEYS = {"device", "type", "code"}
 
 # Event "type" -> required code-name prefix. Both are EV_KEY in Linux; the
@@ -190,8 +194,20 @@ class _Validator:
         pause = value.get("key_pause_ms", DEFAULT_KEY_PAUSE_MS)
         if not is_number(pause) or pause < 0:
             self.error("settings.key_pause_ms", "must be a number >= 0")
-            return Settings()
-        return Settings(key_pause_ms=float(pause))
+            pause = DEFAULT_KEY_PAUSE_MS
+        modifiers = frozenset(Modifier)
+        if "modifiers" in value:
+            names = value["modifiers"]
+            valid = [m.value for m in Modifier]
+            if not isinstance(names, list) or any(n not in valid for n in names):
+                self.error(
+                    "settings.modifiers", f"must be a list of: {', '.join(valid)}, got {names!r}"
+                )
+            elif len(set(names)) != len(names):
+                self.error("settings.modifiers", "lists a modifier twice")
+            else:
+                modifiers = frozenset(Modifier(n) for n in names)
+        return Settings(key_pause_ms=float(pause), modifiers=modifiers)
 
     def parse_variables(self, value: object) -> dict[str, object]:
         result: dict[str, object] = {}
@@ -299,7 +315,7 @@ class _Validator:
             self.error("mappings", "must contain at least one mapping")
         rules: list[MappingRule] = []
         seen_ids: set[str] = set()
-        trigger_owner: dict[tuple[str, int], str] = {}
+        trigger_owner: dict[tuple, str] = {}
         for index, raw in enumerate(value):
             rule = self.mapping(index, raw, inputs, outputs)
             if rule is None:
@@ -309,12 +325,13 @@ class _Validator:
                 self.error(where, f"duplicate mapping id '{rule.id}'")
                 continue
             seen_ids.add(rule.id)
-            key = (rule.trigger.device, rule.trigger.code)
+            key = rule.trigger.match_key
             if key in trigger_owner:
                 self.error(
                     f"{where}.input",
-                    f"{rule.trigger.device} {codes.code_name(rule.trigger.code)} is already "
-                    f"mapped by '{trigger_owner[key]}'; list all outputs in one mapping",
+                    f"{rule.trigger.device} {codes.code_name(rule.trigger.code)}"
+                    f"{_describe_modifiers(rule.trigger)} is already mapped by "
+                    f"'{trigger_owner[key]}'; list all outputs in one mapping",
                 )
                 continue
             trigger_owner[key] = rule.id
@@ -360,6 +377,12 @@ class _Validator:
             else None
         )
 
+        keep_modifiers = raw.get("keep_modifiers", False)
+        if not isinstance(keep_modifiers, bool):
+            self.error(f"{where}.keep_modifiers", "must be true or false")
+        elif keep_modifiers and trigger is not None and not trigger.modifiers:
+            self.error(f"{where}.keep_modifiers", "only possible when the input requires modifiers")
+
         if len(self.problems) > problems_before or not id_ok or trigger is None or parsed is None:
             return None
         assert isinstance(rule_id, str)
@@ -372,21 +395,66 @@ class _Validator:
             description=description,
             axes=axes,
             macros=macros,
+            keep_modifiers=keep_modifiers,
         )
 
     def trigger(
         self, raw: object, where: str, inputs: dict[str, InputDeviceSpec]
     ) -> InputTrigger | None:
-        event = self.event(raw, where)
+        event = self.event(raw, where, optional_keys={"modifiers"})
         if event is None:
             return None
         device, _event_type, code = event
+        assert isinstance(raw, dict)
+        modifiers = self.trigger_modifiers(raw.get("modifiers", []), f"{where}.modifiers")
+        if code is not None and _modifier_of(code, self.settings.modifiers) is not None:
+            self.error(
+                f"{where}.code",
+                f"{codes.code_name(code)} is a modifier key and cannot be a trigger; "
+                "remove it from settings.modifiers to map it as a normal key",
+            )
+            return None
         if device not in inputs:
             self.error(f"{where}.device", self.unknown_device(device, "input", inputs))
             return None
-        if code is None:
+        if code is None or modifiers is None:
             return None
-        return InputTrigger(device=device, code=code)
+        required, any_modifiers = modifiers
+        return InputTrigger(
+            device=device, code=code, modifiers=required, any_modifiers=any_modifiers
+        )
+
+    def trigger_modifiers(
+        self, value: object, where: str
+    ) -> tuple[frozenset[ModifierRequirement], bool] | None:
+        """Parse a trigger's modifier requirement: a list of names or "ignore"."""
+        if value == "ignore":
+            return frozenset(), True
+        if not isinstance(value, list):
+            self.error(where, 'must be a list of modifier names or "ignore"')
+            return None
+        requirements: list[ModifierRequirement] = []
+        for name in value:
+            requirement = _MODIFIER_NAMES.get(name) if isinstance(name, str) else None
+            if name == "ignore":
+                self.error(where, "'ignore' cannot be combined with other modifiers")
+                return None
+            if requirement is None:
+                known = ", ".join(_MODIFIER_NAMES)
+                self.error(where, f"unknown modifier {name!r} (expected one of: {known})")
+                return None
+            if requirement.modifier not in self.settings.modifiers:
+                self.error(
+                    where,
+                    f"'{requirement.modifier.value}' is not a modifier in this configuration "
+                    "(see settings.modifiers)",
+                )
+                return None
+            if any(r.modifier is requirement.modifier for r in requirements):
+                self.error(where, f"'{requirement.modifier.value}' is listed twice")
+                return None
+            requirements.append(requirement)
+        return frozenset(requirements), False
 
     def mapping_outputs(
         self, raw: object, where: str, outputs: dict[str, OutputDeviceSpec]
@@ -607,6 +675,29 @@ class _Validator:
 
 def _mapping_where(index: int, rule_id: object) -> str:
     return f"mappings[{index}] ('{rule_id}')"
+
+
+_MODIFIER_NAMES: dict[str, ModifierRequirement] = {
+    **{m.value: ModifierRequirement(m, Side.EITHER) for m in Modifier},
+    **{f"left_{m.value}": ModifierRequirement(m, Side.LEFT) for m in Modifier},
+    **{f"right_{m.value}": ModifierRequirement(m, Side.RIGHT) for m in Modifier},
+}
+
+
+def _modifier_of(code: int, active: frozenset[Modifier]) -> Modifier | None:
+    """The active modifier group a key code belongs to, if any."""
+    for modifier, keys in MODIFIER_KEYS.items():
+        if code in keys and modifier in active:
+            return modifier
+    return None
+
+
+def _describe_modifiers(trigger: InputTrigger) -> str:
+    if trigger.any_modifiers:
+        return " (any modifiers)"
+    if trigger.modifiers:
+        return " with " + "+".join(sorted(r.name for r in trigger.modifiers))
+    return ""
 
 
 def _not_gamepad_button(code: int) -> str:

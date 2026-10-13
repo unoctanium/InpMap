@@ -61,6 +61,11 @@ class OutputSink(Protocol):
     def set_axis(self, device_id: str, code: int, value: float) -> None: ...
 
 
+def _uses_modifiers(rule: MappingRule) -> bool:
+    trigger = rule.trigger
+    return bool(trigger.modifiers) or trigger.any_modifiers or rule.keep_modifiers
+
+
 def _axis_macro(axis) -> Macro:
     """A plain axis output behaves like a one-step hold_axis macro."""
     step = HoldAxis(axis.device, axis.code, axis.value, axis.attack_ms, axis.release_ms)
@@ -87,6 +92,9 @@ class MappingEngine:
         self.rng = rng or random.Random()
         self.variables: dict[str, object] = dict(config.variables)
         self.axes = AxisStacks(sink.set_axis)
+        # TEMPORARY until modifier matching exists (DSL step S3).
+        if any(_uses_modifiers(rule) for rule in config.mappings):
+            raise NotImplementedError("triggers with modifiers are not supported yet")
         self._rules: dict[InputKey, MappingRule] = {
             (rule.trigger.device, rule.trigger.code): rule for rule in config.mappings
         }

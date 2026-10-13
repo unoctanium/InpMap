@@ -60,12 +60,60 @@ class OutputDeviceSpec:
     name: str
 
 
+class Modifier(Enum):
+    """Modifier groups (docs/dsl.md §4.0)."""
+
+    CTRL = "ctrl"
+    SHIFT = "shift"
+    ALT = "alt"
+    META = "meta"
+
+
+class Side(Enum):
+    EITHER = "either"
+    LEFT = "left"
+    RIGHT = "right"
+
+
+# Linux key codes of each modifier group: (left, right).
+MODIFIER_KEYS: dict[Modifier, tuple[int, int]] = {
+    Modifier.CTRL: (29, 97),  # KEY_LEFTCTRL, KEY_RIGHTCTRL
+    Modifier.SHIFT: (42, 54),  # KEY_LEFTSHIFT, KEY_RIGHTSHIFT
+    Modifier.ALT: (56, 100),  # KEY_LEFTALT, KEY_RIGHTALT
+    Modifier.META: (125, 126),  # KEY_LEFTMETA, KEY_RIGHTMETA
+}
+
+
+@dataclass(frozen=True)
+class ModifierRequirement:
+    modifier: Modifier
+    side: Side = Side.EITHER
+
+    @property
+    def name(self) -> str:
+        if self.side is Side.EITHER:
+            return self.modifier.value
+        return f"{self.side.value}_{self.modifier.value}"
+
+
 @dataclass(frozen=True)
 class InputTrigger:
-    """A key/button on a named physical input device."""
+    """A key/button on a named physical input device.
+
+    ``modifiers`` lists the modifier state required when the key is pressed
+    (exactly these, no others); empty means "no modifier held". With
+    ``any_modifiers`` the modifier state does not matter.
+    """
 
     device: str
     code: int
+    modifiers: frozenset[ModifierRequirement] = frozenset()
+    any_modifiers: bool = False
+
+    @property
+    def match_key(self) -> tuple:
+        """Identity of the trigger for duplicate detection."""
+        return (self.device, self.code, self.modifiers, self.any_modifiers)
 
 
 class OutputMode(Enum):
@@ -109,11 +157,13 @@ class MappingRule:
     description: str | None = None
     axes: tuple[AxisOutput, ...] = ()
     macros: tuple[Macro, ...] = ()
+    keep_modifiers: bool = False
 
 
 @dataclass(frozen=True)
 class Settings:
     key_pause_ms: float = DEFAULT_KEY_PAUSE_MS
+    modifiers: frozenset[Modifier] = frozenset(Modifier)
 
 
 @dataclass(frozen=True)

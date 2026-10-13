@@ -474,13 +474,20 @@ map KEY_CAPSLOCK {
 }
 ```
 
-More examples:
+More examples (a keyboard and a gamepad as inputs, so triggers name their
+device):
 
 ```
-# Ctrl+C on one key
-map KEY_F1 { tap KEY_LEFTCTRL + KEY_C }
+version 1
+input kbd { name = "AT Translated Set 2 keyboard" }
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+output keyboard { type = keyboard }
+output gamepad { type = gamepad }
 
-# Shift held around a sequence, on two input devices
+# Ctrl+C on one key
+map kbd.KEY_F1 { tap ctrl + KEY_C }
+
+# Shift held around a sequence, triggered from the gamepad
 map pad.BTN_TL {
     with keyboard.KEY_LEFTSHIFT {
         tap KEY_A
@@ -490,7 +497,7 @@ map pad.BTN_TL {
 
 # Counter with condition and release steps
 let mode = 0
-map KEY_F2 {
+map kbd.KEY_F2 {
     mode += 1
     if mode == 3 {
         mode = 0
@@ -499,14 +506,14 @@ map KEY_F2 {
 }
 
 # Toggle autofire on and off with the same key
-map KEY_F3 {
+map kbd.KEY_F3 {
     toggle {
         tap BTN_SOUTH (pause 50ms)
     }
 }
 
 # Two branches at once: stick sweep while tapping
-map KEY_F4 {
+map kbd.KEY_F4 {
     parallel {
         branch { move ABS_X to 1.0 over 500ms; move ABS_X to 0.0 over 500ms }
         branch { repeat 5 { tap BTN_WEST; wait 100ms } }
@@ -514,9 +521,13 @@ map KEY_F4 {
 }
 
 # Caps Lock LED decides
-map KEY_F5 {
+map kbd.KEY_F5 {
     if capslock { tap KEY_1 } else { tap KEY_2 }
 }
+
+# Gamepad A with Ctrl held on the keyboard, and without
+map pad.BTN_SOUTH modifiers(ctrl) { tap KEY_C }
+map pad.BTN_SOUTH { hold BTN_SOUTH }
 ```
 
 ## 12. Review notes (user review, 2026-10-13)
