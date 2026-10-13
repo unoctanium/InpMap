@@ -293,9 +293,12 @@ Last updated: 2026-10-13
 
 ## Open questions for the user
 
-- Config authoring usability (user, 2026-10-13): discuss options for writing
-  configs by hand more easily — discussion only, no implementation yet; see
-  `docs/config-usability.md`. Afterwards: ask the user about the systemd service.
+- Config format (user decision 2026-10-13): **custom DSL** becomes the
+  user-facing format (see `docs/config-usability.md` "Decision",
+  `docs/format-comparison.md`). Not implemented yet. Open: role of JSON,
+  DSL spec `docs/dsl.md`, timing (before/after systemd service), editor
+  syntax files. `project_spec.md`/`CLAUDE.md` still say "JSON only" —
+  update them once the JSON role is decided.
 
 ## Session log
 

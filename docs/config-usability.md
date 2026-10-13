@@ -348,3 +348,32 @@ Observations:
   outputs, and the planned GUI editors. Possible later as an optional,
   sandboxed `script` step that only calls our safe API (coroutines map
   onto the existing fiber executor).
+
+## Decision (user, 2026-10-13)
+
+**The custom DSL is the user-facing configuration format** ("the DSL reads
+better, let's go with that"), based on the side-by-side comparison in
+`docs/format-comparison.md`. Spec change approved by the user (JSON is no
+longer the only/user format). Carried over from the discussion:
+
+- vocabulary from the user's sketch (`hold` non-blocking, `on tap` /
+  `on double_tap` / `on long_press`, units like `40ms`, `+=`, `random()`,
+  `cancel on release` as a mapping option, `device.CODE`, default input
+  device, `as name` for mapping ids);
+- gamepad buttons: positional names (`BTN_SOUTH` …) are the documented
+  standard; `BTN_A`/`BTN_B` accepted; `inpmap check` should warn about
+  `BTN_X`/`BTN_Y` (swapped vs. Xbox labels);
+- parser: a ready-made library is preferred over writing our own
+  (candidate: `lark`, pure Python, MIT, line/column tracking);
+- the DSL compiles into the existing validated model, so engine, runtime
+  and tests stay unchanged;
+- comments are part of the language (`#`); JSONC is not needed.
+
+Still open (to settle before implementation):
+1. Role of JSON: keep as machine format (tools, tests, future GUI) or remove.
+2. Complete DSL specification `docs/dsl.md` (grammar + every feature of
+   `docs/macros.md`, incl. press/release, with-keys, repeat, toggle,
+   parallel, if-eq, if-led, set, on-retrigger, release steps, max run
+   time, axis steps inside macros, several input devices, path selectors).
+3. When to implement: before or after the systemd service.
+4. Kate syntax file and nanorc as part of the implementation.
