@@ -15,8 +15,9 @@ Last updated: 2026-10-13
   `project_spec.md` (change note at the top) and `CLAUDE.md` §7 updated.
   Next: systemd service (spec step 9) — ask the user before starting.**
 - The user's old `config/local.json`, `local-macros.json`, `local-tap.json`
-  (git-ignored) can no longer be loaded; `config/local.inpmap` replaces
-  them. Left in place for the user to delete.
+  were deleted at the user's request (2026-10-13); `config/local.inpmap`
+  is the only local config. Older mentions of `local*.json` below are
+  historical.
 - Milestone: **V1** (Linux, no GUI)
 - Spec steps (`project_spec.md` §11): 1 ✅ environment · 2 ✅ skeleton + JSON
   validation · 3 ✅ virtual devices · 4 ✅ mapping engine ·
