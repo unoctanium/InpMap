@@ -72,8 +72,15 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Backlog (future features, user agreed 2026-10-14; not scheduled)
 
-- Several configurations / profiles: template unit `inpmap@NAME.service`
-  running `config/NAME.inpmap`, switch with `systemctl --user`.
+- ✅ Profiles (2026-10-14): `inpmap service-unit --profiles DIR` →
+  template `inpmap@.service`, ExecStart `.../DIR/%i.inpmap` (dir part
+  escaped, `%i` kept), `Conflicts=inpmap.service`, comments list the
+  profiles found with check state; names must match `[A-Za-z0-9_.:-]+`
+  (others skipped with a warning). Switching documented as
+  `stop 'inpmap@*' && start inpmap@NAME` (globs work for stop on loaded
+  units; `disable` needs names — checked in `man systemctl`). Template and
+  an instance (`inpmap@local.service`) pass `systemd-analyze --user verify`.
+  Not yet installed on the dev machine (part of the user's service test).
 - ✅ `inpmap codes [FILTER]` (2026-10-14): `codes.catalog()` (canonical name,
   aliases, sent by keyboard/gamepad/none) + gamepad axes; docs usage.md,
   configuration.md §12.1; tests in test_codes.py, test_cli.py.
@@ -407,8 +414,8 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 456 passed, 11 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after inpmap codes (2026-10-14) (JSON-file tests were
+- Unit tests: 460 passed, 11 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after profiles (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 11 passed (2026-10-14, after input-config).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,

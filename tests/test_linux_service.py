@@ -45,3 +45,25 @@ def test_command_path_rejects_quotes():
 def test_relative_paths_are_rejected():
     with pytest.raises(UnitError, match="absolute"):
         render_unit(PY, "config/local.inpmap", "c")
+
+
+def test_profiles_unit_runs_the_instance_file():
+    from inpmap.backends.linux_service import render_profiles_unit
+
+    text = render_profiles_unit(PY, "/home/u/50% conf/", "conf", [("dcs", "OK"), ("msfs", "OK")])
+    assert f'ExecStart="{PY}" -m inpmap run --wait-for-devices "/home/u/50%% conf/%i.inpmap"' in (
+        text
+    )
+    assert "Description=InpMap input remapper, profile %i" in text
+    assert "Conflicts=inpmap.service" in text
+    assert "#   dcs                  OK" in text
+    assert "systemctl --user enable --now inpmap@dcs.service" in text
+    assert "systemctl --user stop 'inpmap@*' && systemctl --user start inpmap@dcs.service" in text
+    assert "disable --now 'inpmap@*'" not in text  # disable does not accept globs
+
+
+def test_profiles_unit_needs_an_absolute_directory():
+    from inpmap.backends.linux_service import render_profiles_unit
+
+    with pytest.raises(UnitError, match="absolute"):
+        render_profiles_unit(PY, "config", "config", [])

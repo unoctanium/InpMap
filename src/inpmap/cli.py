@@ -9,11 +9,13 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import signal
 import sys
 import threading
 import time
 from collections.abc import Sequence
+from pathlib import Path
 
 from . import __version__, codes
 from .config import ConfigError
@@ -169,7 +171,14 @@ def build_parser() -> argparse.ArgumentParser:
             "contains the install and removal commands."
         ),
     )
-    service_unit.add_argument("config", help="path to the .inpmap configuration file")
+    service_unit.add_argument(
+        "config", help="path to the .inpmap configuration file (with --profiles: a directory)"
+    )
+    service_unit.add_argument(
+        "--profiles",
+        action="store_true",
+        help="print a template unit inpmap@.service instead: profile NAME runs CONFIG/NAME.inpmap",
+    )
     service_unit.set_defaults(handler=_cmd_service_unit)
 
     test_outputs = commands.add_parser(
@@ -422,22 +431,59 @@ def _cmd_run(args: argparse.Namespace) -> int:
             signal.signal(sig, handler)
 
 
-def _cmd_service_unit(args: argparse.Namespace) -> int:
-    from .backends.linux_service import UnitError, render_unit
+PROFILE_NAME = re.compile(r"[A-Za-z0-9_.:-]+\Z")  # usable unescaped as a unit instance
 
+
+def _cmd_service_unit(args: argparse.Namespace) -> int:
+    from .backends.linux_service import UnitError, render_profiles_unit, render_unit
+
+    python = os.path.abspath(sys.executable)
+    if args.profiles:
+        if not os.path.isdir(args.config):
+            print(f"error: {args.config} is not a directory", file=sys.stderr)
+            return EXIT_USAGE
+        profiles = _profiles(args.config)
+        if not profiles:
+            print(f"warning: no .inpmap files in {args.config}", file=sys.stderr)
+        try:
+            unit = render_profiles_unit(python, os.path.abspath(args.config), args.config, profiles)
+        except UnitError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_USAGE
+        print(unit, end="")
+        return EXIT_OK
     try:
         _load(args.config)
     except ConfigError as exc:
         print(exc, file=sys.stderr)
         return EXIT_CONFIG_ERROR
-    # Not resolved: a virtual environment's python is a symlink that must stay one.
-    python = os.path.abspath(sys.executable)
     try:
         print(render_unit(python, os.path.abspath(args.config), args.config), end="")
     except UnitError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
     return EXIT_OK
+
+
+def _profiles(directory: str) -> list[tuple[str, str]]:
+    """(name, state) of the .inpmap files in ``directory``, for the unit's comments."""
+    result = []
+    for path in sorted(Path(directory).glob("*.inpmap")):
+        name = path.stem
+        if not PROFILE_NAME.match(name):
+            print(
+                f"warning: {path.name}: the name cannot be a profile name "
+                "(use letters, digits, '-', '_', '.'); skipped",
+                file=sys.stderr,
+            )
+            continue
+        try:
+            load(str(path))
+            state = "OK"
+        except ConfigError as exc:
+            state = f"invalid ({len(exc.problems)} problem(s); see inpmap check)"
+        result.append((name, state))
+    return result
 
 
 def _cmd_check(args: argparse.Namespace) -> int:

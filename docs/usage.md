@@ -300,11 +300,14 @@ see [installation.md](installation.md#3-device-permissions).
 
 ```text
 inpmap service-unit FILE
+inpmap service-unit --profiles DIRECTORY
 ```
 
 Prints a systemd user unit that runs `inpmap run --wait-for-devices FILE`
-at login, with the absolute paths of this installation. Nothing is
-installed; see
+at login, with the absolute paths of this installation. With `--profiles`
+it prints a template unit `inpmap@.service` instead: `inpmap@NAME` runs
+`DIRECTORY/NAME.inpmap`; the files found are listed in its comments with
+their check result. Nothing is installed; see
 [installation.md §6](installation.md#6-running-in-the-background-user-service).
 
 ### Exit codes

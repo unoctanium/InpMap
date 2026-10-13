@@ -152,6 +152,37 @@ your configuration file into the unit. Run it again if you move either.
 
 A system-wide service (running without anyone logged in) is not supported.
 
+### Several configurations (profiles)
+
+To switch between configurations, for example one per game, put them into
+one directory and install the profile unit instead of the single one:
+
+```sh
+ls config/                              # dcs.inpmap  msfs.inpmap  desktop.inpmap
+.venv/bin/inpmap service-unit --profiles config > ~/.config/systemd/user/inpmap@.service
+systemctl --user daemon-reload
+systemctl --user enable --now inpmap@desktop     # started at every login
+```
+
+Profile `NAME` runs `config/NAME.inpmap`; the comments at the top of the
+unit list the profiles found. Profile names may contain letters, digits,
+`-`, `_` and `.`. Only one profile can hold the devices at a time, so
+switch like this:
+
+```sh
+systemctl --user stop 'inpmap@*' && systemctl --user start inpmap@dcs
+```
+
+A profile file added later needs no new unit; just start it. Starting a
+profile also stops the single-configuration service (`inpmap.service`) if
+it runs. Logs: `journalctl --user -u inpmap@dcs`. To see which profiles
+start at login: `systemctl --user list-unit-files 'inpmap@*'`.
+
+Remove: `systemctl --user stop 'inpmap@*'`, then
+`systemctl --user disable inpmap@NAME` for each enabled profile, then
+`rm ~/.config/systemd/user/inpmap@.service` and
+`systemctl --user daemon-reload`.
+
 **Remove:**
 
 ```sh

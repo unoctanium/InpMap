@@ -232,3 +232,21 @@ def test_codes_aliases_axes_and_no_match(capsys):
     assert "gamepad axis (trigger)" in capsys.readouterr().out
     assert main(["codes", "nothing_like_this"]) == EXIT_OK
     assert "no name contains 'nothing_like_this'" in capsys.readouterr().out
+
+
+def test_service_unit_profiles_lists_the_profiles(tmp_path, capsys):
+    (tmp_path / "dcs.inpmap").write_text(SIMPLE)
+    (tmp_path / "broken.inpmap").write_text("version 1\nmap\n")
+    (tmp_path / "my game.inpmap").write_text(SIMPLE)
+    (tmp_path / "dcs.inpmap.bak").write_text(SIMPLE)
+    assert main(["service-unit", "--profiles", str(tmp_path)]) == EXIT_OK
+    captured = capsys.readouterr()
+    assert "#   broken               invalid (1 problem(s); see inpmap check)" in captured.out
+    assert "#   dcs                  OK" in captured.out
+    assert f'"{tmp_path}/%i.inpmap"' in captured.out
+    assert "my game.inpmap: the name cannot be a profile name" in captured.err
+
+
+def test_service_unit_profiles_needs_a_directory(tmp_path, capsys):
+    assert main(["service-unit", "--profiles", str(tmp_path / "x.inpmap")]) == EXIT_USAGE
+    assert "is not a directory" in capsys.readouterr().err
