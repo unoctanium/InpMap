@@ -488,7 +488,7 @@ map KEY_LEFTCTRL + KEY_LEFTSHIFT + KEY_LEFTBRACE as bracket_combo {
 }
 ```
 
-Proposed additions (awaiting user decision):
+Proposed additions — **user decisions 2026-10-13: 1 yes (study Input Remapper first), 2 yes, 3 yes**:
 
 1. **Combination triggers** (`map A + B + C { … }`): fires when the last key
    is pressed while the others are held (order irrelevant); released as

@@ -296,7 +296,7 @@ Last updated: 2026-10-13
 - Config format (user decision 2026-10-13): **custom DSL** becomes the
   user-facing format (see `docs/config-usability.md` "Decision",
   `docs/format-comparison.md`). **Agreed order:** (1) write complete DSL
-  spec `docs/dsl.md` (✅ draft written, commit 9ceee44) → (2) ⏳ user reviews/approves it → (3) implement
+  spec `docs/dsl.md` (✅ draft written, commit 9ceee44) → (2) ⏳ user review in progress: combination triggers, bool conditions and ctrl/shift/alt/meta aliases accepted (dsl.md §12); 🔧 studying Input Remapper's combination handling before specifying combinations → (3) implement
   the DSL → (4) user decides whether to drop JSON completely; if so, remove
   JSON support and update CLAUDE.md and all documentation → (5) systemd
   service. `project_spec.md`/`CLAUDE.md` still say "JSON only" until step 4.
