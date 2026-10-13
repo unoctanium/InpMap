@@ -70,6 +70,54 @@ def test_test_outputs_device_error(fake_linux_backend, capsys):
     assert fake_linux_backend.created["keyboard"].closed
 
 
+@pytest.fixture
+def fake_run_backends(monkeypatch):
+    """Run `inpmap run` against fakes; the scripted input stops immediately."""
+    from fakes import FakeInputBackend, FakeInputSource, FakeOutputBackend
+
+    from inpmap.config import load_config
+
+    config = load_config(EXAMPLE)
+    sources = {i: FakeInputSource(spec) for i, spec in config.inputs.items()}
+    inputs = FakeInputBackend(sources)
+    outputs = FakeOutputBackend()
+    linux = pytest.importorskip("inpmap.backends.linux")
+    linux_input = pytest.importorskip("inpmap.backends.linux_input")
+    monkeypatch.setattr(linux, "LinuxOutputBackend", lambda: outputs)
+    monkeypatch.setattr(linux_input, "LinuxInputBackend", lambda: inputs)
+    return inputs, outputs
+
+
+def test_run_with_timeout_stops_and_cleans_up(fake_run_backends, capsys):
+    inputs, outputs = fake_run_backends
+    assert main(["run", str(EXAMPLE), "--timeout", "0.05"]) == EXIT_OK
+    assert "stopped (timeout)" in capsys.readouterr().out
+    assert all(source.closed for source in inputs.sources.values())
+    assert all(device.closed for device in outputs.created.values())
+
+
+def test_run_restores_signal_handlers(fake_run_backends):
+    import signal
+
+    before = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
+    main(["run", str(EXAMPLE), "--timeout", "0.05"])
+    assert {s: signal.getsignal(s) for s in before} == before
+
+
+def test_run_input_error_exit_code(fake_run_backends, capsys):
+    from inpmap.input import InputError
+
+    inputs, outputs = fake_run_backends
+    inputs.open_error["physical-keyboard"] = InputError("no readable device named X")
+    assert main(["run", str(EXAMPLE), "--timeout", "1"]) == EXIT_DEVICE_ERROR
+    assert "no readable device named X" in capsys.readouterr().err
+    assert all(device.closed for device in outputs.created.values())
+
+
+def test_run_rejects_non_positive_timeout(capsys):
+    assert main(["run", str(EXAMPLE), "--timeout", "0"]) == EXIT_USAGE
+
+
 def test_missing_command_is_usage_error():
     with pytest.raises(SystemExit) as info:
         main([])

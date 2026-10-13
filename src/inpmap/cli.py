@@ -1,7 +1,7 @@
 """Command-line interface.
 
 Only argument parsing and user-facing output live here; loading, validation
-and (later) the runtime are separate so a systemd service can reuse them.
+and the runtime are separate so a systemd service can reuse them.
 """
 
 from __future__ import annotations
@@ -10,13 +10,16 @@ import argparse
 import logging
 import signal
 import sys
+import threading
 import time
 from collections.abc import Sequence
 
 from . import __version__, codes
 from .config import ConfigError, load_config
+from .input import InputError
 from .models import Config
 from .output import OutputError, OutputManager
+from .runtime import CleanupError, Runtime
 
 EXIT_OK = 0
 EXIT_CONFIG_ERROR = 1
@@ -36,6 +39,31 @@ def build_parser() -> argparse.ArgumentParser:
     check = commands.add_parser("check", help="validate a configuration file")
     check.add_argument("config", help="path to the JSON configuration")
     check.set_defaults(handler=_cmd_check)
+
+    devices = commands.add_parser(
+        "devices", help="list physical input devices (for choosing config selectors)"
+    )
+    devices.add_argument(
+        "--all", action="store_true", help="also list devices without keys or buttons"
+    )
+    devices.set_defaults(handler=_cmd_devices)
+
+    run = commands.add_parser(
+        "run",
+        help="run the remapper in the foreground",
+        description=(
+            "Create the virtual outputs, grab the configured input devices (after all "
+            "their keys are released) and remap until Ctrl+C/SIGTERM or --timeout."
+        ),
+    )
+    run.add_argument("config", help="path to the JSON configuration")
+    run.add_argument(
+        "--timeout",
+        type=float,
+        metavar="SECONDS",
+        help="stop automatically after this many seconds (recommended for first tests)",
+    )
+    run.set_defaults(handler=_cmd_run)
 
     test_outputs = commands.add_parser(
         "test-outputs",
@@ -75,10 +103,76 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.WARNING,
+        level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
     )
     return args.handler(args)
+
+
+def _cmd_devices(args: argparse.Namespace) -> int:
+    try:
+        from .backends.linux_input import list_input_devices
+    except ImportError as exc:
+        print(f"Linux backend unavailable: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
+    devices, unreadable = list_input_devices()
+    shown = 0
+    for info in devices:
+        if not args.all and info.key_count == 0 and info.gamepad_buttons == 0:
+            continue
+        shown += 1
+        own = "  [InpMap virtual device]" if info.own else ""
+        print(f"{info.path}: '{info.name}'{own}")
+        print(f"    keys: {info.key_count}, gamepad buttons: {info.gamepad_buttons}")
+        for link in info.links:
+            print(f"    {link}")
+    if shown == 0:
+        print("no matching readable input devices")
+    if unreadable:
+        print(
+            f"\n{len(unreadable)} event node(s) not readable by this user "
+            f"({', '.join(unreadable)}); see README 'Device permissions'."
+        )
+    return EXIT_OK
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    if args.timeout is not None and args.timeout <= 0:
+        print("--timeout must be positive", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        from .backends.linux import LinuxOutputBackend
+        from .backends.linux_input import LinuxInputBackend
+    except ImportError as exc:
+        print(f"Linux backend unavailable: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
+
+    stop = threading.Event()
+
+    def request_stop(signum: int, frame: object) -> None:
+        stop.set()
+
+    # SIGHUP: closing the terminal window must also lead to an orderly stop.
+    stop_signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+    previous = {sig: signal.signal(sig, request_stop) for sig in stop_signals}
+    try:
+        runtime = Runtime(config, LinuxInputBackend(), LinuxOutputBackend())
+        if args.timeout is not None:
+            print(f"will stop automatically after {args.timeout:g}s", flush=True)
+        reason = runtime.run(stop, timeout=args.timeout)
+        print(f"stopped ({reason.value}); all devices released", flush=True)
+        return EXIT_OK
+    except (InputError, OutputError, CleanupError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
 
 
 def _cmd_check(args: argparse.Namespace) -> int:

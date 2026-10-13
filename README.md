@@ -10,12 +10,9 @@ and a gamepad button). See `project_spec.md` for goals and roadmap.
 |---|---|
 | JSON configuration loading and validation | implemented, unit-tested |
 | `inpmap check` CLI | implemented |
-| Virtual keyboard / gamepad (uinput), `inpmap test-outputs` | implemented; hardware verification pending |
-| Reading and grabbing physical devices (evdev) | not yet |
-| Mapping engine, press/release state | not yet |
-
-The current version can create virtual output devices; it does not yet open or
-grab physical devices.
+| Virtual keyboard / gamepad (uinput), `inpmap test-outputs` | implemented, verified on hardware |
+| Mapping engine, reference-counted press/release state | implemented, unit-tested |
+| Physical input, grab, passthrough, `inpmap run`, `inpmap devices` | implemented; verified with a synthetic keyboard, real-keyboard test pending |
 
 ## Requirements
 
@@ -42,10 +39,44 @@ kernel headers).
 ## Usage
 
 ```sh
+.venv/bin/inpmap devices                                     # list physical devices and their /dev/input/by-id links
 .venv/bin/inpmap check config/example.json
+.venv/bin/inpmap run config/local.json --timeout 30          # remap; stops after 30 s, or Ctrl+C
 .venv/bin/inpmap test-outputs config/example.json            # create devices, press/release each output
 .venv/bin/inpmap test-outputs config/example.json --no-emit --delay 30   # only create, for inspection
 ```
+
+Machine-specific configurations (`config/local*.json`) are git-ignored. Copy
+`config/example.json` and set the input device from `inpmap devices`.
+
+### What `run` does
+
+1. Creates the virtual output devices.
+2. Opens the configured physical devices (by exact `name`, or by `path` such as
+   `/dev/input/by-id/...`; ambiguous names are rejected) and checks that they
+   report every mapped code.
+3. Waits until no key is held on a device, then grabs it exclusively
+   (`EVIOCGRAB`). From then on the desktop receives nothing from it directly.
+4. Mapped inputs drive the virtual outputs; **every other event is passed
+   through** a forwarding device named `InpMap forward: <device name>`, so
+   the rest of the keyboard keeps working.
+5. On Ctrl+C, SIGTERM, SIGHUP (terminal closed) or `--timeout`: releases held
+   outputs and forwarded keys, ungrabs, removes all virtual devices.
+
+Notes and limitations:
+
+- Use `--timeout` for first tests. If something goes wrong, the device is
+  released automatically when it expires.
+- A device grabbed by another program (e.g. input-remapper) cannot be grabbed
+  ("already grabbed by another program").
+- Keyboard LEDs (Caps/Num Lock) of a grabbed keyboard do not change; the
+  desktop sets them on the forwarding device.
+- If an input device disappears, the remapper releases everything and exits
+  (exit code 3); reconnect handling is future work.
+- Per-device settings in the desktop (e.g. keyboard layout per device) apply
+  to the forwarding device, which copies the original's vendor/product IDs.
+
+### `test-outputs`
 
 `test-outputs` creates the configured virtual devices, waits `--delay`
 seconds (default 3), then presses and releases every mapped output code
