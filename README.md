@@ -60,6 +60,8 @@ InpMap was started for needs it covers less well:
   Caps/Num/Scroll Lock state, variables.
 - Unmapped keys pass through unchanged; LEDs keep working; devices that
   are unplugged and plugged in again are picked up automatically.
+- `inpmap input-config` finds your devices for you: press a key on the
+  keyboard or gamepad you want, and it is added to the configuration.
 - `inpmap macro-trace` shows the exact timeline of a mapping without
   touching any device.
 - Runs in the foreground or as a systemd user service that starts at
@@ -83,8 +85,8 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 sudo pacman -S --needed python python-evdev     # Arch; other distributions: see installation.md
 git clone <repository-url> InpMap && cd InpMap
 python3 -m venv --system-site-packages .venv && .venv/bin/pip install -e .
-.venv/bin/inpmap devices                         # find your keyboard
-cp config/example.inpmap config/local.inpmap     # edit: put in your device, write mappings
+.venv/bin/inpmap input-config config/local.inpmap   # pick your keyboard/gamepad, creates the file
+$EDITOR config/local.inpmap                         # write your mappings
 .venv/bin/inpmap check config/local.inpmap
 .venv/bin/inpmap run config/local.inpmap --timeout 30
 ```

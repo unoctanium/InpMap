@@ -52,6 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     devices.set_defaults(handler=_cmd_devices)
 
+    input_config = commands.add_parser(
+        "input-config",
+        help="choose input devices interactively and add them to a configuration file",
+        description=(
+            "List the input devices grouped by physical device, let you pick them by "
+            "number or by pressing a key on them, and add 'input' blocks to CONFIG "
+            "(created if it does not exist). Nothing else in the file is changed."
+        ),
+    )
+    input_config.add_argument("config", help="path to a new or existing .inpmap file")
+    input_config.set_defaults(handler=_cmd_input_config)
+
     udev_rules = commands.add_parser(
         "udev-rules",
         help="print udev rules granting session access to /dev/uinput and the configured inputs",
@@ -247,6 +259,71 @@ def _modifier_list(text: str | None) -> list[str] | None:
     if text == "none":
         return []
     return [name.strip() for name in text.split(",") if name.strip()]
+
+
+IDENTIFY_TIMEOUT = 15.0
+
+
+def _cmd_input_config(args: argparse.Namespace) -> int:
+    from .backends.linux_setup import devices_for_input_config
+    from .dsl.compiler import compile_text
+    from .dsl.parser import DslSyntaxError
+    from .input_config import ConfigFile, Device, Session, run_session
+
+    if not args.config.endswith(".inpmap"):
+        print("error: configuration files must end in .inpmap", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        file = ConfigFile.load(args.config)
+    except (DslSyntaxError, ValueError) as exc:
+        print(
+            f"{exc}\nFix the file first; input-config only adds to valid syntax.", file=sys.stderr
+        )
+        return EXIT_CONFIG_ERROR
+    devices = devices_for_input_config()
+
+    def identify(candidates: list[Device]) -> Device | None:
+        try:
+            from .backends.linux_input import wait_for_key_press
+        except ImportError as exc:
+            print(f"Linux backend unavailable: {exc}")
+            return None
+        try:
+            path, failed = wait_for_key_press([d.path for d in candidates], IDENTIFY_TIMEOUT)
+        except KeyboardInterrupt:
+            path, failed = None, []
+        finally:
+            _discard_typed_input()
+        if failed:
+            print(
+                f"({len(failed)} device(s) could not be read; see docs/installation.md, "
+                "'Device permissions')"
+            )
+        return next((d for d in candidates if d.path == path), None)
+
+    def check(text: str) -> list[str]:
+        try:
+            compile_text(text, args.config)
+        except ConfigError as exc:
+            return list(exc.problems)
+        return []
+
+    session = Session(file, devices, say=print, identify=identify, check=check)
+    try:
+        run_session(session, input)
+    except KeyboardInterrupt:
+        print("\nNo changes written.")
+        return EXIT_INTERRUPTED
+    return EXIT_OK
+
+
+def _discard_typed_input() -> None:
+    """Drop what the identifying key press typed into the terminal."""
+    if not sys.stdin.isatty():
+        return
+    import termios
+
+    termios.tcflush(sys.stdin, termios.TCIFLUSH)
 
 
 def _cmd_udev_rules(args: argparse.Namespace) -> int:

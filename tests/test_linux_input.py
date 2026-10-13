@@ -751,3 +751,44 @@ def test_close_after_device_loss_is_clean():
     source.grab()
     source.close()  # ENODEV on ungrab is expected for a vanished device
     assert device.calls[-1] == "close"
+
+
+@pytest.mark.hardware
+def test_wait_for_key_press_identifies_the_device():
+    """`inpmap input-config` identification, with a synthetic gamepad.
+
+    The device cannot be grabbed (identification reads it ungrabbed), so it
+    is a gamepad: desktops ignore gamepad buttons, nothing is typed.
+    """
+    from inpmap.backends.linux_input import wait_for_key_press
+
+    capabilities = {
+        ecodes.EV_KEY: [ecodes.BTN_SOUTH, ecodes.BTN_EAST],
+        ecodes.EV_ABS: [
+            (ecodes.ABS_X, evdev.AbsInfo(0, -32768, 32767, 16, 128, 0)),
+            (ecodes.ABS_Y, evdev.AbsInfo(0, -32768, 32767, 16, 128, 0)),
+        ],
+    }
+    pad = UInput(capabilities, name="InpMap Test Identify Pad", phys="pytest-identify")
+    other = UInput(capabilities, name="InpMap Test Identify Other", phys="pytest-identify-2")
+    try:
+        paths = [pad.device.path, other.device.path, "/dev/input/does-not-exist"]
+        time.sleep(0.3)  # let udev apply permissions to the new nodes
+
+        def press_later():
+            time.sleep(0.3)
+            other.write(ecodes.EV_KEY, ecodes.BTN_EAST, 0)  # a release does not count
+            other.syn()
+            time.sleep(0.1)
+            pad.write(ecodes.EV_KEY, ecodes.BTN_SOUTH, 1)
+            pad.write(ecodes.EV_KEY, ecodes.BTN_SOUTH, 0)
+            pad.syn()
+
+        threading.Thread(target=press_later, daemon=True).start()
+        found, failed = wait_for_key_press(paths, timeout=5)
+        assert found == pad.device.path
+        assert failed == ["/dev/input/does-not-exist"]
+        assert wait_for_key_press(paths[:2], timeout=0.2) == (None, [])
+    finally:
+        pad.close()
+        other.close()

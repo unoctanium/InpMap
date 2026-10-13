@@ -36,13 +36,14 @@ from ..config import MAX_DEVICE_NAME_BYTES
 from ..input import InputDeviceLost, InputError
 from ..macros import Led
 from ..models import InputDeviceSpec, InputEvent, KeyAction
+from .linux_setup import symlinks_by_target
 
 log = logging.getLogger(__name__)
 
 OWN_PHYS_PREFIX = "inpmap"  # output devices use "inpmap", forwarders "inpmap-forward"
 FORWARD_PHYS = "inpmap-forward"
 FORWARD_NAME_PREFIX = "InpMap forward: "
-LINK_DIRS = ("/dev/input/by-id", "/dev/input/by-path")
+LINK_DIRS = ("/dev/input/by-id", "/dev/input/by-path")  # same as linux_setup.LINK_DIRS
 
 _KEY_ACTIONS = {0: KeyAction.RELEASE, 1: KeyAction.PRESS, 2: KeyAction.REPEAT}
 _LEDS = {
@@ -76,19 +77,6 @@ def _all_event_nodes() -> list[str]:
     return sorted(nodes, key=_event_node_sort_key)
 
 
-def _symlinks_by_target() -> dict[str, list[str]]:
-    links: dict[str, list[str]] = {}
-    for directory in LINK_DIRS:
-        try:
-            entries = sorted(os.scandir(directory), key=lambda e: e.name)
-        except OSError:
-            continue
-        for entry in entries:
-            if entry.is_symlink():
-                links.setdefault(os.path.realpath(entry.path), []).append(entry.path)
-    return links
-
-
 @dataclass(frozen=True)
 class DeviceInfo:
     """Diagnostic description of a physical input device."""
@@ -104,7 +92,7 @@ class DeviceInfo:
 
 def list_input_devices() -> tuple[list[DeviceInfo], list[str]]:
     """Return (readable devices, unreadable event nodes)."""
-    links = _symlinks_by_target()
+    links = symlinks_by_target(LINK_DIRS)
     readable = set(list_devices(writable=False))
     devices: list[DeviceInfo] = []
     unreadable: list[str] = []
@@ -133,6 +121,47 @@ def list_input_devices() -> tuple[list[DeviceInfo], list[str]]:
         finally:
             device.close()
     return devices, unreadable
+
+
+def wait_for_key_press(paths: Sequence[str], timeout: float) -> tuple[str | None, list[str]]:
+    """Wait until a key or button is pressed on one of ``paths`` (not grabbed).
+
+    Returns (path of that device or None after ``timeout``, paths that could
+    not be opened). Events queued before the call are ignored, e.g. the
+    release of the Enter key that started the wait.
+    """
+    devices: list[InputDevice] = []
+    failed: list[str] = []
+    for path in paths:
+        try:
+            devices.append(InputDevice(path))
+        except OSError:
+            failed.append(path)
+    try:
+        for device in devices:
+            _drain(device)
+        deadline = time.monotonic() + timeout
+        while devices and (remaining := deadline - time.monotonic()) > 0:
+            ready, _, _ = select.select(devices, [], [], remaining)
+            for device in ready:
+                try:
+                    events = list(device.read())
+                except (BlockingIOError, OSError):
+                    continue
+                if any(e.type == ecodes.EV_KEY and e.value == 1 for e in events):
+                    return device.path, failed
+        return None, failed
+    finally:
+        for device in devices:
+            device.close()
+
+
+def _drain(device: InputDevice) -> None:
+    try:
+        while device.read_one() is not None:
+            pass
+    except OSError:
+        pass
 
 
 @dataclass(frozen=True)

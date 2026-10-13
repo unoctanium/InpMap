@@ -116,8 +116,10 @@ Each input names a physical device with exactly one of:
   devices; some keyboards expose several devices with similar names.
 - `path`: an absolute path, usually a stable link in `/dev/input/by-id/`.
 
-`inpmap devices` lists the names and paths of your devices
-([usage.md](usage.md#inpmap-devices)).
+`inpmap input-config FILE` lets you pick devices (or identify them by
+pressing a key) and writes these blocks for you
+([usage.md](usage.md#inpmap-input-config)); `inpmap devices` lists the
+names and paths.
 
 Every input must be used: a mapping names it (`kbd.KEY_X`), or at least
 one mapping has no device name and so applies to every input (§5.1).

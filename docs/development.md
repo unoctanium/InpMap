@@ -59,7 +59,8 @@ The core (everything outside `backends/`) does not import evdev; it works on
 | `runtime.py` | startup order, event loop, reconnect, masking of modifiers, guaranteed cleanup |
 | `backends/linux.py` | virtual devices through uinput |
 | `backends/linux_input.py` | physical devices: selection, grab, forwarding device, LEDs, `SYN_DROPPED` resync |
-| `backends/linux_setup.py` | udev rule generator |
+| `input_config.py` | `inpmap input-config`: grouping, selectors, text insertion, the interactive session |
+| `backends/linux_setup.py` | sysfs device scan (no device access needed), udev rule generator |
 | `backends/linux_service.py` | systemd user unit generator (`inpmap service-unit`) |
 | `trace.py` | `macro-trace` on a fake clock |
 | `cli.py` | commands, exit codes |

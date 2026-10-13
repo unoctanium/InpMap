@@ -45,12 +45,29 @@ device by bus/vendor/product/uniq/phys-prefix).
    Tests: compiler, engine (`tests/test_modifiers.py` "every input"
    section), runtime warning, docs examples; hardware 10/10 passed after
    the change. Deliberate test update: `inpmap check` summary text.
-3. **`inpmap input-config CONFIG`** (name chosen by the user): interactive
-   device picker for existing or new files; numbers toggle, `i` identifies
-   a device by key press, `w` checks + writes (text insertion of `input`
-   blocks only, atomic, `.bak`), `q` quits; selector by-id link > unique
-   name > by-path; device list **grouped per physical device** like Input
-   Remapper (user: yes); new file gets a starter config. Inputs only.
+3. ✅ **`inpmap input-config CONFIG`** (2026-10-14): `src/inpmap/input_config.py`
+   (Device, `classify` like Input Remapper: touchpad > gamepad > mouse >
+   keyboard > other; `group_key` = bustype/vendor/product/uniq/phys prefix
+   before "/input"; `group_title` = name most other names extend, computed
+   from all nodes incl. keyless ones — needed for the Razer pad whose
+   product-name node has no keys; `selector_for`: by-id link > unique name
+   > by-path link; `ConfigFile` inserts blocks as text after the line of
+   the last `input` (or `version`), new files get a starter config;
+   `write_atomically` with `.bak` and kept mode; `Session` + `run_session`
+   with injected say/ask/identify/check). Linux: `linux_setup.read_sysfs_inputs`
+   now also reads bustype, uniq and key/abs/rel capability bitmaps
+   (`parse_bitmap`, works without device access), `devices_for_input_config`,
+   `symlinks_by_target` (moved here from linux_input);
+   `linux_input.wait_for_key_press(paths, timeout)` (ungrabbed, drains
+   queued events first, press = EV_KEY value 1). CLI: identify timeout 15 s,
+   typed characters flushed from the terminal afterwards (tcflush), Ctrl+C
+   at the prompt → exit 130 without changes. Tried on the dev machine with
+   piped input: new file created; copy of `config/local.inpmap` got
+   `kbd2` inserted after `pad`, existing `[kbd]`/`[pad]` marked, check OK.
+   Tests: `tests/test_input_config.py` (19), hardware
+   `test_wait_for_key_press_identifies_the_device` (synthetic gamepad,
+   ungrabbed, so no keyboard events) passed. ⏳ Interactive use with `i`
+   on the real keyboard/gamepad not yet tried by the user.
 4. User's real-hardware test of the service (when back at the PC).
 
 ## Backlog (future features, user agreed 2026-10-14; not scheduled)
@@ -387,9 +404,9 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 434 passed, 10 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 453 passed, 10 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after the language changes of 2026-10-14 (JSON-file tests were
-  dropped earlier). Hardware: 10 passed (2026-10-14, after the language changes).
+  dropped earlier). Hardware: 11 passed (2026-10-14, after input-config).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

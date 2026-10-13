@@ -28,42 +28,50 @@ physical gamepad  ──grab──►        ──► virtual gamepad   ──�
 
 ## 2. Your first configuration
 
-**Find your device.**
+**Choose your devices.**
 
 ```sh
-.venv/bin/inpmap devices
+.venv/bin/inpmap input-config config/local.inpmap
 ```
 
 ```text
-/dev/input/event7: '2.4G Dongle'
-    keys: 248, gamepad buttons: 0
-    /dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd
+Input devices for config/local.inpmap (grouped by physical device):
+
+  ...
+  Razer Razer Raiju V3 Pro(Wireless) (1532:1027)
+      4               keyboard   267 keys     Razer Razer Raiju V3 Pro(Wireless) Keyboard
+      5               mouse        5 keys     Razer Razer Raiju V3 Pro(Wireless) Mouse
+      6               touchpad     5 keys     Razer Razer Raiju V3 Pro(Wireless) Touchpad
+      7               gamepad     11 buttons  Generic X-Box pad
+  2.4G Dongle (4348:4744)
+      8               keyboard   163 keys     2.4G Dongle
+      9               keyboard   130 keys     2.4G Dongle Keyboard
+     10               mouse        5 keys     2.4G Dongle Mouse
+  ...
+> i
+Press a key or button on the device you want (Ctrl+C to cancel) ...
+That was 8: 2.4G Dongle (keyboard).
+8 selected as 'kbd': 2.4G Dongle
+> w
 ```
 
-Each entry shows the device node, the kernel name, how many keys and
-gamepad buttons it has, and stable links to it. Many keyboards show up
-several times (e.g. a second entry for media keys). If unsure which entry
-is the right one, run `evtest`, pick an entry and press the key you want to
-map: the right entry prints events.
+The list shows each physical device with its parts: many keyboards and
+gamepads appear as several devices (keys, media keys, mouse, touchpad).
+Type `i` and press a key on the keyboard or a button on the gamepad you
+want to remap: InpMap finds the right part for you. Or type its number;
+`8 left` selects number 8 under the name `left`. `w` writes and quits, `q`
+quits without changes. Details: [§3](#inpmap-input-config).
 
-**Write the configuration.** Start from the example:
+If `config/local.inpmap` does not exist yet, it is created with the
+selected inputs, a keyboard and a gamepad output, and an example mapping
+as a comment. Files named `config/local*` are ignored by git, so your
+personal configuration stays out of the repository.
+
+**Write your mappings** ([configuration.md](configuration.md)):
 
 ```sh
-cp config/example.inpmap config/local.inpmap
 $EDITOR config/local.inpmap
 ```
-
-Put your device's name or by-id link into the `input` block:
-
-```text
-input kbd {
-    path = "/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd"
-}
-```
-
-and write your mappings ([configuration.md](configuration.md)). Files named
-`config/local*` are ignored by git, so your personal configuration stays
-out of the repository.
 
 **Check it.**
 
@@ -105,6 +113,37 @@ Validates `FILE` and prints a summary of inputs, outputs, mappings and
 variables. Warnings go to the error output; the file is still valid.
 Touches no devices.
 
+### `inpmap input-config`
+
+```text
+inpmap input-config FILE
+```
+
+Lists the input devices with keys or buttons, grouped by physical device
+(devices are listed from `/sys`, so this works before any permission
+setup), and adds `input` blocks for the ones you choose to `FILE`.
+
+| Command | Meaning |
+|---|---|
+| `N` | select or deselect device number `N`; the name is suggested (`kbd`, `pad`, `kbd2`, …) |
+| `N NAME` | select device `N` under the name `NAME` (or rename it) |
+| `i` | identify: press a key or button on a device within 15 seconds, and it is selected. Needs read access to the devices. |
+| `l` | list again |
+| `w` | write and quit |
+| `q` | quit without changes |
+
+Devices that `FILE` already uses are marked with their name (`[kbd]`).
+The new blocks select a device by its `/dev/input/by-id` link if it has
+one (stable when you plug it into another port), otherwise by its name if
+no other device has the same name, otherwise by its `/dev/input/by-path`
+link.
+
+The file is changed as text: the new blocks are inserted after the last
+`input` block (or after `version`), everything else stays as it is. The
+previous version is kept as `FILE.bak`. Afterwards the file is checked
+like with `inpmap check`. A file that does not exist is created with a
+starter configuration. A file with syntax errors is not changed.
+
 ### `inpmap devices`
 
 ```text
@@ -112,8 +151,10 @@ inpmap devices [--all]
 ```
 
 Lists the physical input devices with keys or buttons (`--all`: all
-devices), their names and their `/dev/input/by-id` or `by-path` links, and
-reports device nodes you are not allowed to read. While InpMap is running,
+devices), one entry per event device, with their names and their
+`/dev/input/by-id` or `by-path` links, and reports device nodes you are
+not allowed to read. (`inpmap input-config` shows the same devices grouped
+per physical device.) While InpMap is running,
 its own devices appear too, marked `[InpMap virtual device]`; they are never
 selected by an `input` block.
 
