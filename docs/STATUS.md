@@ -148,8 +148,20 @@ Last updated: 2026-10-13
    runtime, hardware `test_tap_output_released_while_input_still_held`.
    ⏳ Optional user check: `config/local-tap.json` (git-ignored) = X taps Y
    + holds BTN_SOUTH; expected one `y` per press however long X is held.
-5. Later: macro spec (V1.1), systemd service (step 9; runtime already
-   separate from CLI with signal handling, no unit file yet).
+5. 🔧 **V1.1 macro engine** (user decision 2026-10-13), in this order:
+   a. Research Input Remapper's macro docs, code and tests (in progress).
+   b. Write `docs/macros-research.md`: what Input Remapper offers and how
+      it behaves, plus a proposal grouping functions into "inspired by
+      Input Remapper", "intentionally not implemented", and "new, not in
+      Input Remapper".
+   c. **Discuss the function list with the user** — required before any
+      spec or code.
+   d. Write our own JSON macro specification (`docs/macros.md`), then
+      implement with tests.
+   License note: Input Remapper is GPL-3.0; we implement independently and
+   do not copy code.
+6. After macros: systemd service (step 9; runtime already separate from CLI
+   with signal handling, no unit file yet).
 - Also known on this machine: the user's controller is a Razer Raiju V3 Pro
   (`Generic X-Box pad`, event11; it also exposes Keyboard/Mouse/Touchpad
   interfaces).
