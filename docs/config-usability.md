@@ -313,3 +313,38 @@ Disadvantages:
 Cost of keeping JSON as a secondary format: very low, because the
 internal data shape *is* JSON-shaped; only the file loader and a
 `convert` command would remain.
+
+## Round 3: custom DSL and Lua (2026-10-13)
+
+User sketch of a custom DSL (excerpt): `settings { key_pause_ms = 10 }`,
+`let presses = 0`, `map KEY_X { hold keyboard.KEY_Y; hold gamepad.BTN_SOUTH }`,
+`wait random(40ms, 60ms)`, `presses += 1`,
+`on tap { … } on double_tap { … } on long_press { … }`,
+`while held { … } on release { cancel immediately }`,
+`axis gamepad.ABS_Y { target = -1.0  attack = 150ms  release = 50ms }`.
+
+Facts checked:
+- LuaMacros (github.com/YAL-Tools/LuaMacros): Windows-only (Visual Studio
+  C++/WinAPI) hotkey tool scripted in Lua; **archived 2024-03-26**;
+  inspiration only.
+- `lupa` 2.8 (MIT-style; changelog 2026-04-15): Python wrapper around Lua;
+  binary wheels bundle Lua 5.1–5.5 and LuaJIT; cp314 wheels not verified.
+- `lark` 1.3.1 (2025-10-27, MIT, pure Python, Python ≥3.8): parser library
+  with grammar files and automatic line/column tracking.
+
+Observations:
+- Two separate decisions: **vocabulary/semantics** (gesture handlers
+  on tap/double_tap/long_press, non-blocking `hold` in a mapping body,
+  units like `40ms`, `+=` on variables, `random(a, b)`, default input
+  device) vs. **syntax carrier** (JSON, KDL, own DSL, Lua). The semantic
+  ideas improve any carrier.
+- Custom DSL: most readable; with `lark` the parser cost is moderate and
+  errors get line/column (better than both KDL libraries); needs its own
+  Kate syntax file and nanorc, a formatter/printer for tools and a GUI,
+  and a written grammar spec. Risk: growing into a programming language.
+- Lua: maximum power, but config becomes code — conflicts with CLAUDE.md
+  ("never execute arbitrary code from a configuration file"), static
+  validation before grabbing devices, guaranteed release of owned
+  outputs, and the planned GUI editors. Possible later as an optional,
+  sandboxed `script` step that only calls our safe API (coroutines map
+  onto the existing fiber executor).
