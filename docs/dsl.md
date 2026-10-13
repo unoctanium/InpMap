@@ -39,7 +39,7 @@ File extension: `.inpmap` (e.g. `config/example.inpmap`).
   output map as hold tap press release with wait random repeat while held
   toggle parallel branch on double_tap long_press if else single not and
   within after axis move to over cancel restart key_pause max_run none
-  true false capslock numlock scrolllock`.
+  true false capslock numlock scrolllock ctrl shift alt meta`.
 
 ## 3. File structure
 
@@ -150,6 +150,12 @@ the left one (labelled X).
 A **chord** joins keys with `+`: `KEY_LEFTCTRL + KEY_C`. Keys of a chord may
 be on different devices.
 
+**Modifier aliases** `ctrl`, `shift`, `alt`, `meta` stand for the left or
+right key (`KEY_LEFTCTRL`/`KEY_RIGHTCTRL`, …). In a **trigger** an alias
+matches either side. In an **output** an alias presses the **left** key
+(`tap ctrl + KEY_C` = `tap KEY_LEFTCTRL + KEY_C`). Note: on many layouts the
+right Alt key is AltGr, so `alt` in a trigger also matches AltGr.
+
 ### 4.2 Mapping options
 
 Options come first in the body, one per line:
@@ -222,6 +228,7 @@ else { … }
 | `tap [within D]` | input held now: released within D; not held now: pressed **and** released within D (default 300ms). Decided at the latest after D |
 | `single [within D]` | the input is released before any other key or button is pressed on any input device (the `else` branch runs **before** that other key is processed); with `within D`, also false after D |
 | `NAME == VALUE`, `NAME != VALUE` | variable comparison; `VALUE` must have the variable's type |
+| `NAME` (a bool variable) | the variable is `true` |
 | `capslock`, `numlock`, `scrolllock` | that LED is on, on the trigger's input device (devices without LEDs: false) |
 | `not CONDITION` | negation |
 
@@ -303,7 +310,7 @@ keys are reference-counted, shared axes use "most recent holder wins".
 | `axis` step / `hold_axis` step | `move … to … over …` / `axis … { … }` |
 | `wait_ms` (number, range, variable) | `wait 40ms`, `wait random(40ms, 60ms)`, `wait delay` |
 | `repeat`, `while_held`, `toggle`, `parallel` | `repeat`, `while held`, `toggle`, `parallel { branch … }` |
-| `if_tap`, `if_single`, `if_eq`, `if_led` | `if tap`, `if single`, `if x == v`, `if capslock` (+ gestures, `else if`, `not`, `!=`) |
+| `if_tap`, `if_single`, `if_eq`, `if_led` | `if tap`, `if single`, `if x == v`, `if capslock` (+ gestures, `else if`, `not`, `!=`, `if flag` for bool variables) |
 | `set`, `add` | `x = v`, `x += v`, `x -= v` |
 
 Non-blocking `hold`/`axis` followed by more statements are translated into
