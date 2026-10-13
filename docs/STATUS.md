@@ -13,9 +13,16 @@ Last updated: 2026-10-13
 - Spec steps (`project_spec.md` §11): 1 ✅ environment · 2 ✅ skeleton + JSON
   validation · **3 🔧 virtual devices (in progress)** · 4 mapping engine ·
   5 physical input + grab · 6 end-to-end test · 7 robustness
-- Work in progress: step 3. Research on gamepad/keyboard recognition
-  (udev input_id, libinput, SDL, Input Remapper's uinput definitions) was
-  started; results get recorded under Decisions.
+- Work in progress: step 3.
+  - ✅ 3a: backend-independent output layer `src/inpmap/output.py`
+    (`OutputBackend`/`OutputDevice` protocols, `OutputManager` that tracks held
+    codes, ignores redundant transitions, releases everything on close/error,
+    cleans up partially created devices). Fakes in `tests/fakes.py`.
+  - 🔧 3b: Linux uinput backend. Waiting on research into gamepad/keyboard
+    recognition (udev input_id, libinput, SDL, Input Remapper's uinput
+    definitions); results go under Decisions.
+  - 3c: CLI command to create devices and emit a test press/release, plus
+    `hardware`-marked tests.
 
 ## Next steps (in order)
 
@@ -52,6 +59,8 @@ Last updated: 2026-10-13
 | Exit codes: 0 ok, 1 config invalid, 2 usage | |
 | ruff (lint + format), pytest; `hardware` marker excluded by default | small toolchain |
 | Auto-commit at each completed, test-passing step; never push | user decision 2026-10-13 (CLAUDE.md §13, §17) |
+| `OutputManager` tracks held codes per device; reference counting of overlapping mappings belongs to the (future) state manager | separation: output layer guarantees release on close, state manager owns semantics |
+| `open()`/`close()` treat failures at cleanup boundaries: partial creation is rolled back (also on Ctrl+C), close attempts every release and every device before raising | no stuck keys, no orphan virtual devices |
 
 ## Environment facts (dev machine, verified 2026-10-13)
 
@@ -64,8 +73,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 65 passed (`.venv/bin/python -m pytest`), ruff clean — at commit
-  `6df3577`.
+- Unit tests: 77 passed (`.venv/bin/python -m pytest`), ruff clean — after
+  step 3a.
 - Hardware/integration tests: **none run yet** (nothing touches devices).
 
 ## Uncommitted work

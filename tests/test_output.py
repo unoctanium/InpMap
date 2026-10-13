@@ -1,0 +1,151 @@
+import pytest
+from fakes import FakeOutputBackend
+
+from inpmap.codes import code_from_name
+from inpmap.config import parse_config
+from inpmap.output import OutputError, OutputManager
+
+KEY_Y = code_from_name("KEY_Y")
+KEY_Z = code_from_name("KEY_Z")
+BTN_SOUTH = code_from_name("BTN_SOUTH")
+
+CONFIG = parse_config(
+    {
+        "version": 1,
+        "inputs": {"kbd": {"name": "Kbd"}},
+        "outputs": {
+            "vkbd": {"type": "keyboard"},
+            "pad": {"type": "gamepad"},
+        },
+        "mappings": [
+            {
+                "id": "x",
+                "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
+                "outputs": [
+                    {"device": "vkbd", "type": "key", "code": "KEY_Y"},
+                    {"device": "pad", "type": "button", "code": "BTN_SOUTH"},
+                ],
+            },
+            {
+                "id": "c",
+                "input": {"device": "kbd", "type": "key", "code": "KEY_C"},
+                "outputs": [{"device": "vkbd", "type": "key", "code": "KEY_Z"}],
+            },
+        ],
+    }
+)
+
+
+@pytest.fixture
+def backend():
+    return FakeOutputBackend()
+
+
+def test_open_creates_devices_with_needed_codes(backend):
+    with OutputManager(backend, CONFIG):
+        assert backend.created["vkbd"].key_codes == {KEY_Y, KEY_Z}
+        assert backend.created["pad"].key_codes == {BTN_SOUTH}
+    assert all(device.closed for device in backend.created.values())
+
+
+def test_press_and_release_route_to_device(backend):
+    with OutputManager(backend, CONFIG) as outputs:
+        outputs.press("vkbd", KEY_Y)
+        outputs.press("pad", BTN_SOUTH)
+        assert outputs.held("vkbd") == {KEY_Y}
+        outputs.release("vkbd", KEY_Y)
+        outputs.release("pad", BTN_SOUTH)
+        assert outputs.held("vkbd") == set()
+    assert backend.created["vkbd"].events == [(KEY_Y, True), (KEY_Y, False)]
+    assert backend.created["pad"].events == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+
+
+def test_redundant_transitions_are_ignored(backend):
+    with OutputManager(backend, CONFIG) as outputs:
+        outputs.release("vkbd", KEY_Y)
+        outputs.press("vkbd", KEY_Y)
+        outputs.press("vkbd", KEY_Y)
+        outputs.release("vkbd", KEY_Y)
+        outputs.release("vkbd", KEY_Y)
+    assert backend.created["vkbd"].events == [(KEY_Y, True), (KEY_Y, False)]
+
+
+def test_close_releases_held_codes_before_destroying(backend):
+    outputs = OutputManager(backend, CONFIG)
+    outputs.open()
+    outputs.press("vkbd", KEY_Y)
+    outputs.press("vkbd", KEY_Z)
+    outputs.press("pad", BTN_SOUTH)
+    outputs.close()
+    assert backend.created["vkbd"].events[-2:] == [(KEY_Y, False), (KEY_Z, False)]
+    assert backend.created["pad"].events[-1] == (BTN_SOUTH, False)
+    assert all(device.closed for device in backend.created.values())
+
+
+def test_exception_inside_context_still_releases(backend):
+    with pytest.raises(RuntimeError, match="boom"), OutputManager(backend, CONFIG) as outputs:
+        outputs.press("pad", BTN_SOUTH)
+        raise RuntimeError("boom")
+    assert backend.created["pad"].events[-1] == (BTN_SOUTH, False)
+    assert backend.created["pad"].closed
+
+
+def test_create_failure_closes_already_created_devices(backend):
+    backend.fail_on = "pad"
+    outputs = OutputManager(backend, CONFIG)
+    with pytest.raises(OutputError, match="simulated create failure"):
+        outputs.open()
+    assert backend.created["vkbd"].closed
+    assert outputs.devices == {}
+
+
+def test_unexpected_create_error_also_cleans_up(backend):
+    def explode(spec, key_codes):
+        if spec.id == "pad":
+            raise KeyboardInterrupt
+        return FakeOutputBackend.create(backend, spec, key_codes)
+
+    backend.create = explode
+    with pytest.raises(KeyboardInterrupt):
+        OutputManager(backend, CONFIG).open()
+    assert backend.created["vkbd"].closed
+
+
+def test_failed_press_is_not_recorded_as_held(backend):
+    with OutputManager(backend, CONFIG) as outputs:
+        backend.created["vkbd"].fail_writes = True
+        with pytest.raises(OutputError):
+            outputs.press("vkbd", KEY_Y)
+        assert outputs.held("vkbd") == set()
+        backend.created["vkbd"].fail_writes = False
+
+
+def test_release_failure_on_one_device_does_not_block_others(backend):
+    outputs = OutputManager(backend, CONFIG)
+    outputs.open()
+    outputs.press("vkbd", KEY_Y)
+    outputs.press("pad", BTN_SOUTH)
+    backend.created["vkbd"].fail_writes = True
+    with pytest.raises(OutputError, match="vkbd KEY_Y"):
+        outputs.close()
+    assert backend.created["pad"].events[-1] == (BTN_SOUTH, False)
+    assert all(device.closed for device in backend.created.values())
+
+
+def test_close_failure_reported_after_closing_all(backend):
+    outputs = OutputManager(backend, CONFIG)
+    outputs.open()
+    backend.created["vkbd"].fail_close = True
+    with pytest.raises(OutputError, match="closing 'vkbd'"):
+        outputs.close()
+    assert backend.created["pad"].closed
+
+
+def test_write_to_unknown_device_raises(backend):
+    with OutputManager(backend, CONFIG) as outputs, pytest.raises(OutputError):
+        outputs.press("nope", KEY_Y)
+
+
+def test_open_twice_rejected(backend):
+    with OutputManager(backend, CONFIG) as outputs, pytest.raises(RuntimeError):
+        outputs.open()

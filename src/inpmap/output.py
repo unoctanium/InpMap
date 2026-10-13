@@ -1,0 +1,163 @@
+"""Virtual output devices: backend interface and output manager.
+
+The manager owns the lifetime of all virtual output devices and records which
+codes are currently held on each one. Its guarantee: whatever happens, closing
+the manager releases every held code before the devices are destroyed.
+
+Reference counting of overlapping mappings is *not* done here; that is the
+state manager's job. The manager only sees "this code goes down / up" and
+ignores redundant transitions.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Mapping
+from typing import Protocol
+
+from . import codes
+from .models import Config, OutputDeviceSpec
+
+log = logging.getLogger(__name__)
+
+
+class OutputError(Exception):
+    """A virtual output device could not be created, written or closed."""
+
+
+class OutputDevice(Protocol):
+    """One created virtual device. Implementations raise OutputError."""
+
+    def set_key(self, code: int, pressed: bool) -> None:
+        """Emit a press or release of an EV_KEY code and synchronize."""
+        ...
+
+    def close(self) -> None:
+        """Destroy the virtual device."""
+        ...
+
+
+class OutputBackend(Protocol):
+    """Creates virtual devices for one platform."""
+
+    def create(self, spec: OutputDeviceSpec, key_codes: frozenset[int]) -> OutputDevice:
+        """Create a device able to emit at least ``key_codes``."""
+        ...
+
+
+class OutputManager:
+    """Creates, drives and cleanly destroys the configured output devices."""
+
+    def __init__(self, backend: OutputBackend, config: Config) -> None:
+        self._backend = backend
+        self._config = config
+        self._devices: dict[str, OutputDevice] = {}
+        self._held: dict[str, set[int]] = {}
+
+    @property
+    def devices(self) -> Mapping[str, OutputDevice]:
+        return dict(self._devices)
+
+    def open(self) -> None:
+        """Create all output devices; on failure, destroy those already created."""
+        if self._devices:
+            raise RuntimeError("output devices are already open")
+        for device_id, spec in self._config.outputs.items():
+            try:
+                device = self._backend.create(spec, self._config.output_codes(device_id))
+            except BaseException:
+                # Cleanup boundary: also covers KeyboardInterrupt and
+                # unexpected backend errors; always re-raised.
+                log.error("creating output device '%s' failed; closing the others", device_id)
+                self._close_devices()
+                raise
+            self._devices[device_id] = device
+            self._held[device_id] = set()
+            log.info("created output device '%s' (%s)", device_id, spec.name)
+
+    def press(self, device_id: str, code: int) -> None:
+        self._set(device_id, code, True)
+
+    def release(self, device_id: str, code: int) -> None:
+        self._set(device_id, code, False)
+
+    def held(self, device_id: str) -> frozenset[int]:
+        """Codes currently held on a device."""
+        return frozenset(self._held.get(device_id, ()))
+
+    def release_all(self) -> None:
+        """Release every held code on every device.
+
+        Tries all devices even if some fail, then raises OutputError naming
+        the failures.
+        """
+        failures: list[str] = []
+        for device_id, held in self._held.items():
+            for code in sorted(held):
+                try:
+                    self._devices[device_id].set_key(code, False)
+                except OutputError as exc:
+                    failures.append(f"{device_id} {codes.code_name(code)}: {exc}")
+                    log.error(
+                        "releasing %s on '%s' failed: %s", codes.code_name(code), device_id, exc
+                    )
+            # Even on failure, forget the code: retrying a device that just
+            # failed is pointless, and close() destroys it next.
+            held.clear()
+        if failures:
+            raise OutputError("failed to release: " + "; ".join(failures))
+
+    def close(self) -> None:
+        """Release all held codes, then destroy all devices.
+
+        Always attempts every step; raises OutputError afterwards if any
+        step failed.
+        """
+        errors: list[str] = []
+        try:
+            self.release_all()
+        except OutputError as exc:
+            errors.append(str(exc))
+        errors += self._close_devices()
+        if errors:
+            raise OutputError("; ".join(errors))
+
+    def __enter__(self) -> OutputManager:
+        self.open()
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
+
+    def _set(self, device_id: str, code: int, pressed: bool) -> None:
+        device = self._devices.get(device_id)
+        if device is None:
+            raise OutputError(f"output device '{device_id}' is not open")
+        held = self._held[device_id]
+        if (code in held) == pressed:
+            log.debug(
+                "ignoring redundant %s of %s on '%s'",
+                "press" if pressed else "release",
+                codes.code_name(code),
+                device_id,
+            )
+            return
+        device.set_key(code, pressed)
+        # Only record the new state once the device accepted it.
+        if pressed:
+            held.add(code)
+        else:
+            held.discard(code)
+
+    def _close_devices(self) -> list[str]:
+        errors: list[str] = []
+        for device_id, device in self._devices.items():
+            try:
+                device.close()
+                log.info("closed output device '%s'", device_id)
+            except OutputError as exc:
+                errors.append(f"closing '{device_id}': {exc}")
+                log.error("closing output device '%s' failed: %s", device_id, exc)
+        self._devices.clear()
+        self._held.clear()
+        return errors
