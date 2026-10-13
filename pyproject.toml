@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inpmap"
+dynamic = ["version"]
+description = "Configuration-driven input remapper (JSON rules, multiple virtual output devices)"
+readme = "README.md"
+# Baseline: 3.11 (PEP 604 unions, dataclasses, enum). Developed and tested on 3.14.
+requires-python = ">=3.11"
+dependencies = [
+    # Linux backend: reading /dev/input/event* and creating uinput devices.
+    # Platform marker keeps a future Windows install from requiring it.
+    "evdev; sys_platform == 'linux'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+inpmap = "inpmap.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "inpmap.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "hardware: needs real /dev/input or /dev/uinput access (not run by default)",
+]
+addopts = "-m 'not hardware'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["src/inpmap/_linux_codes.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]

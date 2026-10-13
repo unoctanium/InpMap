@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "inputs": {
+    "physical-keyboard": {
+      "name": "AT Translated Set 2 keyboard"
+    }
+  },
+  "outputs": {
+    "keyboard": {
+      "type": "keyboard",
+      "name": "InpMap Virtual Keyboard"
+    },
+    "gamepad": {
+      "type": "gamepad",
+      "name": "InpMap Virtual Gamepad"
+    }
+  },
+  "mappings": [
+    {
+      "id": "keyboard-x-to-y-and-gamepad-a",
+      "description": "Physical X -> virtual KEY_Y plus gamepad south face button (A on Xbox layout)",
+      "input": {
+        "device": "physical-keyboard",
+        "type": "key",
+        "code": "KEY_X"
+      },
+      "consume": true,
+      "outputs": [
+        {
+          "device": "keyboard",
+          "type": "key",
+          "code": "KEY_Y"
+        },
+        {
+          "device": "gamepad",
+          "type": "button",
+          "code": "BTN_SOUTH"
+        }
+      ]
+    }
+  ]
+}
