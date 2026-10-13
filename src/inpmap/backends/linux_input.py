@@ -167,6 +167,7 @@ class LinuxInputSource:
         self._down: set[int] = set(self._query_keys_or_empty())
         self._dropping = False
         self._led_warning_logged = False
+        self._masked: set[int] = set()
 
     def _query_keys_or_empty(self) -> list[int]:
         try:
@@ -298,6 +299,10 @@ class LinuxInputSource:
 
     def forward(self, raw: object) -> None:
         etype, code, value = raw.type, raw.code, raw.value  # type: ignore[attr-defined]
+        if etype == ecodes.EV_KEY and code in self._masked:
+            return  # hidden while a mapping with modifiers runs
+        if etype == ecodes.EV_KEY and value != 1 and code not in self._forwarded_held:
+            return  # release/repeat of a key the desktop does not have down
         try:
             self._forwarder.write(etype, code, value)
         except OSError as exc:
@@ -307,6 +312,31 @@ class LinuxInputSource:
                 self._forwarded_held.discard(code)
             elif value == 1:
                 self._forwarded_held.add(code)
+
+    def mask(self, code: int) -> None:
+        if code in self._masked:
+            return
+        self._masked.add(code)
+        if code in self._forwarded_held:
+            self._write_key(code, 0)
+
+    def unmask(self, code: int) -> None:
+        if code not in self._masked:
+            return
+        self._masked.discard(code)
+        if code in self._down and code not in self._forwarded_held:
+            self._write_key(code, 1)
+
+    def _write_key(self, code: int, value: int) -> None:
+        try:
+            self._forwarder.write(ecodes.EV_KEY, code, value)
+            self._forwarder.syn()
+        except OSError as exc:
+            raise InputError(f"forwarding event from {self.description} failed: {exc}") from exc
+        if value:
+            self._forwarded_held.add(code)
+        else:
+            self._forwarded_held.discard(code)
 
     def close(self) -> None:
         errors: list[str] = []

@@ -660,6 +660,10 @@ class _Validator:
         if self.problems:
             return
         used_inputs = {rule.trigger.device for rule in mappings}
+        if any(rule.trigger.modifiers for rule in mappings):
+            # Any input device may provide modifiers (e.g. a keyboard that
+            # is configured only for Ctrl used with gamepad buttons).
+            used_inputs = set(inputs)
         used_outputs = set()
         for rule in mappings:
             used_outputs |= {action.device for action in rule.outputs}

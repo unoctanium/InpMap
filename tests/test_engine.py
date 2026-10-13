@@ -102,8 +102,10 @@ def test_repeat_is_consumed_without_output(engine, sink):
     assert len(sink.events) == 2
 
 
-def test_repeat_without_press_does_nothing(engine, sink):
-    assert engine.handle(ev("kbd", "KEY_X", REPEAT)) is True
+def test_repeat_without_press_is_passed_through(engine, sink):
+    # A press can pass through deliberately (no mapping fits the held
+    # modifiers); its repeats and release must then pass through as well.
+    assert engine.handle(ev("kbd", "KEY_X", REPEAT)) is False
     assert sink.events == []
 
 
@@ -114,9 +116,10 @@ def test_duplicate_press_is_ignored(engine, sink):
     assert [pressed for _, _, pressed in sink.events] == [True, True, False, False]
 
 
-def test_release_without_press_is_ignored_but_consumed(engine, sink):
-    # e.g. the key was already held when the remapper started
-    assert engine.handle(ev("kbd", "KEY_X", RELEASE)) is True
+def test_release_without_press_is_passed_through(engine, sink):
+    # Same reason as above: otherwise the desktop would keep a passed-through
+    # press forever (stuck key).
+    assert engine.handle(ev("kbd", "KEY_X", RELEASE)) is False
     assert sink.events == []
 
 

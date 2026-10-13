@@ -178,7 +178,8 @@ Rules:
 5. **Shared state**: the modifier state is the union of all configured
    input devices, so a gamepad button can be combined with Ctrl on the
    keyboard. Modifiers of devices that are not configured (not grabbed)
-   are not visible.
+   are not visible. An input device may be configured only to provide
+   modifiers (it has no own mappings; everything it sends passes through).
 6. **Timing**: modifiers count as they are at the moment the key is
    pressed. Pressing or releasing modifiers while the key is held does not
    affect the running mapping. The trigger release is the release of the

@@ -236,18 +236,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if args.timeout is not None and args.timeout <= 0:
         print("--timeout must be positive", file=sys.stderr)
         return EXIT_USAGE
-    # TEMPORARY (DSL step S3 pending): modifier matching is not implemented yet.
-    with_modifiers = [
-        rule.id
-        for rule in config.mappings
-        if rule.trigger.modifiers or rule.trigger.any_modifiers or rule.keep_modifiers
-    ]
-    if with_modifiers:
-        print(
-            f"mappings {', '.join(with_modifiers)} use modifiers(…), which cannot be executed yet",
-            file=sys.stderr,
-        )
-        return EXIT_CONFIG_ERROR
     try:
         from .backends.linux import LinuxOutputBackend
         from .backends.linux_input import LinuxInputBackend

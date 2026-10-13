@@ -269,8 +269,8 @@ Last updated: 2026-10-13
 
 ## Verification status
 
-- Unit tests: 371 passed, 9 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after DSL step S2. Hardware: 9 passed (last run before DSL).
+- Unit tests: 394 passed, 10 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after DSL step S3. Hardware: 10 passed.
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and
@@ -312,7 +312,25 @@ Last updated: 2026-10-13
   the DSL example vs. `config/example-macros.json`. **TEMPORARY guards** in
   `engine.MappingEngine.__init__` and `cli._cmd_run` reject modifier
   triggers — remove them in S3.
-  S3 engine/runtime: modifier
+  ✅ S3 (2026-10-13): `src/inpmap/modifiers.py` (ModifierState, exact
+  matching, sides, `ignore`, specificity, ties → first defined), engine
+  keeps several rules per key and chooses at press time; masking: the
+  engine asks the runtime (`InputControl`) to `mask` held modifiers before
+  the outputs and `unmask` once the trigger is released and all its runs
+  finished; `InputSource.mask/unmask` (Linux: release/re-press on the
+  forwarder, hide physical events meanwhile). Behaviour changes, all
+  deliberate and tested: a trigger without `modifiers(…)` fires only with no
+  modifier held; releases/repeats of keys whose press was passed through
+  are passed through; the forwarder never gets a release/repeat for a key
+  it does not have down; when any mapping requires modifiers, every input
+  device counts as used (keyboard configured only for Ctrl). Temporary
+  guards removed. Tests: `tests/test_modifiers.py`, runtime + Linux source
+  masking tests, hardware test
+  `test_modifiers_hidden_on_forwarder_before_output_and_restored` (kernel
+  timestamps: modifiers released on the forwarder before the virtual
+  Enter). ⏳ Real-desktop check of case 1 (KDE sees a plain Enter) pending
+  with the user after S4.
+  (previous plan text:) S3 engine/runtime: modifier
   matching (exact, sides, ignore, specificity) and temporary release /
   re-press of modifiers on the forwarding devices, hardware test; S4 CLI
   loads `.inpmap`, example configs + local configs in the DSL, Kate and

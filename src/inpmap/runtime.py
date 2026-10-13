@@ -106,7 +106,7 @@ class Runtime:
 
     def _start_and_loop(self, stop: StopFlag, deadline: float | None) -> StopReason:
         self._engine = MappingEngine(
-            self._config, self._outputs, clock=self._clock, leds=self._leds_of
+            self._config, self._outputs, clock=self._clock, leds=self._leds_of, inputs=self
         )
         for device_id, spec in self._config.inputs.items():
             slot = _Slot(spec=spec, codes=self._config.input_codes(device_id))
@@ -150,6 +150,23 @@ class Runtime:
         if not self._all_grabbed_announced and all(s.grabbed for s in self._slots):
             self._all_grabbed_announced = True
             log.info("remapping active")
+
+    # InputControl for the engine: hide/restore passed-through modifiers.
+    def mask(self, device_id: str, code: int) -> None:
+        source = self._source_of(device_id)
+        if source is not None:
+            source.mask(code)
+
+    def unmask(self, device_id: str, code: int) -> None:
+        source = self._source_of(device_id)
+        if source is not None:
+            source.unmask(code)
+
+    def _source_of(self, device_id: str) -> InputSource | None:
+        for slot in self._slots:
+            if slot.spec.id == device_id:
+                return slot.source
+        return None
 
     def _leds_of(self, device_id: str) -> frozenset[Led]:
         for slot in self._slots:

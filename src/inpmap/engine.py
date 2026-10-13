@@ -32,7 +32,9 @@ import itertools
 import logging
 import random
 import time
+from collections import Counter
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from typing import Protocol
 
 from . import codes
@@ -40,6 +42,7 @@ from .axes import AxisStacks
 from .macro_runtime import MacroRun
 from .macros import HoldAxis, KeyRef, Led, Macro, OnRetrigger
 from .models import Config, InputEvent, KeyAction, MappingRule, OutputAction, OutputMode
+from .modifiers import ModifierState, choose
 from .output import OutputError
 from .state import OutputKey, OutputRefCounts
 
@@ -61,9 +64,29 @@ class OutputSink(Protocol):
     def set_axis(self, device_id: str, code: int, value: float) -> None: ...
 
 
-def _uses_modifiers(rule: MappingRule) -> bool:
-    trigger = rule.trigger
-    return bool(trigger.modifiers) or trigger.any_modifiers or rule.keep_modifiers
+class InputControl(Protocol):
+    """Lets the engine temporarily hide passed-through modifier keys."""
+
+    def mask(self, device_id: str, code: int) -> None: ...
+
+    def unmask(self, device_id: str, code: int) -> None: ...
+
+
+class _NoInputControl:
+    def mask(self, device_id: str, code: int) -> None:
+        pass
+
+    def unmask(self, device_id: str, code: int) -> None:
+        pass
+
+
+@dataclass
+class _MaskOwner:
+    """Modifier keys hidden for one activation of a mapping with modifiers."""
+
+    rule_id: str
+    keys: frozenset[tuple[str, int]]
+    released: bool = False
 
 
 def _axis_macro(axis) -> Macro:
@@ -85,6 +108,7 @@ class MappingEngine:
         clock: Callable[[], float] = time.monotonic,
         leds: Callable[[str], frozenset[Led]] | None = None,
         rng: random.Random | None = None,
+        inputs: InputControl | None = None,
     ) -> None:
         self._sink = sink
         self._clock = clock
@@ -92,12 +116,15 @@ class MappingEngine:
         self.rng = rng or random.Random()
         self.variables: dict[str, object] = dict(config.variables)
         self.axes = AxisStacks(sink.set_axis)
-        # TEMPORARY until modifier matching exists (DSL step S3).
-        if any(_uses_modifiers(rule) for rule in config.mappings):
-            raise NotImplementedError("triggers with modifiers are not supported yet")
-        self._rules: dict[InputKey, MappingRule] = {
-            (rule.trigger.device, rule.trigger.code): rule for rule in config.mappings
-        }
+        self._input_control: InputControl = inputs or _NoInputControl()
+        self._modifiers = ModifierState(config.settings.modifiers)
+        # Several rules per key are possible (different modifier requirements).
+        self._rules: dict[InputKey, list[MappingRule]] = {}
+        for rule in config.mappings:
+            key = (rule.trigger.device, rule.trigger.code)
+            self._rules.setdefault(key, []).append(rule)
+        self._masked: Counter[tuple[str, int]] = Counter()
+        self._mask_owners: list[_MaskOwner] = []
         self._macros: dict[str, tuple[Macro, ...]] = {
             rule.id: rule.macros + tuple(_axis_macro(axis) for axis in rule.axes)
             for rule in config.mappings
@@ -121,17 +148,29 @@ class MappingEngine:
         state stays consistent, so later releases still clean up.
         """
         key = (event.device, event.code)
+        self._modifiers.update(event.device, event.code, event.action)
         if event.action is KeyAction.PRESS:
             self._offer_other_press(key)
-        rule = self._rules.get(key)
-        if rule is None:
+        candidates = self._rules.get(key)
+        if not candidates:
             return False
+        active = self._active.get(key)
         if event.action is KeyAction.PRESS:
+            if active is not None:
+                log.debug("ignoring duplicate press for mapping '%s'", active.id)
+                return active.consume
+            rule = choose(candidates, self._modifiers)
+            if rule is None:
+                return False  # no mapping fits the held modifiers: pass through
             self._activate(key, rule)
-        elif event.action is KeyAction.RELEASE:
-            self._deactivate(key, rule)
+            return rule.consume
+        if active is None:
+            # The press was passed through (or never seen): pass this on too.
+            return False
+        if event.action is KeyAction.RELEASE:
+            self._deactivate(key, active)
         # REPEAT: outputs are already held or tapped; nothing to do.
-        return rule.consume
+        return active.consume
 
     def tick(self) -> None:
         """Execute timed work (tap releases, macro timers) that is due."""
@@ -181,6 +220,8 @@ class MappingEngine:
 
         Pending taps finish on their own schedule.
         """
+        self._modifiers.forget_device(device_id)
+        self._forget_masks(lambda key: key[0] == device_id)
         failures: list[str] = []
         try:
             self._deactivate_all(key for key in self._active if key[0] == device_id)
@@ -199,6 +240,7 @@ class MappingEngine:
         except OutputError as exc:
             failures.append(str(exc))
         failures += self._cancel_runs(list(self._runs))
+        self._forget_masks(lambda key: True)
         pending = [entry[2] for entry in self._taps]
         self._taps.clear()
         self._timers.clear()
@@ -230,9 +272,10 @@ class MappingEngine:
     # -- activation --------------------------------------------------------------
 
     def _activate(self, key: InputKey, rule: MappingRule) -> None:
-        if key in self._active:
-            log.debug("ignoring duplicate press for mapping '%s'", rule.id)
-            return
+        if rule.trigger.modifiers and not rule.keep_modifiers:
+            # Hide the held modifiers from the desktop before any output, so
+            # the outputs are not modified by them (docs/dsl.md §4.0 rule 7).
+            self._mask(rule, self._modifiers.held_keys())
         self._active[key] = rule
         log.debug("mapping '%s' activated", rule.id)
         failures: list[str] = []
@@ -270,6 +313,12 @@ class MappingEngine:
                     run.on_release()
                 except OutputError as exc:
                     failures.append(str(exc))
+        owner = next(
+            (o for o in self._mask_owners if o.rule_id == rule.id and not o.released), None
+        )
+        if owner is not None:
+            owner.released = True
+            self._unmask_finished(rule.id)
         if failures:
             raise OutputError(f"mapping '{rule.id}': " + "; ".join(failures))
 
@@ -302,6 +351,35 @@ class MappingEngine:
         if self._runs.get(slot) is run:
             del self._runs[slot]
             del self._run_trigger[slot]
+        self._unmask_finished(slot[0])
+
+    # -- modifier masking --------------------------------------------------------
+
+    def _mask(self, rule: MappingRule, keys: frozenset[tuple[str, int]]) -> None:
+        for key in sorted(keys):
+            if self._masked[key] == 0:
+                self._input_control.mask(*key)
+            self._masked[key] += 1
+        self._mask_owners.append(_MaskOwner(rule.id, keys))
+
+    def _unmask_finished(self, rule_id: str) -> None:
+        """Give modifiers back once the mapping is released and no run is left."""
+        if any(slot[0] == rule_id and run.active for slot, run in self._runs.items()):
+            return
+        for owner in [o for o in self._mask_owners if o.rule_id == rule_id and o.released]:
+            self._mask_owners.remove(owner)
+            for key in sorted(owner.keys):
+                self._masked[key] -= 1
+                if self._masked[key] == 0:
+                    del self._masked[key]
+                    self._input_control.unmask(*key)
+
+    def _forget_masks(self, which: Callable[[tuple[str, int]], bool]) -> None:
+        """Drop masks without unmasking (device gone or shutting down)."""
+        for key in [k for k in self._masked if which(k)]:
+            del self._masked[key]
+        for owner in self._mask_owners:
+            owner.keys = frozenset(k for k in owner.keys if not which(k))
 
     def _offer_other_press(self, key: InputKey) -> None:
         for slot, run in list(self._runs.items()):

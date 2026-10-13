@@ -31,6 +31,8 @@ class FakeInputSource:
     close_error: InputError | None = None
     discarded: list[tuple] = field(default_factory=list)
     lit: set = field(default_factory=set)  # Led values
+    masked: set = field(default_factory=set)
+    physically_down: set = field(default_factory=set)
 
     @property
     def description(self) -> str:
@@ -56,6 +58,11 @@ class FakeInputSource:
         if self.lost:
             raise InputDeviceLost(f"{self.description} lost")
         raws, self.queue = self.queue, []
+        for raw in raws:
+            if raw[0] == "key" and raw[2] == 1:
+                self.physically_down.add(raw[1])
+            elif raw[0] == "key" and raw[2] == 0:
+                self.physically_down.discard(raw[1])
         if not self.grabbed:
             self.discarded += raws
         result = []
@@ -68,7 +75,32 @@ class FakeInputSource:
         return result
 
     def forward(self, raw: object) -> None:
+        if raw[0] == "key" and raw[1] in self.masked:
+            return
+        if raw[0] == "key" and raw[2] != 1 and not self._forwarded_down(raw[1]):
+            return  # like the real source: no release/repeat of keys not down
         self.forwarded.append(raw)
+
+    def mask(self, code: int) -> None:
+        if code in self.masked:
+            return
+        self.masked.add(code)
+        if self._forwarded_down(code):
+            self.forwarded.append(("key", code, 0))
+
+    def unmask(self, code: int) -> None:
+        if code not in self.masked:
+            return
+        self.masked.discard(code)
+        if code in self.physically_down and not self._forwarded_down(code):
+            self.forwarded.append(("key", code, 1))
+
+    def _forwarded_down(self, code: int) -> bool:
+        state = False
+        for raw in self.forwarded:
+            if raw[0] == "key" and raw[1] == code and raw[2] in (0, 1):
+                state = raw[2] == 1
+        return state
 
     def close(self) -> None:
         self.journal.append(f"close {self.spec.id}")

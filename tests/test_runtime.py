@@ -445,3 +445,57 @@ def test_if_single_reacts_to_key_on_another_device_before_forwarding_it():
     inputs.script.append(check)
     run()
     assert outputs.created["vkbd"].events[-1] == (c("KEY_LEFTCTRL"), False)  # released at stop
+
+
+# -- modifiers through the runtime ------------------------------------------------------------
+
+
+def test_modifiers_are_hidden_on_the_forwarding_device_and_restored():
+    from inpmap.dsl.compiler import compile_text
+
+    config = compile_text(
+        """version 1
+input kbd { name = "Kbd" }
+output keyboard { type = keyboard }
+map KEY_LEFTBRACE modifiers(ctrl, shift) { tap KEY_ENTER (pause 0ms) }
+""",
+        "t.inpmap",
+    ).config
+    stop = threading.Event()
+    kbd = FakeInputSource(config.inputs["kbd"])
+    inputs = FakeInputBackend({"kbd": kbd}, stop=stop)
+    outputs = FakeOutputBackend()
+    ctrl, shift, brace = c("KEY_LEFTCTRL"), c("KEY_LEFTSHIFT"), c("KEY_LEFTBRACE")
+
+    inputs.script.append(lambda: kbd.queue.extend([key_raw(ctrl, 1), SYN, key_raw(shift, 1), SYN]))
+    inputs.script.append(lambda: kbd.queue.extend([key_raw(brace, 1), SYN]))
+
+    def check_hidden():
+        # desktop saw Ctrl and Shift go down, then up again before the Enter
+        assert [r for r in kbd.forwarded if r[0] == "key"] == [
+            key_raw(ctrl, 1),
+            key_raw(shift, 1),
+            key_raw(ctrl, 0),
+            key_raw(shift, 0),
+        ]
+        assert outputs.created["keyboard"].events == [
+            (c("KEY_ENTER"), True),
+            (c("KEY_ENTER"), False),
+        ]
+        kbd.queue.extend(
+            [key_raw(brace, 0), SYN, key_raw(shift, 0), SYN]
+        )  # Shift let go while hidden
+
+    inputs.script.append(check_hidden)
+    inputs.script.append(lambda: None)
+
+    def check_restored():
+        keys = [r for r in kbd.forwarded if r[0] == "key"]
+        # only Ctrl is still held: pressed again; Shift's release was hidden
+        assert keys[4:] == [key_raw(ctrl, 1)]
+        kbd.queue.extend([key_raw(ctrl, 0), SYN])
+
+    inputs.script.append(check_restored)
+    inputs.script.append(lambda: None)
+    Runtime(config, inputs, outputs).run(stop)
+    assert [r for r in kbd.forwarded if r[0] == "key"][-1] == key_raw(ctrl, 0)

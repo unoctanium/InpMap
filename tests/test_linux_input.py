@@ -407,6 +407,87 @@ def test_macro_and_axis_output_through_runtime():
     assert result.get("reason") is StopReason.STOPPED, result.get("error")
 
 
+@pytest.mark.hardware
+def test_modifiers_hidden_on_forwarder_before_output_and_restored():
+    from inpmap.dsl.compiler import compile_text
+
+    config = compile_text(
+        f"""version 1
+input kbd {{ name = "{PHYSICAL_NAME}" }}
+output keyboard {{ type = keyboard; name = "InpMap Test E2E Keyboard" }}
+map KEY_LEFTBRACE modifiers(ctrl, shift) {{ tap KEY_ENTER }}
+""",
+        "t.inpmap",
+    ).config
+    ctrl, shift, brace = ecodes.KEY_LEFTCTRL, ecodes.KEY_LEFTSHIFT, ecodes.KEY_LEFTBRACE
+    physical = UInput(
+        {ecodes.EV_KEY: [ctrl, shift, brace]}, name=PHYSICAL_NAME, phys="pytest-physical"
+    )
+    stop = threading.Event()
+    result: dict = {}
+    grabbed: list[InputDevice] = []
+
+    def run():
+        try:
+            result["reason"] = Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
+                stop, timeout=20
+            )
+        except BaseException as exc:
+            result["error"] = exc
+
+    def read_timed(device, count, timeout=2.0):
+        events = []
+        deadline = time.monotonic() + timeout
+        while len(events) < count and time.monotonic() < deadline:
+            if select.select([device.fd], [], [], 0.1)[0]:
+                events += [
+                    (e.code, e.value, e.timestamp())
+                    for e in device.read()
+                    if e.type == ecodes.EV_KEY
+                ]
+        return events
+
+    thread = threading.Thread(target=run, daemon=True)
+    try:
+        thread.start()
+        for name in ("InpMap Test E2E Keyboard", forward_name(PHYSICAL_NAME)):
+            device = find_device(name)
+            device.grab()
+            grabbed.append(device)
+        vkbd, forwarder = grabbed
+        time.sleep(0.3)
+        assert "error" not in result, result.get("error")
+
+        emit(physical, ctrl, 1)
+        emit(physical, shift, 1)
+        assert [(c_, v) for c_, v, _t in read_timed(forwarder, 2)] == [(ctrl, 1), (shift, 1)]
+        emit(physical, brace, 1)
+        hidden = read_timed(forwarder, 2)
+        assert [(c_, v) for c_, v, _t in hidden] == [(ctrl, 0), (shift, 0)]
+        enter = read_timed(vkbd, 2)
+        assert [(c_, v) for c_, v, _t in enter] == [(ecodes.KEY_ENTER, 1), (ecodes.KEY_ENTER, 0)]
+        assert hidden[-1][2] <= enter[0][2]  # modifiers released before the Enter
+
+        emit(physical, brace, 0)
+        emit(physical, shift, 0)  # let go of Shift, keep Ctrl
+        restored = read_timed(forwarder, 1)
+        assert [(c_, v) for c_, v, _t in restored] == [(ctrl, 1)]
+        emit(physical, ctrl, 0)
+        assert [(c_, v) for c_, v, _t in read_timed(forwarder, 1)] == [(ctrl, 0)]
+        assert read_timed(forwarder, 1, timeout=0.3) == []  # no stray events
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        for device in grabbed:
+            try:
+                device.ungrab()
+            except OSError:
+                pass
+            device.close()
+        physical.close()
+    assert result.get("reason") is StopReason.STOPPED, result.get("error")
+
+
 # -- LinuxInputSource with stand-ins for evdev objects ---------------------
 # (Events on a destroyed uinput device cannot be read back, so cleanup
 # ordering is checked here instead of against real devices.)
@@ -581,6 +662,33 @@ def test_pump_feedback_led_failure_is_logged_once(caplog):
     forwarder.feedback = [StubEvent(ecodes.EV_LED, ecodes.LED_CAPSL, 1)] * 3
     source.pump_feedback()
     assert sum("cannot set LEDs" in r.message for r in caplog.records) == 1
+
+
+def test_mask_hides_forwarded_key_and_unmask_restores_it():
+    source, device, forwarder = make_source()
+    device.feed(StubEvent(ecodes.EV_KEY, ecodes.KEY_LEFTCTRL, 1))
+    for _event, raw in source.read():
+        source.forward(raw)
+    source.mask(ecodes.KEY_LEFTCTRL)
+    assert forwarder.calls[-2:] == [("write", ecodes.EV_KEY, ecodes.KEY_LEFTCTRL, 0), ("syn",)]
+    source.forward(StubEvent(ecodes.EV_KEY, ecodes.KEY_LEFTCTRL, 2))  # repeat: hidden
+    calls = len(forwarder.calls)
+    source.unmask(ecodes.KEY_LEFTCTRL)  # still physically held: pressed again
+    assert forwarder.calls[calls:] == [("write", ecodes.EV_KEY, ecodes.KEY_LEFTCTRL, 1), ("syn",)]
+
+
+def test_key_released_while_masked_is_not_pressed_again():
+    source, device, forwarder = make_source()
+    device.feed(StubEvent(ecodes.EV_KEY, ecodes.KEY_LEFTCTRL, 1))
+    for _event, raw in source.read():
+        source.forward(raw)
+    source.mask(ecodes.KEY_LEFTCTRL)
+    device.feed(StubEvent(ecodes.EV_KEY, ecodes.KEY_LEFTCTRL, 0))
+    for _event, raw in source.read():
+        source.forward(raw)  # hidden: the forwarder already has it released
+    calls = len(forwarder.calls)
+    source.unmask(ecodes.KEY_LEFTCTRL)
+    assert forwarder.calls[calls:] == []
 
 
 def test_keys_held_at_open_are_known():

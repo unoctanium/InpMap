@@ -59,6 +59,18 @@ class InputSource(Protocol):
         """Pass a raw event through to the desktop unchanged."""
         ...
 
+    def mask(self, code: int) -> None:
+        """Hide a passed-through key from the desktop for now.
+
+        If the key is currently down on the forwarding device, release it
+        there; until :meth:`unmask`, its physical events are not forwarded.
+        """
+        ...
+
+    def unmask(self, code: int) -> None:
+        """Stop hiding a key; press it again if it is still physically held."""
+        ...
+
     def close(self) -> None:
         """Release forwarded keys, ungrab, and free all resources.
 
