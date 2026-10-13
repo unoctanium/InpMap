@@ -161,3 +161,108 @@ above also make the GUI simpler (it would write the canonical form).
 3. Shorthand (O3): do the examples feel right? Which parts matter most?
 4. Short names (O4): which gamepad naming — `BTN_SOUTH`, `south`, or `A`?
 5. Anything missing, e.g. a different workflow you have in mind?
+
+## Answers and findings (2026-10-13)
+
+- **Editors:** Kate and nano.
+- **Comments:** allowed — user approved the spec change.
+- **Shorter is better.**
+- **Gamepad names:** positional names (`BTN_SOUTH` …) stay canonical. Verified
+  in `linux/input-event-codes.h`: `BTN_A = BTN_SOUTH`, `BTN_B = BTN_EAST`,
+  but `BTN_X = BTN_NORTH` (top, labelled **Y** on Xbox) and
+  `BTN_Y = BTN_WEST` (left, labelled **X** on Xbox). The kernel's
+  `Documentation/input/gamepad.rst` defines buttons by physical position
+  only. So `BTN_A`/`BTN_B` match Xbox labels, `BTN_X`/`BTN_Y` do not.
+  Proposal: keep accepting the aliases, but `inpmap check` warns about
+  `BTN_X`/`BTN_Y`.
+- **Text language:** user is now open to it (spec change) and asks about
+  **KDL**.
+
+## KDL (proposal under discussion)
+
+Facts checked 2026-10-13:
+
+- KDL ("a small, pleasant document language", kdl.dev): nodes with
+  arguments, `key=value` properties and `{ children }`; `//`, `/* */`
+  comments and `/-` to comment out a whole node. Current spec **KDL 2.0.0,
+  finalized**.
+- Kate: KDE's syntax-highlighting framework ships `kdl.xml` (`*.kdl`).
+  nano: no built-in KDL highlighting found; we could ship a `nanorc` file.
+- Python parsers: `kdl-py` 1.2.0 (Jan 2024, pure Python, MIT) supports
+  **KDL 1.0 only**; `ckdl` (C library with Python support, MIT, active,
+  last push 2026-03) — KDL 2 support and wheel availability **not yet
+  verified**; `cuddle` is v1 only.
+
+Why KDL differs from the "text language" we rejected: the grammar is a
+published standard with its own test suite; we would not design a parser
+grammar, only map KDL nodes to our existing model. Error positions (line,
+column) come for free. Trees (macros) are natural in KDL.
+
+Draft of the example configuration in KDL:
+
+```kdl
+version 1
+settings key-pause-ms=10
+variables { presses 0 }
+
+input physical-keyboard path="/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd"
+output keyboard type=keyboard name="InpMap Virtual Keyboard"
+output gamepad type=gamepad name="InpMap Virtual Gamepad"
+
+// X types y and holds the gamepad's south button (A)
+mapping x-to-y input=physical-keyboard:KEY_X {
+    key keyboard:KEY_Y
+    key gamepad:BTN_SOUTH
+}
+
+// F9: q, short pause, gamepad east button (B)
+mapping combo input=physical-keyboard:KEY_F9 {
+    macro {
+        tap keyboard:KEY_Q
+        wait 40 60
+        tap gamepad:BTN_EAST
+        add presses 1
+    }
+}
+
+// F10: tap 1, double tap 2, long press 3
+mapping tap-double-long input=physical-keyboard:KEY_F10 {
+    macro device=keyboard {
+        if-tap {
+            then { if-tap { then { tap KEY_2 }; else { tap KEY_1 } } }
+            else { tap KEY_3 }
+        }
+    }
+}
+
+mapping autofire input=physical-keyboard:KEY_F11 {
+    macro device=gamepad on-release=cancel {
+        while-held { tap BTN_SOUTH pause-ms=30 }
+    }
+}
+
+mapping stick-up input=physical-keyboard:KEY_F12 {
+    axis gamepad:ABS_Y -1.0 attack-ms=150 release-ms=50
+}
+
+// Caps Lock alone: Escape; with another key: Ctrl
+mapping caps input=physical-keyboard:KEY_CAPSLOCK {
+    macro device=keyboard {
+        if-single {
+            then { tap KEY_ESC }
+            else { hold-keys KEY_LEFTCTRL }
+        }
+    }
+}
+```
+
+Open decisions:
+
+1. KDL as the hand-written format **instead of** JSON, or **next to** JSON
+   (JSON for tools, a future GUI, interchange; `inpmap convert` both ways)?
+2. Parser: verify `ckdl` (KDL 2, packaging on Arch/Debian/Fedora, wheels);
+   otherwise write our own KDL 2 parser (no dependency, checked against the
+   official KDL test suite), or use KDL 1 via `kdl-py`.
+3. If JSON stays a user format: JSONC comments as well?
+4. Naming style in KDL: kebab-case (`key-pause-ms`, KDL convention) vs.
+   today's snake_case.
