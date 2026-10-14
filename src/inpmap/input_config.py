@@ -430,6 +430,7 @@ class Session:
             if d.node in self.selected
         ]
         text = self.file.with_inputs(blocks)
+        Path(self.file.path).parent.mkdir(parents=True, exist_ok=True)  # e.g. ~/.config/inpmap
         backup = write_atomically(self.file.path, text)
         added = "\n\n".join(blocks)
         self.say(f"Added to {self.file.path}:\n\n{_indent(added)}\n")

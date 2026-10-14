@@ -17,7 +17,7 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from . import __version__, codes
+from . import __version__, codes, profiles
 from .config import ConfigError, trigger_name
 from .input import InputError
 from .loading import load
@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     check = commands.add_parser("check", help="validate a configuration file")
-    check.add_argument("config", help="path to the .inpmap configuration file")
+    _add_config_argument(check)
     check.set_defaults(handler=_cmd_check)
 
     devices = commands.add_parser(
@@ -92,7 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Devices are read, not grabbed. Stop with Ctrl+C."
         ),
     )
-    axes.add_argument("config", help="path to the .inpmap configuration file")
+    _add_config_argument(axes)
     axes.add_argument("--timeout", type=float, metavar="SECONDS", help="stop after this time")
     axes.set_defaults(handler=_cmd_axes)
 
@@ -105,7 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
             "(created if it does not exist). Nothing else in the file is changed."
         ),
     )
-    input_config.add_argument("config", help="path to a new or existing .inpmap file")
+    _add_config_argument(input_config, "profile or path of a new or existing file")
     input_config.add_argument(
         "--all",
         action="store_true",
@@ -122,7 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
             "contains the install and removal commands."
         ),
     )
-    udev_rules.add_argument("config", help="path to the .inpmap configuration file")
+    _add_config_argument(udev_rules)
     udev_rules.set_defaults(handler=_cmd_udev_rules)
 
     trace_cmd = commands.add_parser(
@@ -133,7 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
             "every output event with its time. No devices are opened or created."
         ),
     )
-    trace_cmd.add_argument("config", help="path to the .inpmap configuration file")
+    trace_cmd.add_argument("config", help=CONFIG_HELP)
     trace_cmd.add_argument(
         "mapping",
         help="mapping name: its 'as' name or the trigger as written, e.g. KEY_F9",
@@ -179,7 +179,7 @@ def build_parser() -> argparse.ArgumentParser:
             "their keys are released) and remap until Ctrl+C/SIGTERM or --timeout."
         ),
     )
-    run.add_argument("config", help="path to the .inpmap configuration file")
+    _add_config_argument(run)
     run.add_argument(
         "--timeout",
         type=float,
@@ -196,20 +196,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     service_unit = commands.add_parser(
         "service-unit",
-        help="print a systemd user unit that runs CONFIG at login",
+        help="print the systemd user unit inpmap@.service (instance NAME runs profile NAME)",
         description=(
-            "Print a systemd user unit (systemctl --user) that runs 'inpmap run' for "
-            "CONFIG with this installation's Python. Nothing is installed; the output "
-            "contains the install and removal commands."
+            "Print the template unit inpmap@.service for systemctl --user, with this "
+            "installation's Python: inpmap@NAME runs the profile NAME at login. Nothing "
+            "is installed; the output contains the install and removal commands."
         ),
-    )
-    service_unit.add_argument(
-        "config", help="path to the .inpmap configuration file (with --profiles: a directory)"
-    )
-    service_unit.add_argument(
-        "--profiles",
-        action="store_true",
-        help="print a template unit inpmap@.service instead: profile NAME runs CONFIG/NAME.inpmap",
     )
     service_unit.set_defaults(handler=_cmd_service_unit)
 
@@ -223,7 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
             "German layout it types 'z'."
         ),
     )
-    test_outputs.add_argument("config", help="path to the .inpmap configuration file")
+    _add_config_argument(test_outputs)
     test_outputs.add_argument(
         "--delay",
         type=float,
@@ -248,8 +240,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+CONFIG_HELP = (
+    "profile name (a file in ~/.config/inpmap/) or path of an .inpmap file; "
+    f"default: the profile '{profiles.DEFAULT_PROFILE}'"
+)
+
+
+def _add_config_argument(parser: argparse.ArgumentParser, help: str = CONFIG_HELP) -> None:
+    parser.add_argument("config", nargs="?", metavar="PROFILE_OR_FILE", help=help)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if "config" in vars(args):
+        args.config = profiles.resolve(args.config)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
@@ -335,7 +339,7 @@ def _cmd_fmt(args: argparse.Namespace) -> int:
             return EXIT_CONFIG_ERROR
         return EXIT_OK
     status = EXIT_OK
-    for name in args.files:
+    for name in (profiles.resolve(f) for f in args.files):
         try:
             original = Path(name).read_text(encoding="utf-8")
             formatted = format_text(original, name)
@@ -568,30 +572,13 @@ PROFILE_NAME = re.compile(r"[A-Za-z0-9_.:-]+\Z")  # usable unescaped as a unit i
 
 
 def _cmd_service_unit(args: argparse.Namespace) -> int:
-    from .backends.linux_service import UnitError, render_profiles_unit, render_unit
+    from .backends.linux_service import UnitError, render_unit
 
+    # Not resolved: a virtual environment's python is a symlink that must stay one.
     python = os.path.abspath(sys.executable)
-    if args.profiles:
-        if not os.path.isdir(args.config):
-            print(f"error: {args.config} is not a directory", file=sys.stderr)
-            return EXIT_USAGE
-        profiles = _profiles(args.config)
-        if not profiles:
-            print(f"warning: no .inpmap files in {args.config}", file=sys.stderr)
-        try:
-            unit = render_profiles_unit(python, os.path.abspath(args.config), args.config, profiles)
-        except UnitError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return EXIT_USAGE
-        print(unit, end="")
-        return EXIT_OK
+    directory = profiles.config_dir()
     try:
-        _load(args.config)
-    except ConfigError as exc:
-        print(exc, file=sys.stderr)
-        return EXIT_CONFIG_ERROR
-    try:
-        print(render_unit(python, os.path.abspath(args.config), args.config), end="")
+        print(render_unit(python, str(directory), _profiles(str(directory))), end="")
     except UnitError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -698,6 +685,11 @@ def _raise_keyboard_interrupt(signum: int, frame: object) -> None:
 
 def _load(path: str) -> Config:
     """Load a configuration and print its warnings (to stderr)."""
+    if not Path(path).exists():
+        name = Path(path).stem if Path(path).parent == profiles.config_dir() else path
+        raise ConfigError(
+            path, [f"no such configuration; create it with: inpmap input-config {name}"]
+        )
     result = load(path)
     for warning in result.warnings:
         print(warning, file=sys.stderr)

@@ -68,27 +68,52 @@ def test_other_file_types_are_rejected(tmp_path, capsys):
 
 
 def test_missing_file(tmp_path, capsys):
-    assert main(["check", str(tmp_path / "missing.inpmap")]) == EXIT_CONFIG_ERROR
-    assert "cannot read file" in capsys.readouterr().err
+    missing = tmp_path / "missing.inpmap"
+    assert main(["check", str(missing)]) == EXIT_CONFIG_ERROR
+    assert f"no such configuration; create it with: inpmap input-config {missing}" in (
+        capsys.readouterr().err
+    )
 
 
-# -- service-unit ----------------------------------------------------------------------------
+# -- profiles and service-unit ---------------------------------------------------------------
 
 
-def test_service_unit_uses_absolute_paths(simple, capsys, monkeypatch, tmp_path):
+@pytest.fixture
+def config_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    directory = tmp_path / "inpmap"
+    directory.mkdir()
+    return directory
+
+
+def test_profile_names_and_the_default_profile(config_home, capsys):
+    (config_home / "default.inpmap").write_text(SIMPLE)
+    (config_home / "dcs.inpmap").write_text(SIMPLE)
+    assert main(["check"]) == EXIT_OK
+    assert f"{config_home}/default.inpmap: OK" in capsys.readouterr().out
+    assert main(["check", "dcs"]) == EXIT_OK
+    assert f"{config_home}/dcs.inpmap: OK" in capsys.readouterr().out
+
+
+def test_missing_profile_says_how_to_create_it(config_home, capsys):
+    assert main(["check", "nope"]) == EXIT_CONFIG_ERROR
+    assert "no such configuration; create it with: inpmap input-config nope" in (
+        capsys.readouterr().err
+    )
+
+
+def test_service_unit_lists_the_profiles(config_home, capsys):
     import sys
 
-    monkeypatch.chdir(tmp_path)
-    assert main(["service-unit", "simple.inpmap"]) == EXIT_OK
-    out = capsys.readouterr().out
-    assert f'"{sys.executable}" -m inpmap run --wait-for-devices "{simple}"' in out
-
-
-def test_service_unit_checks_the_configuration(tmp_path, capsys):
-    bad = tmp_path / "bad.inpmap"
-    bad.write_text("version 1\nmap\n")
-    assert main(["service-unit", str(bad)]) == EXIT_CONFIG_ERROR
-    assert capsys.readouterr().out == ""
+    (config_home / "dcs.inpmap").write_text(SIMPLE)
+    (config_home / "broken.inpmap").write_text("version 1\nmap\n")
+    (config_home / "my game.inpmap").write_text(SIMPLE)
+    assert main(["service-unit"]) == EXIT_OK
+    captured = capsys.readouterr()
+    assert f'"{sys.executable}" -m inpmap run --wait-for-devices %i' in captured.out
+    assert "#   broken               invalid (1 problem(s); see inpmap check)" in captured.out
+    assert "#   dcs                  OK" in captured.out
+    assert "my game.inpmap: the name cannot be a profile name" in captured.err
 
 
 # -- macro-trace -----------------------------------------------------------------------------
@@ -232,24 +257,6 @@ def test_codes_aliases_axes_and_no_match(capsys):
     assert "gamepad axis (trigger)" in capsys.readouterr().out
     assert main(["codes", "nothing_like_this"]) == EXIT_OK
     assert "no name contains 'nothing_like_this'" in capsys.readouterr().out
-
-
-def test_service_unit_profiles_lists_the_profiles(tmp_path, capsys):
-    (tmp_path / "dcs.inpmap").write_text(SIMPLE)
-    (tmp_path / "broken.inpmap").write_text("version 1\nmap\n")
-    (tmp_path / "my game.inpmap").write_text(SIMPLE)
-    (tmp_path / "dcs.inpmap.bak").write_text(SIMPLE)
-    assert main(["service-unit", "--profiles", str(tmp_path)]) == EXIT_OK
-    captured = capsys.readouterr()
-    assert "#   broken               invalid (1 problem(s); see inpmap check)" in captured.out
-    assert "#   dcs                  OK" in captured.out
-    assert f'"{tmp_path}/%i.inpmap"' in captured.out
-    assert "my game.inpmap: the name cannot be a profile name" in captured.err
-
-
-def test_service_unit_profiles_needs_a_directory(tmp_path, capsys):
-    assert main(["service-unit", "--profiles", str(tmp_path / "x.inpmap")]) == EXIT_USAGE
-    assert "is not a directory" in capsys.readouterr().err
 
 
 # -- fmt -------------------------------------------------------------------------------------

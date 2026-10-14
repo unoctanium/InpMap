@@ -62,6 +62,24 @@ Last updated: 2026-10-14
       (5) `inpmap example` must produce `example.inpmap`, not
       `default.inpmap`. **Open, under discussion:** what the example
       implements, and what `default.inpmap` does.
+      Further decisions (2026-10-14): a configuration **without mappings
+      is valid and idle** (no grab, no virtual devices, a log note);
+      **no `inpmap example` command** — `inpmap input-config example`
+      creates ~/.config/inpmap/example.inpmap from the built-in example
+      (safe feature tour: F1–F8, Caps Lock + nav layer, Insert; no device
+      names in triggers; gamepad part commented); **`inpmap detect
+      [PROFILE]`** prints pressed keys/buttons/axis crossings as
+      ready-to-use triggers (part of 4a).
+      Implementation steps: 1 ✅ profiles (`src/inpmap/profiles.py`,
+      XDG config dir, optional PROFILE_OR_FILE argument resolved centrally
+      in `cli.main`, fmt resolves names too, missing profile → "create it
+      with: inpmap input-config NAME", input-config creates the folder);
+      3 ✅ `service-unit` prints only `inpmap@.service` (ExecStart … run
+      --wait-for-devices %i; `--profiles` and the single-config unit
+      removed; verified with systemd-analyze); 2 idle without mappings;
+      4 example + syntax files as package data, `syntax-file`; 5 new
+      example; 6 `detect`; 7 docs (still describe the old commands until
+      then) + migration section in the test list.
       Original plan text: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →
       `~/.config/inpmap/default.inpmap`, profiles in the same directory);
@@ -545,7 +563,7 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 536 passed, 13 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 535 passed, 13 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after inpmap fmt (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
