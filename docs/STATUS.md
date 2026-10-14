@@ -20,7 +20,16 @@ Last updated: 2026-10-14
     environment `pypi`) and the GitHub environment `pypi` are set up.
     Before tagging, the repository was cleaned for publication (see the
     decisions of 2026-10-14 below).
-  - c. AUR package `inpmap` (needs the maintainer's AUR account).
+  - c. 🔧 **Work in progress, blocked (2026-10-14):** AUR package `inpmap`
+    needs the maintainer's AUR account, but AUR account registration is
+    temporarily closed (aur.archlinux.org/register: HTTP 503, "paused while
+    we deal with a wave of automated account creation"; no manual queue;
+    updates on aur-general and the Arch news feed). Resume when
+    registration reopens; nothing prepared yet (planned: `packaging/aur/`
+    with PKGBUILD from the PyPI release, depends python, python-evdev,
+    python-lark-parser; installs program, user unit, syntax files,
+    license; `.SRCINFO` via `makepkg --printsrcinfo`; test build with
+    makepkg).
   - d. Demo (GIF or asciinema), a few external testers, then announcements
     (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum, Show HN),
     respecting each community's self-promotion rules.
@@ -37,8 +46,8 @@ Last updated: 2026-10-14
    `inpmap@default` active; `inpmap run example` works. On this machine the
    plain `inpmap` command is now the PyPI release; development and tests
    use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
-3. Next: publishing step c (AUR package; needs the maintainer's AUR
-   account), then d.
+3. Publishing step c (AUR) is blocked until AUR registration reopens;
+   the maintainer decides what comes next meanwhile (e.g. step d).
 
 ## Decisions (and why)
 
@@ -103,7 +112,7 @@ Last updated: 2026-10-14
 
 ## Open questions
 
-- None.
+- What to do while the AUR step is blocked (maintainer's choice).
 
 ## Session log
 
