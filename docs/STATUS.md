@@ -42,9 +42,12 @@ Last updated: 2026-10-14
     keyboards (would let every program read every keyboard). pkgrel=2,
     `inpmap.install` (post_install, post_remove), drift test against
     `UINPUT_RULE`; `udevadm verify` and `makepkg --verifysource` pass.
-    ⏳ **Open:** (1) maintainer installs the package for a real test
-    (`makepkg -fi` after `pipx uninstall inpmap` and removing the user's
-    own unit) and removes/reinstalls it; (2) **upload to the AUR once account
+    ✅ Installation test by the maintainer (2026-10-14, "all as expected"):
+    `makepkg -fi` (0.2.0-2) after removing the pipx version and the own
+    unit; `/usr/bin/inpmap` 0.2.0; packaged unit used by
+    `inpmap@default` (active); Kate highlights via the system file;
+    `pacman -R` with the removal message; reinstalled — the development
+    machine now runs the locally built AUR package. ⏳ **Open:** **upload to the AUR once account
     registration reopens** (it was closed on 2026-10-14: HTTP 503, "paused
     while we deal with a wave of automated account creation"; watch
     aur-general / Arch news), following packaging/aur/README.md; then
@@ -63,8 +66,9 @@ Last updated: 2026-10-14
    installed, `pipx install --system-site-packages inpmap` → `inpmap
    0.2.0`; unit regenerated (ExecStart points to the pipx Python),
    `inpmap@default` active; `inpmap run example` works. On this machine the
-   plain `inpmap` command is now the PyPI release; development and tests
-   use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
+   plain `inpmap` command was the PyPI release; since the AUR test it is
+   the locally built package (`/usr/bin/inpmap`). Development and tests
+   always use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
 3. Step c: maintainer's test build of the AUR package; the upload waits
    until AUR registration reopens. Meanwhile the maintainer decides what
    comes next (e.g. step d).
