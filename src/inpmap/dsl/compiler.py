@@ -43,7 +43,8 @@ RESERVED = {
     *"""version settings let input output map as hold tap press release with wait
     random repeat while held toggle parallel branch on double_tap long_press if
     else single not and within after axis move to over cancel restart keep
-    modifiers ignore key_pause max_run none true false disable above below layer off""".split(),
+    modifiers ignore key_pause max_run none true false disable above below layer off
+    block call""".split(),
     *LEDS,
     *MODIFIER_NAMES,
 }
@@ -52,6 +53,13 @@ CONFUSING_BUTTONS = {
     "BTN_Y": "BTN_Y is the left button (labelled X on Xbox controllers); BTN_WEST says so",
 }
 OPTION_STATEMENTS = {"opt_cancel", "opt_restart", "opt_keep", "opt_kv"}
+# Statements that only make sense for a whole mapping (§6.11 rule 3).
+BLOCK_FORBIDDEN = {
+    **dict.fromkeys(OPTION_STATEMENTS, "a mapping option"),
+    "on_release": "'on release'",
+    "toggle": "'toggle'",
+    "disable": "'disable'",
+}
 
 
 @dataclass
@@ -85,7 +93,9 @@ def compile_text(text: str, source: str = "<config>") -> LoadResult:
     try:
         config = parse_config(data, source)
     except ConfigError as exc:
-        raise ConfigError(source, [compiler.locate(p) for p in exc.problems]) from None
+        # dict.fromkeys: a block's problem is found once per call (§6.11 rule 6)
+        located = list(dict.fromkeys(compiler.locate(p) for p in exc.problems))
+        raise ConfigError(source, located) from None
     return LoadResult(config, compiler.warnings)
 
 
@@ -117,16 +127,25 @@ class _Compiler:
         self.outputs: dict[str, str] = {}  # name -> type (or "" if unknown)
         self.var_types: dict[str, str] = {}
         self.layer_names: set[str] = set()
+        self.blocks: dict[str, Tree] = {}  # name -> block_def
+        self.cyclic_blocks: set[str] = set()
+        self.called_blocks: set[str] = set()
 
     # -- messages and positions ----------------------------------------------
 
+    # Messages are recorded once: a block's statements are compiled once per
+    # call, but their problems belong to the block's lines (§6.11 rule 6).
     def error(self, node: Tree | Token, message: str) -> None:
         line, column = _pos(node)
-        self.errors.append(f"{self.source}:{line}:{column}: {message}")
+        text = f"{self.source}:{line}:{column}: {message}"
+        if text not in self.errors:
+            self.errors.append(text)
 
     def warn(self, node: Tree | Token, message: str) -> None:
         line, column = _pos(node)
-        self.warnings.append(f"{self.source}:{line}:{column}: warning: {message}")
+        text = f"{self.source}:{line}:{column}: warning: {message}"
+        if text not in self.warnings:
+            self.warnings.append(text)
 
     def record(self, path: str, node: Tree | Token) -> None:
         self.positions.setdefault(path, _pos(node))
@@ -163,6 +182,7 @@ class _Compiler:
             self.error(node, "the file must start with 'version 1'")
         maps: list[tuple[Tree, str | None]] = []
         layers: dict[str, Tree] = {}
+        self.collect_blocks(statements)
         for stmt in statements:
             kind = stmt.data
             if kind == "version":
@@ -218,7 +238,71 @@ class _Compiler:
                 continue
             seen[key] = _pos(stmt)[0]
             data["mappings"].append(mapping)
+        for name, block in self.blocks.items():
+            if name not in self.called_blocks and name not in self.cyclic_blocks:
+                self.warn(block.children[0], f"block '{name}' is never called")
         return data
+
+    # -- reusable blocks (§6.11) ------------------------------------------------------
+
+    def collect_blocks(self, statements: list[Tree]) -> None:
+        for stmt in statements:
+            if stmt.data != "block_def":
+                continue
+            name_token, body = stmt.children
+            name = str(name_token)
+            if not self.check_name(name_token, "a block name"):
+                continue
+            if name in self.blocks:
+                line = _pos(self.blocks[name])[0]
+                self.error(name_token, f"block '{name}' is already defined at line {line}")
+                continue
+            self.blocks[name] = stmt
+            for node in body.iter_subtrees_topdown():
+                if node.data in BLOCK_FORBIDDEN:
+                    self.error(node, f"{BLOCK_FORBIDDEN[node.data]} is not allowed in a block")
+        self.find_cycles()
+
+    def find_cycles(self) -> None:
+        calls = {
+            name: [
+                str(n.children[0]) for n in block.children[1].iter_subtrees() if n.data == "call"
+            ]
+            for name, block in self.blocks.items()
+        }
+
+        def reaches(start: str, target: str, seen: set[str]) -> bool:
+            for callee in calls.get(start, []):
+                if callee == target or (
+                    callee not in seen and reaches(callee, target, seen | {callee})
+                ):
+                    return True
+            return False
+
+        for name, block in self.blocks.items():
+            if reaches(name, name, {name}):
+                self.cyclic_blocks.add(name)
+                self.error(
+                    block.children[0],
+                    f"block '{name}' calls itself (directly or through other blocks)",
+                )
+
+    def expand_calls(self, statements: list[Tree]) -> list[Tree]:
+        """Replace `call NAME` by the block's statements, as if written there."""
+        result: list[Tree] = []
+        for stmt in statements:
+            if stmt.data != "call":
+                result.append(stmt)
+                continue
+            token = stmt.children[0]
+            name = str(token)
+            if name not in self.blocks:
+                known = ", ".join(sorted(self.blocks)) or "none defined"
+                self.error(token, f"unknown block '{name}' (blocks: {known})")
+            elif name not in self.cyclic_blocks:
+                self.called_blocks.add(name)
+                result += self.expand_calls(list(self.blocks[name].children[1].children))
+        return result
 
     def compile_version(self, stmt: Tree, data: dict) -> None:
         if "version" in data:
@@ -454,9 +538,11 @@ class _Compiler:
             if layer is not None:
                 mapping_id = f"{layer}:{mapping_id}"  # §5.6 rule 7
 
-        statements = list(block.children)
-        if not statements:
+        statements = self.expand_calls(list(block.children))
+        if not statements and not block.children:
             self.error(block, "this mapping does nothing; add statements")
+            return None
+        if not statements:
             return None
         if any(s.data == "disable" for s in statements):
             if len(statements) > 1:
@@ -674,6 +760,7 @@ class _Compiler:
     # -- step lists ------------------------------------------------------------------
 
     def steps(self, statements: list[Tree], path: str, top: bool = False) -> list[dict]:
+        statements = self.expand_calls(statements)
         result: list[dict] = []
         index = 0
         while index < len(statements):

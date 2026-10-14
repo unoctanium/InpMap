@@ -7,7 +7,7 @@ syntax inpmap "\.inpmap$"
 comment "#"
 
 # keywords
-color brightblue "\<(version|settings|let|input|output|map|as|hold|tap|press|release|with|wait|random|repeat|while|held|toggle|parallel|branch|on|if|else|single|not|within|after|axis|move|to|over|cancel|restart|keep|modifiers|disable|above|below|layer|off)\>"
+color brightblue "\<(version|settings|let|input|output|map|as|hold|tap|press|release|with|wait|random|repeat|while|held|toggle|parallel|branch|on|if|else|single|not|within|after|axis|move|to|over|cancel|restart|keep|modifiers|disable|above|below|layer|off|block|call)\>"
 # modifiers, gestures, LEDs, options and constants
 color cyan "\<(ctrl|shift|alt|meta|(left|right)_(ctrl|shift|alt|meta)|ignore|double_tap|long_press|capslock|numlock|scrolllock|key_pause|max_run|true|false|none)\>"
 # key, button and axis codes

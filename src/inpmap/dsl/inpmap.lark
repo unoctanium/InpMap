@@ -9,6 +9,7 @@
 start: _sep? (top_stmt (_sep top_stmt)*)? _sep?
 
 ?top_stmt: version | settings | let_stmt | input_def | output_def | map_def | layer_def
+         | block_def
 
 version: "version" NUMBER
 settings: "settings" props
@@ -21,6 +22,7 @@ prop: prop_name "=" value ("," value)*
 !prop_name: NAME | "release" | "modifiers"
 
 map_def: "map" ref threshold? modifiers? as_name? block
+block_def: "block" NAME block
 layer_def: "layer" NAME "{" _sep? (map_def (_sep map_def)*)? _sep? "}"
 threshold: (ABOVE | BELOW) NUMBER
 modifiers: "modifiers" "(" _nl? NAME ("," _nl? NAME)* _nl? ")"
@@ -31,7 +33,7 @@ block: "{" _sep? (stmt (_sep stmt)*)? _sep? "}"
 ?stmt: hold | tap | press | release | with | axis | move | wait | repeat
      | while_held | toggle | parallel | if_stmt | gesture | on_release
      | assign | augassign | opt_cancel | opt_restart | opt_keep | opt_kv
-     | disable | hold_layer | layer_switch
+     | disable | hold_layer | layer_switch | call
 
 hold: "hold" keys
 tap: "tap" keys options?
@@ -60,6 +62,7 @@ opt_restart: "restart" "on" "press"
 opt_keep: "keep" "modifiers"
 opt_kv: NAME value
 disable: "disable"
+call: "call" NAME
 hold_layer: "hold" "layer" NAME
 layer_switch: "layer" NAME layer_action
 !layer_action: "on" | "off" | "toggle"

@@ -24,7 +24,18 @@ Last updated: 2026-10-14
    `layer` renamed to `mode`. macro-trace switches the mapping's layer on;
    `check` lists layers. Editor files updated (Kate checked).
    Tests: `tests/test_layers.py` (15). ⏳ User test: `docs/testlist.md` §8.
-2. Named reusable blocks (spec first).
+2. ✅ Reusable blocks (spec approved and implemented 2026-10-14): §6.11.
+   Compiler only: `block_def`/`call` in the grammar; blocks collected up
+   front (duplicates, forbidden statements: options, on release, toggle,
+   disable — anywhere in the block), cycles found from the call graph
+   (also through nested if/loops); `expand_calls` replaces calls by the
+   block's statement trees in `compile_map` and `steps()`, so every
+   existing transformation (non-blocking hold → parallel, gestures,
+   plain outputs) works across block boundaries. Messages are recorded
+   once (compiler errors/warnings and located validator problems are
+   deduplicated); unused block → warning. Reserved `block`, `call`;
+   editor files updated (Kate checked). Tests: `tests/test_blocks.py` (13),
+   incl. timeline equivalence of inline vs. block version.
 3. `inpmap fmt`.
 4. **Publishing** (user decision 2026-10-14, after `inpmap fmt`), in this order:
    a. Independence from the repository layout: standard config location
@@ -510,8 +521,8 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 507 passed, 13 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after layers (2026-10-14) (JSON-file tests were
+- Unit tests: 521 passed, 13 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after reusable blocks (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,

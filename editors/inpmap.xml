@@ -33,6 +33,8 @@
       <item>below</item>
       <item>layer</item>
       <item>off</item>
+      <item>block</item>
+      <item>call</item>
       <item>parallel</item>
       <item>branch</item>
       <item>on</item>

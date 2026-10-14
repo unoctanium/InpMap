@@ -87,6 +87,8 @@ let NAME = VALUE               # variables, optional
 input NAME { … }               # one or more physical input devices
 output NAME { … }              # one or more virtual output devices
 map TRIGGER [as NAME] { … }    # one or more mappings
+layer NAME { map … }           # layers, optional (§5.6)
+block NAME { … }               # reusable statements, optional (§6.11)
 ```
 
 `version` comes first; everything else may be in any order and can refer
@@ -492,6 +494,7 @@ never delay other input (§7).
 | Variables | `=`, `+=`, `-=` |
 | Doing nothing | `disable` |
 | Layers | `hold layer`, `layer … on`, `layer … off`, `layer … toggle` |
+| Reusing statements | `call` |
 
 ### 6.1 Holding: `hold` and `axis`
 
@@ -728,6 +731,69 @@ layer dcs {
 
 See §5.6 for how layers choose mappings.
 
+### 6.11 Reusable blocks: `block` and `call`
+
+A **block** gives a sequence of statements a name, so several mappings can
+use it:
+
+```inpmap
+version 1
+input kbd { name = "AT Translated Set 2 keyboard" }
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+output keyboard { type = keyboard }
+output gamepad { type = gamepad }
+
+block bracket {
+    tap ctrl + shift + KEY_LEFTBRACE
+}
+
+block close_dialog {
+    wait 500ms
+    tap KEY_ENTER
+    tap KEY_ESC
+    tap BTN_EAST
+}
+
+let bracket_mode = false
+
+map pad.BTN_WEST as alternate {
+    if not bracket_mode {
+        bracket_mode = true
+        tap KEY_ENTER
+        call bracket
+    } else {
+        bracket_mode = false
+        call bracket
+        call close_dialog
+    }
+}
+
+map kbd.KEY_LEFTBRACE modifiers(ctrl, shift) as bracket_combo {
+    tap KEY_ENTER
+    hold ctrl + shift + KEY_LEFTBRACE
+    on release { call close_dialog }
+}
+```
+
+Rules:
+
+1. `block NAME { … }` is written at the top level; `call NAME` may be
+   used wherever a statement may stand, also inside `if`, loops,
+   `parallel` and `on release`, and inside other blocks.
+2. **A call works as if the block's statements were written in its
+   place.** So they belong to the calling mapping: its trigger (`hold`,
+   `while held`, `if tap`, `if single` refer to it), its options
+   (`key_pause`, `cancel on release`, …) and its run (everything they press
+   is released when the mapping's run ends).
+3. A block may contain any statement except mapping options, `on
+   release`, `toggle` and `disable`, which only make sense for a whole
+   mapping.
+4. A block must not call itself, directly or through other blocks.
+5. Block names follow the rules for names (§2) and are unique. Blocks
+   take no parameters.
+6. Errors inside a block are reported at the block's lines, once, however
+   often it is called. A block that is never called gets a warning.
+
 ## 7. How mappings run
 
 ### 7.1 A run
@@ -799,9 +865,11 @@ after statements; `toggle` or `disable` not alone; values out of range;
 values of the wrong type; `release` of keys never pressed; unused devices; axis
 thresholds that are 0, outside −1.0 … 1.0, or on an axis that cannot be a
 trigger; unknown, duplicate or empty layers; statements other than `map`
-inside a layer.
+inside a layer; unknown or duplicate blocks, blocks that call themselves,
+and statements a block may not contain (§6.11).
 
-Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3).
+Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3); blocks that
+are never called.
 
 Check a file with `inpmap check FILE`.
 
@@ -1048,7 +1116,7 @@ random repeat while held toggle parallel branch on double_tap long_press if
 else single not and keep modifiers ignore ctrl shift alt meta left_ctrl
 right_ctrl left_shift right_shift left_alt right_alt left_meta right_meta
 within after axis move to over cancel restart key_pause max_run none true
-false capslock numlock scrolllock disable above below layer off
+false capslock numlock scrolllock disable above below layer off block call
 ```
 
 ## About this document
