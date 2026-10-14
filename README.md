@@ -60,6 +60,8 @@ InpMap was started for needs it covers less well:
   ramps.
 - Conditions: tap vs. hold, double tap, long press, "pressed alone",
   Caps/Num/Scroll Lock state, variables.
+- Layers: groups of mappings switched on while a key is held or toggled,
+  e.g. Caps Lock + WASD as arrow keys, or a flight-sim layer on the gamepad.
 - Unmapped keys pass through unchanged; LEDs keep working; devices that
   are unplugged and plugged in again are picked up automatically.
 - `inpmap input-config` finds your devices for you: press a key on the

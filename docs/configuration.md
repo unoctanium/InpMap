@@ -202,7 +202,7 @@ settings {
 let presses = 0          # whole number
 let speed = 1.5          # decimal number
 let delay = 50ms         # duration
-let layer = "game"       # string
+let mode = "game"        # string
 let armed = false        # boolean
 ```
 
@@ -409,6 +409,72 @@ Rules:
    0.0 … 1.0 trigger): an error for a mapping that names the device, a
    warning in the log otherwise.
 
+### 5.6 Layers
+
+A **layer** is a group of mappings that only applies while the layer is
+active. A mapping switches it on, either while its trigger is held or until
+it is switched off again:
+
+```inpmap
+version 1
+input kbd { name = "AT Translated Set 2 keyboard" }
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+output keyboard { type = keyboard }
+output gamepad { type = gamepad }
+
+# Caps Lock: tapped alone = Escape; held with other keys = layer "nav"
+map kbd.KEY_CAPSLOCK {
+    if single { tap KEY_ESC } else { hold layer nav }
+}
+
+layer nav {
+    map kbd.KEY_W { hold KEY_UP }
+    map kbd.KEY_A { hold KEY_LEFT }
+    map kbd.KEY_S { hold KEY_DOWN }
+    map kbd.KEY_D { hold KEY_RIGHT }
+    map kbd.KEY_Q { disable }
+}
+
+# The gamepad's Xbox button switches the flight layer on and off
+map pad.BTN_MODE { layer dcs toggle }
+
+layer dcs {
+    map pad.BTN_SOUTH { tap KEY_KP5 }
+    map pad.ABS_HAT0Y below -0.5 { tap KEY_KP8 }
+    map pad.BTN_EAST { hold BTN_EAST }      # still B on the virtual gamepad
+}
+```
+
+Rules:
+
+1. **Definition**: `layer NAME { … }` at the top level contains one or more
+   `map` statements, nothing else. Mappings outside any layer form the
+   **base**, which is always active. Layer names follow the rules for
+   names (§2) and are unique.
+2. **Switching** (statements, §6.10): `hold layer NAME` keeps the layer
+   active while the trigger is held; `layer NAME on`, `layer NAME off` and
+   `layer NAME toggle` switch it until switched again. A layer is active
+   while it is switched on **or** held by at least one `hold layer`.
+   `layer NAME off` does not end a `hold layer`. All layers start off.
+3. **Which mapping fires**: when a key is pressed, the active layers are
+   searched from the most recently activated to the oldest, then the base.
+   The first one with a matching mapping wins (within a layer, the usual
+   rules apply: device-named first, then modifiers, §5.1, §5.2). A key that
+   no active layer maps falls through to the layers below and the base; a
+   key that nothing maps passes through to the desktop.
+4. **Held keys keep their mapping**: the mapping is chosen when the key is
+   pressed. If the layer is switched off while the key is held, the key
+   still releases through the mapping that pressed it, so nothing gets
+   stuck. Running mappings (macros, toggles) of a layer continue when the
+   layer is switched off.
+5. **Global**: a layer applies to all input devices, whichever device
+   switched it on (a gamepad button can switch a keyboard layer).
+6. A layer's mappings can switch layers too, also their own layer.
+7. **Names**: a mapping in a layer is named `LAYER:TRIGGER` unless it has
+   an `as` name (`nav:kbd.KEY_W`). The same trigger may be mapped once in
+   each layer and once in the base.
+8. `inpmap macro-trace` activates the layer of the mapping it simulates.
+
 ## 6. Statements
 
 When the trigger is pressed, the statements of the mapping run from top to
@@ -425,6 +491,7 @@ never delay other input (§7).
 | After release | `on release` |
 | Variables | `=`, `+=`, `-=` |
 | Doing nothing | `disable` |
+| Layers | `hold layer`, `layer … on`, `layer … off`, `layer … toggle` |
 
 ### 6.1 Holding: `hold` and `axis`
 
@@ -561,6 +628,7 @@ else { … }
 | `NAME == VALUE`, `NAME != VALUE` | compares a variable with a value of the same type |
 | `NAME` | a boolean variable is `true` |
 | `capslock`, `numlock`, `scrolllock` | that LED is on, on the input device where the trigger was pressed (false for devices without LEDs) |
+| `layer NAME` | the layer is active (§5.6) |
 | `not CONDITION` | negation |
 
 ```inpmap
@@ -639,12 +707,34 @@ map KEY_Q modifiers(ctrl) { disable }       # Ctrl+Q does nothing; Q alone still
 The key is suppressed and nothing is sent instead. `disable` must be the
 only statement of the mapping, without options.
 
+### 6.10 Switching layers
+
+| Statement | Meaning |
+|---|---|
+| `hold layer NAME` | activate the layer until the trigger is released; **does not wait**, like `hold` |
+| `layer NAME on` | switch the layer on |
+| `layer NAME off` | switch it off (a `hold layer` still keeps it active) |
+| `layer NAME toggle` | switch it on if it is off, otherwise off |
+
+```inpmap
+map KEY_F1 { layer dcs on }
+map KEY_F2 { layer dcs off }
+map KEY_F3 { if layer dcs { tap KEY_1 } else { tap KEY_2 } }
+
+layer dcs {
+    map KEY_F4 { tap KEY_KP5 }
+}
+```
+
+See §5.6 for how layers choose mappings.
+
 ## 7. How mappings run
 
 ### 7.1 A run
 
 - Pressing the trigger starts a **run** of the mapping: its statements in
-  order.
+  order. Which mapping runs is decided at this moment, by the held
+  modifiers and the active layers (§5.2, §5.6).
 - Statements without duration run immediately one after another. Anything
   that waits is scheduled; InpMap keeps processing all other input in the
   meantime. Several mappings can run at the same time.
@@ -708,7 +798,8 @@ code; the same trigger and modifiers mapped twice; duplicate names; options
 after statements; `toggle` or `disable` not alone; values out of range;
 values of the wrong type; `release` of keys never pressed; unused devices; axis
 thresholds that are 0, outside −1.0 … 1.0, or on an axis that cannot be a
-trigger.
+trigger; unknown, duplicate or empty layers; statements other than `map`
+inside a layer.
 
 Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3).
 
@@ -957,7 +1048,7 @@ random repeat while held toggle parallel branch on double_tap long_press if
 else single not and keep modifiers ignore ctrl shift alt meta left_ctrl
 right_ctrl left_shift right_shift left_alt right_alt left_meta right_meta
 within after axis move to over cancel restart key_pause max_run none true
-false capslock numlock scrolllock disable above below
+false capslock numlock scrolllock disable above below layer off
 ```
 
 ## About this document

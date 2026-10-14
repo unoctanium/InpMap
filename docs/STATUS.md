@@ -7,6 +7,27 @@ repository alone, without any earlier conversation. Keep it current (see
 
 Last updated: 2026-10-14
 
+## Next (user's order, 2026-10-14)
+
+1. ✅ Layers (spec approved and implemented 2026-10-14): §5.6, §6.10.
+   Model `MappingRule.layer`, `Config.layers`; macro steps `SwitchLayer`
+   (on/off/toggle/hold) and `IfLayer`; data `"layers": [...]`, mapping
+   `"layer"`, steps `{"layer": NAME, "action": ...}`, `{"if_layer": ...}`.
+   Engine: rules keyed (layer, device, code); `_choose` searches active
+   layers most-recent-first, then the base (device-named, then every input,
+   then modifiers within each); layer state = switched on ∪ holds
+   (Counter), activation order list; `hold layer` owned by the run (given
+   back on release, cancel, device loss); `toggle` while held only clears
+   the on-switch. Compiler: `layer_def` (only map_def inside), default
+   names `LAYER:TRIGGER` (`_ID_PATTERN` allows ':'), `hold layer`
+   non-blocking like `hold`, reserved `layer`/`off`; reference example var
+   `layer` renamed to `mode`. macro-trace switches the mapping's layer on;
+   `check` lists layers. Editor files updated (Kate checked).
+   Tests: `tests/test_layers.py` (15). ⏳ User test: `docs/testlist.md` §8.
+2. Named reusable blocks (spec first).
+3. `inpmap fmt`.
+4. Then the user decides what comes next.
+
 ## Plan agreed with the user (2026-10-14), in this order
 
 Based on research of Input Remapper (usage.md, groups.py), keyd, kanata
@@ -462,8 +483,8 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 490 passed, 13 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after axes as triggers (2026-10-14) (JSON-file tests were
+- Unit tests: 507 passed, 13 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after layers (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,

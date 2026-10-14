@@ -40,7 +40,7 @@ from typing import Protocol
 from . import codes
 from .axes import AxisStacks
 from .macro_runtime import MacroRun
-from .macros import HoldAxis, KeyRef, Led, Macro, OnRetrigger
+from .macros import HoldAxis, KeyRef, LayerAction, Led, Macro, OnRetrigger
 from .models import Config, InputEvent, KeyAction, MappingRule, OutputAction, OutputMode
 from .modifiers import ModifierState, choose
 from .output import OutputError
@@ -121,12 +121,20 @@ class MappingEngine:
         self.axes = AxisStacks(sink.set_axis)
         self._input_control: InputControl = inputs or _NoInputControl()
         self._modifiers = ModifierState(config.settings.modifiers)
-        # Several rules per key are possible (different modifier requirements).
-        # Device None: rules without a device name, for every input.
-        self._rules: dict[tuple[str | None, int], list[MappingRule]] = {}
+        # Rules per (layer, device, code); several per key are possible
+        # (different modifier requirements). Layer None: the base. Device
+        # None: rules without a device name, for every input.
+        self._rules: dict[tuple[str | None, str | None, int], list[MappingRule]] = {}
+        self._mapped: set[tuple[str | None, int]] = set()  # (device, code) in any layer
         for rule in config.mappings:
-            key = (rule.trigger.device, rule.trigger.code)
+            key = (rule.layer, rule.trigger.device, rule.trigger.code)
             self._rules.setdefault(key, []).append(rule)
+            self._mapped.add((rule.trigger.device, rule.trigger.code))
+        # Layers (§5.6): switched on, held by runs, and the order in which
+        # the active ones became active (most recent last).
+        self._layers_on: set[str] = set()
+        self._layer_holds: Counter[str] = Counter()
+        self._layer_order: list[str] = []
         self._masked: Counter[tuple[str, int]] = Counter()
         self._mask_owners: list[_MaskOwner] = []
         self._macros: dict[str, tuple[Macro, ...]] = {
@@ -203,15 +211,55 @@ class MappingEngine:
     # -- queries -------------------------------------------------------------
 
     def is_mapped(self, device_id: str, code: int) -> bool:
-        return (device_id, code) in self._rules or (None, code) in self._rules
+        """Whether any mapping (in any layer) could handle this key."""
+        return (device_id, code) in self._mapped or (None, code) in self._mapped
 
     def _choose(self, device_id: str, code: int) -> MappingRule | None:
-        """Mappings naming the device first, then those for every input (§5.1)."""
-        for device in (device_id, None):
-            rule = choose(self._rules.get((device, code), []), self._modifiers)
-            if rule is not None:
-                return rule
+        """Active layers from the most recent, then the base (§5.6); within
+        each, mappings naming the device first, then those for every input."""
+        for layer in (*reversed(self._layer_order), None):
+            for device in (device_id, None):
+                rule = choose(self._rules.get((layer, device, code), []), self._modifiers)
+                if rule is not None:
+                    return rule
         return None
+
+    # -- layers (MacroHost) --------------------------------------------------
+
+    def layer_active(self, layer: str) -> bool:
+        return layer in self._layer_order
+
+    def active_layers(self) -> list[str]:
+        """Active layers, most recently activated last."""
+        return list(self._layer_order)
+
+    def switch_layer(self, layer: str, action: LayerAction) -> None:
+        if action is LayerAction.HOLD:
+            self._layer_holds[layer] += 1
+        elif action is LayerAction.ON:
+            self._layers_on.add(layer)
+        elif action is LayerAction.OFF:
+            self._layers_on.discard(layer)
+        elif layer in self._layers_on or self._layer_holds[layer]:
+            # toggle while active: switch off (a hold keeps it active, §5.6 rule 2)
+            self._layers_on.discard(layer)
+        else:
+            self._layers_on.add(layer)
+        self._update_layer(layer)
+
+    def release_layer(self, layer: str) -> None:
+        if self._layer_holds[layer] > 0:
+            self._layer_holds[layer] -= 1
+        self._update_layer(layer)
+
+    def _update_layer(self, layer: str) -> None:
+        active = layer in self._layers_on or self._layer_holds[layer] > 0
+        if active and layer not in self._layer_order:
+            self._layer_order.append(layer)
+            log.debug("layer '%s' active", layer)
+        elif not active and layer in self._layer_order:
+            self._layer_order.remove(layer)
+            log.debug("layer '%s' inactive", layer)
 
     def active_rules(self) -> list[str]:
         """Ids of rules whose input is currently held."""

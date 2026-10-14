@@ -43,7 +43,7 @@ RESERVED = {
     *"""version settings let input output map as hold tap press release with wait
     random repeat while held toggle parallel branch on double_tap long_press if
     else single not and within after axis move to over cancel restart keep
-    modifiers ignore key_pause max_run none true false disable above below""".split(),
+    modifiers ignore key_pause max_run none true false disable above below layer off""".split(),
     *LEDS,
     *MODIFIER_NAMES,
 }
@@ -116,6 +116,7 @@ class _Compiler:
         self.inputs: dict[str, Tree] = {}
         self.outputs: dict[str, str] = {}  # name -> type (or "" if unknown)
         self.var_types: dict[str, str] = {}
+        self.layer_names: set[str] = set()
 
     # -- messages and positions ----------------------------------------------
 
@@ -160,7 +161,8 @@ class _Compiler:
         if not statements or statements[0].data != "version":
             node = statements[0] if statements else Token("NAME", "", line=1, column=1)
             self.error(node, "the file must start with 'version 1'")
-        maps: list[Tree] = []
+        maps: list[tuple[Tree, str | None]] = []
+        layers: dict[str, Tree] = {}
         for stmt in statements:
             kind = stmt.data
             if kind == "version":
@@ -174,17 +176,36 @@ class _Compiler:
             elif kind == "output_def":
                 self.compile_device(stmt, data["outputs"], "outputs")
             elif kind == "map_def":
-                maps.append(stmt)
+                maps.append((stmt, None))
+            elif kind == "layer_def":
+                name_token, *layer_maps = stmt.children
+                name = str(name_token)
+                if not self.check_name(name_token, "a layer name"):
+                    continue
+                if name in layers:
+                    self.error(
+                        name_token,
+                        f"layer '{name}' is already defined at line {_pos(layers[name])[0]}",
+                    )
+                    continue
+                if not layer_maps:
+                    self.error(stmt, f"layer '{name}' has no mappings")
+                layers[name] = stmt
+                maps += [(m, name) for m in layer_maps]
+        self.layer_names = set(layers)
+        if layers:
+            data["layers"] = list(layers)
         for name, props in data["outputs"].items():
             self.outputs[name] = props.get("type", "") if isinstance(props, dict) else ""
         seen: dict[tuple, int] = {}
-        for index, stmt in enumerate(maps):
-            mapping = self.compile_map(stmt, index)
+        for index, (stmt, layer) in enumerate(maps):
+            mapping = self.compile_map(stmt, index, layer)
             if mapping is None:
                 continue
             trigger = mapping["input"]
             modifiers = trigger.get("modifiers", [])
             key = (
+                layer,
                 trigger.get("device"),
                 trigger["code"],
                 trigger.get("above"),
@@ -411,7 +432,7 @@ class _Compiler:
 
     # -- mappings ------------------------------------------------------------------
 
-    def compile_map(self, stmt: Tree, index: int) -> dict | None:
+    def compile_map(self, stmt: Tree, index: int, layer: str | None = None) -> dict | None:
         ref, *rest = stmt.children
         block = rest[-1]
         modifiers = next((c for c in rest if isinstance(c, Tree) and c.data == "modifiers"), None)
@@ -430,6 +451,8 @@ class _Compiler:
             mapping_id = str(name_token)
         else:
             mapping_id = self.default_id(ref, trigger, threshold)
+            if layer is not None:
+                mapping_id = f"{layer}:{mapping_id}"  # §5.6 rule 7
 
         statements = list(block.children)
         if not statements:
@@ -440,7 +463,7 @@ class _Compiler:
                 first = next(s for s in statements if s.data == "disable")
                 self.error(first, "'disable' must be the only statement of its mapping")
                 return None
-            return {"id": mapping_id, "input": trigger, "disable": True}
+            return self.in_layer({"id": mapping_id, "input": trigger, "disable": True}, layer)
         options, body, release_stmt = self.split_options(statements)
         mapping: dict = {"id": mapping_id, "input": trigger}
         if options.pop("keep_modifiers", False):
@@ -456,7 +479,7 @@ class _Compiler:
             if outputs is None:
                 return None
             mapping["outputs"] = outputs
-            return mapping
+            return self.in_layer(mapping, layer)
 
         toggles = [s for s in body if s.data == "toggle"]
         if toggles and len(body) > 1:
@@ -473,6 +496,12 @@ class _Compiler:
                 list(release_stmt.children[0].children), f"{macro_path}.release_steps"
             )
         mapping["outputs"] = [{"macro": macro}]
+        return self.in_layer(mapping, layer)
+
+    @staticmethod
+    def in_layer(mapping: dict, layer: str | None) -> dict:
+        if layer is not None:
+            mapping["layer"] = layer
         return mapping
 
     def trigger(
@@ -656,7 +685,7 @@ class _Compiler:
                     end += 1
                 step = self.gestures(statements[index:end], step_path)
                 index = end
-            elif stmt.data in ("hold", "axis") and index + 1 < len(statements):
+            elif stmt.data in ("hold", "axis", "hold_layer") and index + 1 < len(statements):
                 # Non-blocking: hold in one branch, the rest runs alongside.
                 held = self.step(stmt, f"{step_path}.parallel[0][0]")
                 rest = self.steps(statements[index + 1 :], f"{step_path}.parallel[1]")
@@ -785,6 +814,23 @@ class _Compiler:
         self.error(stmt, "'disable' must be the only statement of its mapping")
         return None
 
+    def step_hold_layer(self, stmt: Tree, path: str) -> dict | None:
+        name = self.layer_ref(stmt.children[0])
+        return {"layer": name, "action": "hold"} if name else None
+
+    def step_layer_switch(self, stmt: Tree, path: str) -> dict | None:
+        name_token, action = stmt.children
+        name = self.layer_ref(name_token)
+        return {"layer": name, "action": str(action.children[0])} if name else None
+
+    def layer_ref(self, token: Token) -> str | None:
+        name = str(token)
+        if name not in self.layer_names:
+            known = ", ".join(sorted(self.layer_names)) or "none defined"
+            self.error(token, f"unknown layer '{name}' (layers: {known})")
+            return None
+        return name
+
     def step_parallel(self, stmt: Tree, path: str) -> dict | None:
         branches = [
             self.block_steps(branch.children[0], f"{path}.parallel[{i}]")
@@ -868,6 +914,9 @@ class _Compiler:
             if value is None:
                 return None
             return "if_eq", {"var": name, "value": value}, cond.data == "cond_ne"
+        if cond.data == "cond_layer":
+            layer = self.layer_ref(cond.children[0])
+            return ("if_layer", {"layer": layer}, False) if layer else None
         name_token = cond.children[0]
         name = str(name_token)
         if name in LEDS:

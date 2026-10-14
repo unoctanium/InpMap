@@ -180,6 +180,7 @@ class MappingRule:
     macros: tuple[Macro, ...] = ()
     keep_modifiers: bool = False
     disabled: bool = False  # `disable`: the key is suppressed, nothing is sent
+    layer: str | None = None  # None: the base, always active (§5.6)
 
 
 @dataclass(frozen=True)
@@ -198,6 +199,7 @@ class Config:
     mappings: tuple[MappingRule, ...]
     settings: Settings = Settings()
     variables: Mapping[str, object] = field(default_factory=dict)
+    layers: tuple[str, ...] = ()
 
     def axis_thresholds(self) -> dict[int, AxisThreshold]:
         """Virtual key code -> axis threshold, for every axis trigger."""

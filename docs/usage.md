@@ -287,7 +287,8 @@ $ inpmap macro-trace config/example.inpmap KEY_F10 --press-at 0 --press-at 150 -
     210.0 ms  keyboard   KEY_2            up
 ```
 
-Lines with `>>` are the simulated inputs. For mappings with modifiers the
+Lines with `>>` are the simulated inputs. A mapping in a layer is
+simulated with its layer active (`>> layer nav active`). For mappings with modifiers the
 timeline also shows when the modifiers are hidden from the desktop and
 restored.
 

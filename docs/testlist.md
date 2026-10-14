@@ -439,6 +439,48 @@ Open a text editor and:
 Afterwards start your service again, e.g.
 `systemctl --user start inpmap@local`.
 
+## 8. Layers (added 2026-10-14)
+
+```sh
+cp config/local.inpmap /tmp/layers.inpmap
+printf '%s\n' \
+  'map kbd.KEY_TAB { if single { tap KEY_TAB } else { hold layer nav } }' \
+  'map kbd.KEY_F7 { layer nav toggle }' \
+  'layer nav {' \
+  '    map kbd.KEY_W { hold KEY_UP }' \
+  '    map kbd.KEY_A { hold KEY_LEFT }' \
+  '    map kbd.KEY_S { hold KEY_DOWN }' \
+  '    map kbd.KEY_D { hold KEY_RIGHT }' \
+  '    map kbd.KEY_Q { disable }' \
+  '}' >> /tmp/layers.inpmap
+.venv/bin/inpmap check /tmp/layers.inpmap
+```
+
+**Expected:** OK; the summary ends with `layers: nav` and lists
+`nav:kbd.KEY_W` … `nav:kbd.KEY_Q`. (Tab is used because your Caps Lock is
+already mapped; modifier keys such as Alt cannot be triggers.)
+
+Stop the service if it runs (`systemctl --user stop 'inpmap@*' inpmap`), then:
+
+```sh
+.venv/bin/inpmap run /tmp/layers.inpmap --timeout 60
+```
+
+In a text editor:
+
+1. Type `wasdq`. **Expected:** `wasdq` (layer off).
+2. Hold Tab and press W, A, S, D, Q. **Expected:** the cursor moves
+   up, left, down, right; Q does nothing.
+3. Release Tab, type `wasd`. **Expected:** `wasd` again.
+4. Tap Tab alone. **Expected:** a normal Tab.
+5. Press F7, type `wasd`. **Expected:** arrow movement (layer on). Press
+   F7 again, type `wasd`. **Expected:** letters again.
+6. Hold Tab, press and **hold** W (cursor keeps moving up), release Tab
+   first, then W. **Expected:** the movement stops when W is
+   released; no stuck arrow key.
+
+Afterwards start your service again, e.g. `systemctl --user start inpmap@local`.
+
 ## Checklist for your reply
 
 ```text
@@ -463,4 +505,5 @@ Afterwards start your service again, e.g.
 6d chosen for login: .............
 7a axes: live values .............
 7b axes: remapping ...............
+8  layers .........................
 ```

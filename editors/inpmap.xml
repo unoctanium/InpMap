@@ -31,6 +31,8 @@
       <item>disable</item>
       <item>above</item>
       <item>below</item>
+      <item>layer</item>
+      <item>off</item>
       <item>parallel</item>
       <item>branch</item>
       <item>on</item>

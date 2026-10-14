@@ -56,10 +56,10 @@ SUPPORTED_VERSIONS = frozenset({1})
 # bytes including the terminating NUL.
 MAX_DEVICE_NAME_BYTES = 79
 
-_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}$")
+_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,63}$")
 
 _REQUIRED_TOP_KEYS = ("inputs", "mappings", "outputs", "version")
-_TOP_KEYS = {*_REQUIRED_TOP_KEYS, "settings", "variables"}
+_TOP_KEYS = {*_REQUIRED_TOP_KEYS, "settings", "variables", "layers"}
 _SETTINGS_KEYS = {"key_pause_ms", "modifiers"}
 _AXIS_OUTPUT_KEYS = {"device", "type", "code", "value", "attack_ms", "release_ms"}
 _VARIABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
@@ -73,6 +73,7 @@ _MAPPING_KEYS = {
     "consume",
     "keep_modifiers",
     "disable",
+    "layer",
 }
 _EVENT_KEYS = {"device", "type", "code"}
 
@@ -109,6 +110,7 @@ class _Validator:
         self.problems: list[str] = []
         # Virtual key code of each distinct axis threshold, in order of appearance.
         self.axis_codes: dict[AxisThreshold, int] = {}
+        self.layers: set[str] = set()
 
     def error(self, where: str, message: str) -> None:
         self.problems.append(f"{where}: {message}")
@@ -168,8 +170,12 @@ class _Validator:
             )
         self.settings = self.parse_settings(data.get("settings", {}))
         self.variables = self.parse_variables(data.get("variables", {}))
+        layers = self.parse_layers(data.get("layers", []))
         mappings = self.mappings(data.get("mappings", []), inputs, outputs)
         self.check_unused_devices(inputs, outputs, mappings)
+        for layer in layers:
+            if not any(rule.layer == layer for rule in mappings) and not self.problems:
+                self.error(f"layers.{layer}", "has no mappings")
 
         self.fail_if_problems()
         assert isinstance(version, int)
@@ -180,7 +186,24 @@ class _Validator:
             mappings=mappings,
             settings=self.settings,
             variables=self.variables,
+            layers=layers,
         )
+
+    def parse_layers(self, value: object) -> tuple[str, ...]:
+        """Names of the layers (docs/configuration.md §5.6)."""
+        if not isinstance(value, list):
+            self.error("layers", "must be a list of layer names")
+            return ()
+        names: list[str] = []
+        for index, name in enumerate(value):
+            if not isinstance(name, str) or not _VARIABLE_NAME.match(name):
+                self.error(f"layers[{index}]", f"invalid layer name {name!r}")
+            elif name in names:
+                self.error(f"layers[{index}]", f"layer '{name}' is defined twice")
+            else:
+                names.append(name)
+        self.layers = set(names)
+        return tuple(names)
 
     def parse_settings(self, value: object) -> Settings:
         if not self.check_object(value, "settings"):
@@ -321,7 +344,7 @@ class _Validator:
                 self.error(where, f"duplicate mapping id '{rule.id}'")
                 continue
             seen_ids.add(rule.id)
-            key = rule.trigger.match_key
+            key = (rule.layer, rule.trigger.match_key)
             if key in trigger_owner:
                 self.error(
                     f"{where}.input",
@@ -381,6 +404,11 @@ class _Validator:
         else:
             parsed = None
 
+        layer = raw.get("layer")
+        if layer is not None and layer not in self.layers:
+            known = ", ".join(sorted(self.layers)) or "none defined"
+            self.error(f"{where}.layer", f"unknown layer {layer!r} (layers: {known})")
+
         keep_modifiers = raw.get("keep_modifiers", False)
         if not isinstance(keep_modifiers, bool):
             self.error(f"{where}.keep_modifiers", "must be true or false")
@@ -401,6 +429,7 @@ class _Validator:
             macros=macros,
             keep_modifiers=keep_modifiers,
             disabled=disabled,
+            layer=layer,
         )
 
     def trigger(

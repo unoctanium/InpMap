@@ -28,10 +28,12 @@ from .macros import (
     HoldAxis,
     HoldKeys,
     IfEq,
+    IfLayer,
     IfLed,
     IfSingle,
     IfTap,
     KeyRef,
+    LayerAction,
     Led,
     Macro,
     MoveAxis,
@@ -43,6 +45,7 @@ from .macros import (
     Repeat,
     SetVar,
     Step,
+    SwitchLayer,
     Tap,
     Toggle,
     VarRef,
@@ -114,6 +117,14 @@ class MacroHost(Protocol):
 
     def led_on(self, input_device: str, led: Led) -> bool: ...
 
+    def layer_active(self, layer: str) -> bool: ...
+
+    def switch_layer(self, layer: str, action: LayerAction) -> None:
+        """on/off/toggle; HOLD adds a holder, which ``release_layer`` removes."""
+        ...
+
+    def release_layer(self, layer: str) -> None: ...
+
 
 class Fiber:
     def __init__(self, run: MacroRun, program: Program, on_done: Callable[[Fiber], None]):
@@ -175,6 +186,7 @@ class MacroRun:
         self._single_waiters: list[Fiber] = []
         self._joins: list[Fiber] = []
         self._owned_keys: list[KeyRef] = []
+        self._held_layers: list[str] = []  # from `hold layer`
         self._axis_holders: dict[AxisKey, AxisHolder] = {}  # from MoveAxis steps
         self._temp_holders: list[AxisHolder] = []  # from HoldAxis steps
         self._main: Fiber | None = None
@@ -356,6 +368,9 @@ class MacroRun:
         keys, self._owned_keys = self._owned_keys, []
         for key in reversed(keys):
             self.host.release_key(key)
+        layers, self._held_layers = self._held_layers, []
+        for layer in reversed(layers):
+            self.host.release_layer(layer)
         holders = [*self._temp_holders, *self._axis_holders.values()]
         self._temp_holders.clear()
         self._axis_holders.clear()
@@ -441,6 +456,18 @@ class MacroRun:
         elif isinstance(step, IfLed):
             lit = self.host.led_on(self.trigger_device, step.led)
             yield from self.run_steps(step.then if lit else step.otherwise)
+        elif isinstance(step, IfLayer):
+            active = self.host.layer_active(step.layer)
+            yield from self.run_steps(step.then if active else step.otherwise)
+        elif isinstance(step, SwitchLayer) and step.action is LayerAction.HOLD:
+            self._held_layers.append(step.layer)
+            self.host.switch_layer(step.layer, LayerAction.HOLD)
+            yield from self.wait_release()
+            if step.layer in self._held_layers:
+                self._held_layers.remove(step.layer)
+                self.host.release_layer(step.layer)
+        elif isinstance(step, SwitchLayer):
+            self.host.switch_layer(step.layer, step.action)
         elif isinstance(step, SetVar):
             self.host.variables[step.var] = step.value
         elif isinstance(step, AddVar):

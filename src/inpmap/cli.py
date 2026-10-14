@@ -672,6 +672,8 @@ def describe_config(config: Config) -> str:
         elif rule.trigger.modifiers:
             trigger += " with " + "+".join(sorted(r.name for r in rule.trigger.modifiers))
         lines.append(f"  {rule.id}: {trigger} -> {', '.join(targets)}")
+    if config.layers:
+        lines.append("layers: " + ", ".join(config.layers))
     if config.variables:
         lines.append("variables:")
         lines += [f"  {name} = {value!r}" for name, value in config.variables.items()]

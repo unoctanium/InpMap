@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from . import codes
 from .engine import MappingEngine
-from .macros import AXIS_NAMES, Led
+from .macros import AXIS_NAMES, LayerAction, Led
 from .models import MODIFIER_KEYS, Config, InputEvent, KeyAction, Modifier
 
 IDLE_LIMIT_MS = 120_000.0  # stop waiting for macros to finish after this
@@ -91,6 +91,9 @@ def trace(
         rng=random.Random(seed),
         inputs=recorder,
     )
+    if rule.layer is not None:
+        engine.switch_layer(rule.layer, LayerAction.ON)  # §5.6 rule 8
+        recorder.lines.append(TraceLine(0.0, f">> layer {rule.layer} active"))
     # A mapping for every input is simulated on the first declared input.
     device = rule.trigger.device or next(iter(config.inputs))
     trigger = (device, rule.trigger.code)

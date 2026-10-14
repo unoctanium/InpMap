@@ -21,10 +21,12 @@ from .macros import (
     HoldAxis,
     HoldKeys,
     IfEq,
+    IfLayer,
     IfLed,
     IfSingle,
     IfTap,
     KeyRef,
+    LayerAction,
     Led,
     Macro,
     MoveAxis,
@@ -37,6 +39,7 @@ from .macros import (
     Repeat,
     SetVar,
     Step,
+    SwitchLayer,
     Tap,
     Toggle,
     VarRef,
@@ -78,6 +81,8 @@ _STEP_FIELDS: dict[str, set[str]] = {
     "if_single": set(),
     "if_eq": set(),
     "if_led": set(),
+    "if_layer": set(),
+    "layer": {"action"},
     "set": set(),
     "add": set(),
 }
@@ -86,6 +91,7 @@ _REQUIRED_FIELDS = {
     "axis": ("to",),
     "hold_axis": ("value",),
     "repeat": ("steps",),
+    "layer": ("action",),
 }
 
 _NO_DEVICE = object()  # marker: the step's own device reference was invalid
@@ -426,6 +432,29 @@ class MacroParser:
             return None
         led = self.choice(body["led"], Led, f"{where}.led")
         return IfLed(led, then, otherwise) if led is not None else None
+
+    def _step_if_layer(self, raw: dict, where: str) -> Step | None:
+        body, where, then, otherwise = self.condition(
+            raw, "if_layer", where, {"layer"}, required=("layer",)
+        )
+        if body is None or "layer" not in body:
+            return None
+        layer = self.layer_ref(body["layer"], f"{where}.layer")
+        return IfLayer(layer, then, otherwise) if layer is not None else None
+
+    def _step_layer(self, raw: dict, where: str) -> Step | None:
+        layer = self.layer_ref(raw["layer"], f"{where}.layer")
+        action = self.choice(raw["action"], LayerAction, f"{where}.action")
+        if layer is None or action is None:
+            return None
+        return SwitchLayer(layer, action)
+
+    def layer_ref(self, value: object, where: str) -> str | None:
+        if not isinstance(value, str) or value not in self.v.layers:
+            known = ", ".join(sorted(self.v.layers)) or "none defined"
+            self.v.error(where, f"unknown layer {value!r} (layers: {known})")
+            return None
+        return value
 
     # -- variables ----------------------------------------------------------------
 

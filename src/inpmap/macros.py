@@ -176,6 +176,28 @@ class IfLed:
     otherwise: tuple[Step, ...] = ()
 
 
+class LayerAction(Enum):
+    ON = "on"
+    OFF = "off"
+    TOGGLE = "toggle"
+    HOLD = "hold"  # active until the trigger is released (non-blocking in the language)
+
+
+@dataclass(frozen=True)
+class SwitchLayer:
+    """`layer NAME on/off/toggle` and `hold layer NAME` (docs/configuration.md §6.10)."""
+
+    layer: str
+    action: LayerAction
+
+
+@dataclass(frozen=True)
+class IfLayer:
+    layer: str
+    then: tuple[Step, ...] = ()
+    otherwise: tuple[Step, ...] = ()
+
+
 @dataclass(frozen=True)
 class SetVar:
     var: str
@@ -205,6 +227,8 @@ Step = (
     | IfSingle
     | IfEq
     | IfLed
+    | IfLayer
+    | SwitchLayer
     | SetVar
     | AddVar
 )
@@ -250,7 +274,7 @@ def children(step: Step) -> tuple[tuple[Step, ...], ...]:
         return (step.steps,)
     if isinstance(step, Parallel):
         return step.branches
-    if isinstance(step, (IfTap, IfSingle, IfEq, IfLed)):
+    if isinstance(step, (IfTap, IfSingle, IfEq, IfLed, IfLayer)):
         return (step.then, step.otherwise)
     return ()
 
