@@ -70,6 +70,17 @@ def build_parser() -> argparse.ArgumentParser:
     fmt.add_argument("--diff", action="store_true", help="change nothing; show the changes")
     fmt.set_defaults(handler=_cmd_fmt)
 
+    syntax = commands.add_parser(
+        "syntax-file",
+        help="print the syntax highlighting file for an editor",
+        description=(
+            "Print InpMap's syntax highlighting file for Kate/KWrite or nano. Install it "
+            "with a redirection, see docs/installation.md."
+        ),
+    )
+    syntax.add_argument("editor", choices=["kate", "nano"])
+    syntax.set_defaults(handler=_cmd_syntax_file)
+
     codes_cmd = commands.add_parser(
         "codes",
         help="list key, button and axis names (optionally only those containing FILTER)",
@@ -367,6 +378,13 @@ def _cmd_fmt(args: argparse.Namespace) -> int:
     return status
 
 
+def _cmd_syntax_file(args: argparse.Namespace) -> int:
+    from .data_files import syntax_file
+
+    print(syntax_file(args.editor), end="")
+    return EXIT_OK
+
+
 def _cmd_codes(args: argparse.Namespace) -> int:
     wanted = args.filter.upper()
     rows = []
@@ -453,8 +471,11 @@ def _cmd_input_config(args: argparse.Namespace) -> int:
     if not args.config.endswith(".inpmap"):
         print("error: configuration files must end in .inpmap", file=sys.stderr)
         return EXIT_USAGE
+    from .data_files import EXAMPLE_PROFILE, example_text
+
+    is_example = Path(args.config) == profiles.config_dir() / f"{EXAMPLE_PROFILE}.inpmap"
     try:
-        file = ConfigFile.load(args.config)
+        file = ConfigFile.load(args.config, template=example_text() if is_example else None)
     except (DslSyntaxError, ValueError) as exc:
         print(
             f"{exc}\nFix the file first; input-config only adds to valid syntax.", file=sys.stderr

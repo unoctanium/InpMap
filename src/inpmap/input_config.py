@@ -178,8 +178,9 @@ class ConfigFile:
     insert_at: int = 0  # character offset where new input blocks go
 
     @classmethod
-    def load(cls, path: str) -> ConfigFile:
-        """Read and parse ``path``; a missing file means a new configuration.
+    def load(cls, path: str, template: str | None = None) -> ConfigFile:
+        """Read and parse ``path``; a missing file means a new configuration,
+        started from ``template`` if given (else from the starter file).
 
         Raises DslSyntaxError if the existing file cannot be parsed, and
         ValueError if it has no `version` statement to insert after.
@@ -187,7 +188,9 @@ class ConfigFile:
         try:
             text = Path(path).read_text(encoding="utf-8")
         except FileNotFoundError:
-            return cls(path, None)
+            if template is None:
+                return cls(path, None)
+            text = template
         tree = parse(text, path)
         inputs: list[ExistingInput] = []
         anchor = None

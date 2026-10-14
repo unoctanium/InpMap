@@ -12,7 +12,10 @@ from inpmap.trace import trace
 
 ROOT = Path(__file__).resolve().parent.parent
 REFERENCE = ROOT / "docs" / "configuration.md"
-EXAMPLE = ROOT / "config" / "example.inpmap"
+EXAMPLE = ROOT / "src" / "inpmap" / "data" / "example.inpmap"
+# The example of the JSON era; its behaviour was verified on real hardware
+# and recorded in golden_example_traces.py. Kept to check the engine.
+JSON_ERA_EXAMPLE = ROOT / "tests" / "data" / "json_era_example.inpmap"
 
 # Context for fragments that contain only mappings and variables. The anchor
 # keeps both outputs in use.
@@ -59,9 +62,9 @@ def test_example_file_is_the_complete_example():
 
 
 @pytest.mark.parametrize("mapping, scenario_index", sorted(TIMELINES))
-def test_complete_example_matches_reference_timelines(mapping, scenario_index):
-    """Behaviour of the example equals the former, verified JSON example."""
-    config = compile_text(section("## 10. Complete example"), "example.inpmap").config
+def test_json_era_example_matches_reference_timelines(mapping, scenario_index):
+    """Behaviour of the former example equals the verified JSON version."""
+    config = compile_text(JSON_ERA_EXAMPLE.read_text(), "example.inpmap").config
     scenario = SCENARIOS[scenario_index]
     actual = [(t.ms, t.text) for t in trace(config, mapping, seed=7, **scenario)]
     assert actual == TIMELINES[(mapping, scenario_index)]
@@ -88,4 +91,5 @@ def test_examples_are_formatted():
 
     for block in inpmap_blocks() + inpmap_blocks(ROOT / "README.md"):
         assert format_text(block) == block, block
-    assert format_text(EXAMPLE.read_text()) == EXAMPLE.read_text()
+    for path in (EXAMPLE, JSON_ERA_EXAMPLE):
+        assert format_text(path.read_text()) == path.read_text(), path

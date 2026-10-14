@@ -35,7 +35,7 @@ version = { attr = "inpmap.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-inpmap = ["dsl/*.lark"]
+inpmap = ["dsl/*.lark", "data/*.inpmap", "data/syntax/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

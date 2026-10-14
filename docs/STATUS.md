@@ -81,8 +81,15 @@ Last updated: 2026-10-14
       mappings; `Runtime._idle` opens/creates nothing; `check` note;
       test-outputs says nothing to test; reference §2/§3.1/§3.2 updated;
       deliberate test change: test_empty_mappings_rejected → valid);
-      4 example + syntax files as package data, `syntax-file`; 5 new
-      example; 6 `detect`; 7 docs (still describe the old commands until
+      4 ✅ example + syntax files as package data (`src/inpmap/data/`,
+      `data_files.py`, pyproject package-data, verified in a built wheel),
+      `inpmap syntax-file kate|nano`, `input-config example` starts from the
+      packaged example (`ConfigFile.load(template=…)`); `editors/` moved into
+      the package; the old example moved to
+      `tests/data/json_era_example.inpmap` (still checked against the
+      golden timelines); 5 ✅ new example = safe tour (F1–F8, Ctrl+F7,
+      Caps Lock + layer nav, Insert, block/variable on F8, commented
+      gamepad lines), reference §10 shows it; `tests/test_example.py`; 6 `detect`; 7 docs (still describe the old commands until
       then) + migration section in the test list.
       Original plan text: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →
@@ -567,7 +574,7 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 537 passed, 13 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 551 passed, 13 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after inpmap fmt (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the

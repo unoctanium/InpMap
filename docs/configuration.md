@@ -900,64 +900,60 @@ character (codes are key positions); randomised "human" timing beyond
 
 ## 10. Complete example
 
-This is `config/example.inpmap`. With only one keyboard and one gamepad,
-device names are left out of the codes.
+This is the example that comes with InpMap: a safe tour of the main
+features. `inpmap input-config example` copies it to
+`~/.config/inpmap/example.inpmap` and adds your keyboard as an `input`
+block after `version 1`; then `inpmap run example --timeout 60` lets you
+try it ([usage.md](usage.md#2-your-first-configuration)). Its mappings name
+no device, so they work with whichever keyboard you add.
 
 ```inpmap
-# InpMap example configuration
+# InpMap example: a safe tour of the main features.
+#
+# Make your own copy with your keyboard:  inpmap input-config example
+# Try it (stops by itself after 60 s):     inpmap run example --timeout 60
+# Emergency stop at any time: hold Backspace + Escape + Enter together.
+#
+# Only F1 to F8, Caps Lock and Insert are remapped; letters type as usual.
+# Everything used here is explained in docs/configuration.md.
 version 1
 
-settings {
-    key_pause = 10ms
-}
+output keyboard { type = keyboard }
+output gamepad { type = gamepad }
 
-let presses = 0
-
-input kbd {
-    name = "AT Translated Set 2 keyboard"
-}
-
-output keyboard {
-    type = keyboard
-    name = "InpMap Virtual Keyboard"
-}
-
-output gamepad {
-    type = gamepad
-    name = "InpMap Virtual Gamepad"
-}
-
-# X holds KEY_Y and the gamepad's south button (A) at the same time
-map KEY_X {
-    hold KEY_Y
+# F1: one key, two devices - keyboard A and gamepad A while F1 is held
+map KEY_F1 {
+    hold KEY_A
     hold BTN_SOUTH
 }
 
-# F9: tap Q, wait 40-60 ms, tap the gamepad's east button (B)
-map KEY_F9 as combo {
-    tap KEY_Q
-    wait random(40ms, 60ms)
-    tap BTN_EAST
-    presses += 1
-}
-
-# F10: tap types 1, double tap types 2, long press types 3
-map KEY_F10 {
+# F2: tap types 1, double tap types 2, long press types 3
+map KEY_F2 {
     on tap { tap KEY_1 }
     on double_tap { tap KEY_2 }
     on long_press { tap KEY_3 }
 }
 
-# F11: fire the gamepad's south button while held, stop at once on release
-map KEY_F11 as autofire {
-    cancel on release
-    while held {
-        tap BTN_SOUTH (pause 30ms)
-    }
+# F3: a sequence - Q, a random pause of 40 to 60 ms, then gamepad B
+map KEY_F3 {
+    tap KEY_Q
+    wait random(40ms, 60ms)
+    tap BTN_EAST
 }
 
-# F12: push the left stick up within 150 ms, return within 50 ms
-map KEY_F12 {
+# F4: autofire gamepad A while F4 is held
+map KEY_F4 {
+    cancel on release
+    while held { tap BTN_SOUTH (pause 30ms) }
+}
+
+# F5: autofire switched on by one press and off by the next
+map KEY_F5 {
+    toggle { tap BTN_SOUTH (pause 50ms) }
+}
+
+# F6: push the left stick up within 150 ms; it returns within 50 ms on release
+map KEY_F6 {
     axis ABS_Y {
         target  = -1.0
         attack  = 150ms
@@ -965,14 +961,48 @@ map KEY_F12 {
     }
 }
 
-# Caps Lock alone is Escape; held together with another key it is Ctrl
-map KEY_CAPSLOCK {
-    if single {
-        tap KEY_ESC
+# Ctrl+F7: copy (Ctrl+C); F7 alone stays F7
+map KEY_F7 modifiers(ctrl) { tap ctrl + KEY_C }
+
+# F8: alternates between "Hi" and "Hi!", with a variable and a reusable block
+block greet {
+    tap shift + KEY_H
+    tap KEY_I
+}
+
+let first = true
+
+map KEY_F8 {
+    if first {
+        first = false
+        call greet
     } else {
-        hold KEY_LEFTCTRL
+        first = true
+        call greet
+        tap shift + KEY_1
     }
 }
+
+# Caps Lock: tapped alone = Escape; held together with other keys = layer "nav"
+map KEY_CAPSLOCK {
+    if single { tap KEY_ESC } else { hold layer nav }
+}
+
+# While Caps Lock is held, W A S D are arrow keys
+layer nav {
+    map KEY_W { hold KEY_UP }
+    map KEY_A { hold KEY_LEFT }
+    map KEY_S { hold KEY_DOWN }
+    map KEY_D { hold KEY_RIGHT }
+}
+
+# Insert does nothing
+map KEY_INSERT { disable }
+
+# With a gamepad: add it as input "pad" (inpmap input-config example), then
+# remove the "#" in front of these two lines:
+# map pad.ABS_RZ above 0.5 { hold KEY_SPACE }       # R2 pressed more than half: Space
+# map pad.ABS_HAT0Y below -0.5 { tap KEY_PAGEUP }   # D-pad up: Page Up
 ```
 
 ## 11. More examples

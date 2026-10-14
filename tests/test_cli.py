@@ -4,7 +4,7 @@ import pytest
 
 from inpmap.cli import EXIT_CONFIG_ERROR, EXIT_DEVICE_ERROR, EXIT_OK, EXIT_USAGE, main
 
-EXAMPLE = Path(__file__).resolve().parent.parent / "config" / "example.inpmap"
+EXAMPLE = Path(__file__).resolve().parent / "data" / "json_era_example.inpmap"
 
 # A minimal configuration whose outputs the device tests can count exactly.
 SIMPLE = """version 1
@@ -314,3 +314,23 @@ def test_check_notes_a_configuration_without_mappings(tmp_path, capsys):
     path.write_text('version 1\ninput kbd { name = "K" }\noutput keyboard { type = keyboard }\n')
     assert main(["check", str(path)]) == EXIT_OK
     assert "note: no mappings yet" in capsys.readouterr().out
+
+
+def test_input_config_example_starts_from_the_example(config_home, monkeypatch, capsys):
+    from inpmap.input_config import Device
+
+    devices = [Device("event7", "Kbd", ("g",), "keyboard", 100, ("/dev/input/by-id/kbd",))]
+    linux_setup = pytest.importorskip("inpmap.backends.linux_setup")
+    monkeypatch.setattr(linux_setup, "devices_for_input_config", lambda: devices)
+    answers = iter(["1", "w"])
+    monkeypatch.setattr("builtins.input", lambda prompt: next(answers))
+    assert main(["input-config", "example"]) == EXIT_OK
+    text = (config_home / "example.inpmap").read_text()
+    assert text.startswith("# InpMap example")
+    assert 'version 1\n\ninput kbd {\n    path = "/dev/input/by-id/kbd"\n}\n' in text
+    assert "Check: OK." in capsys.readouterr().out
+
+
+def test_syntax_file_command(capsys):
+    assert main(["syntax-file", "nano"]) == EXIT_OK
+    assert "syntax inpmap" in capsys.readouterr().out
