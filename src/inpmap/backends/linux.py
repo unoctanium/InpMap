@@ -1,8 +1,8 @@
 """Linux backend: virtual output devices through /dev/uinput (python-evdev).
 
-Capability choices follow how the Linux stack classifies devices (verified
-against udev ``input_id``, libinput ``evdev.c`` and SDL sources, 2026-10-13;
-details in docs/STATUS.md):
+Capability choices follow how the Linux stack classifies devices (checked
+against the sources of udev ``input_id``, libinput ``evdev.c`` and SDL's
+Linux joystick and gamepad code):
 
 * Virtual keyboard: every ``KEY_*`` code and no ``BTN_*``. Codes 1-31 make
   udev set ``ID_INPUT_KEYBOARD``; libinput (KDE Wayland) accepts it as a

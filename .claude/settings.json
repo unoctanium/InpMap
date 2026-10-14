@@ -51,7 +51,7 @@
       "Bash(systemctl *)",
       "Bash(evtest*)",
       "Edit(CLAUDE.md)",
-      "Edit(project_spec.md)",
+      "Edit(docs/roadmap.md)",
       "Edit(.claude/**)"
     ],
     "deny": [

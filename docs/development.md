@@ -3,9 +3,15 @@
 For contributors. Users need only [installation.md](installation.md),
 [usage.md](usage.md) and [configuration.md](configuration.md).
 
-Governing documents: `project_spec.md` (product specification and roadmap,
-German), `CLAUDE.md` (engineering rules), `docs/STATUS.md` (current state
-and next steps).
+Governing documents: [roadmap.md](roadmap.md) (goals, requirements,
+milestones), `CLAUDE.md` (engineering rules), `docs/STATUS.md` (current
+state and next steps), [manual-tests.md](manual-tests.md) (tests on real
+hardware).
+
+[configuration.md](configuration.md) is both the user reference and the
+specification of the configuration language: a language change is made
+there first and agreed on before the grammar, compiler, editor syntax files
+and examples follow.
 
 ## Setup
 
@@ -92,6 +98,26 @@ A release:
    trusted publishing (configured once on pypi.org for this repository,
    workflow `release.yml`, environment `pypi`; no token is stored).
 
+## Working with Claude Code
+
+InpMap is developed with Claude Code. The rules are in `CLAUDE.md`; the
+project state and the next steps are in `docs/STATUS.md`, so that any new
+session can continue where the last one ended (`CLAUDE.md` §16). Start a
+session in the repository root with `claude` and type `/session-start`
+(saying "continue" works too). Claude then:
+
+1. reads `docs/STATUS.md`, `docs/roadmap.md` and `CLAUDE.md`;
+2. compares the status with `git status` and `git log`; if they disagree
+   (uncommitted changes, a step left "in progress"), it treats the last
+   session as interrupted, checks those changes, runs the tests and
+   corrects the status file;
+3. summarises where things stand, what was verified, what is next, and
+   whether a decision or a manual test is waiting.
+
+At the end of a session, `/handoff` brings the status file up to date,
+runs the tests and commits finished, test-passing work. Claude commits
+automatically at each finished step and never pushes on its own.
+
 ## Event code table
 
 `src/inpmap/_linux_codes.py` is generated from the kernel header so the core
@@ -101,9 +127,3 @@ does not depend on evdev. A test cross-checks it against the installed
 ```sh
 .venv/bin/python tools/gen_codes.py
 ```
-
-## Design background
-
-`docs/macros-research.md` records how Input Remapper's macros work and why
-InpMap's macro design differs. Input Remapper (GPL-3.0) is a functional
-reference only; no code is copied.

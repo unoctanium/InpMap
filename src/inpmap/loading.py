@@ -1,7 +1,7 @@
 """Load a configuration file.
 
 Configurations are written in the InpMap configuration language
-(`.inpmap` files, docs/configuration.md). JSON support was removed on 2026-10-13.
+(`.inpmap` files, docs/configuration.md); this is the only format.
 """
 
 from __future__ import annotations

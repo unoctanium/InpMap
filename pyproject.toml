@@ -7,11 +7,12 @@ name = "inpmap"
 dynamic = ["version"]
 description = "Configuration-driven input remapper (own configuration language, multiple virtual output devices)"
 readme = "README.md"
+authors = [{ name = "unoctanium" }]
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["input", "remapper", "keyboard", "gamepad", "evdev", "uinput", "macros", "linux"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: POSIX :: Linux",
@@ -36,6 +37,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/unoctanium/InpMap"
+Documentation = "https://github.com/unoctanium/InpMap/blob/main/docs/usage.md"
+Changelog = "https://github.com/unoctanium/InpMap/blob/main/CHANGELOG.md"
+Issues = "https://github.com/unoctanium/InpMap/issues"
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]

@@ -1171,10 +1171,3 @@ right_ctrl left_shift right_shift left_alt right_alt left_meta right_meta
 within after axis move to over cancel restart key_pause max_run none true
 false capslock numlock scrolllock disable above below layer off block call
 ```
-
-## About this document
-
-This reference is also the specification of the language. Changes to the
-language are made here first (see `CLAUDE.md` §7). Its first version was
-approved on 2026-10-13; it replaces the former `docs/dsl.md` and
-`docs/macros.md`.

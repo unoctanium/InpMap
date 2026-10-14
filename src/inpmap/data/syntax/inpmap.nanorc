@@ -1,6 +1,6 @@
 ## Syntax highlighting for InpMap configuration files (*.inpmap) in nano.
-## Install: add to ~/.config/nano/nanorc (or ~/.nanorc):
-##   include "/path/to/InpMap/editors/inpmap.nanorc"
+## Install:  inpmap syntax-file nano > ~/.local/share/inpmap/inpmap.nanorc
+## and add to ~/.config/nano/nanorc:  include "<your home>/.local/share/inpmap/inpmap.nanorc"
 ## (see docs/installation.md, "Optional: syntax highlighting")
 
 syntax inpmap "\.inpmap$"

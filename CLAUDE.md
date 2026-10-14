@@ -4,23 +4,22 @@
 
 This repository implements a configuration-driven, cross-platform input remapper.
 
-Before making implementation changes, read `project_spec.md` in the repository root. It is the authoritative source for product goals, functional requirements, milestones, scope, and acceptance criteria.
+Before making implementation changes, read `docs/roadmap.md`. It is the authoritative source for product goals, requirements, milestones, scope, and acceptance criteria. The behavior of the configuration language is specified in `docs/configuration.md`.
 
-If this file and `project_spec.md` appear to conflict:
-1. Follow `project_spec.md` for product behavior and roadmap.
+If this file and `docs/roadmap.md` appear to conflict:
+1. Follow `docs/roadmap.md` for product behavior and roadmap.
 2. Follow this `CLAUDE.md` for engineering practices.
 3. Point out any material conflict and ask only if it cannot be resolved safely from context.
 
-Do not duplicate the full product specification here. Keep this file focused on how to work in the repository.
+Do not duplicate the product specification here. Keep this file focused on how to work in the repository.
 
 ### Product direction
 
-- V1: Linux, Python, configuration in the InpMap configuration language (`.inpmap`, originally JSON), physical keyboard and digital gamepad buttons, virtual keyboard/gamepad output, no GUI.
-- V1.1: extend mapping and macro capabilities based on a careful study of Input Remapper's documentation and source.
-- V2: Windows backend, no GUI.
-- V3: Windows GUI.
-- V4: Linux GUI.
-- Later Linux operation as a background service/daemon managed by systemd.
+- Done: V1 (Linux, no GUI: keyboards and gamepads in, virtual keyboard and gamepad out, several outputs per input), V1.1 (mappings and macros), the configuration language (`.inpmap`, which replaced JSON), and operation as a systemd user service.
+- In progress: publishing (PyPI, AUR).
+- Planned: V2 Windows backend without GUI, V3 Windows GUI, V4 Linux GUI.
+
+See `docs/roadmap.md` for details and the backlog.
 
 Input Remapper by Sezanteb is a functional reference, not a mandate to copy its architecture or code wholesale:
 https://github.com/sezanzeb/input-remapper
@@ -30,8 +29,8 @@ Review its actual documentation, source, tests, and license before relying on a 
 ## 2. Start every task by inspecting the repository
 
 At the beginning of a task:
-0. At the start of every session, read `docs/STATUS.md` first and follow section 17.
-1. Read `project_spec.md` and this `CLAUDE.md` if not already read in the current context.
+0. At the start of every session, read `docs/STATUS.md` first and follow section 16.
+1. Read `docs/roadmap.md` and this `CLAUDE.md` if not already read in the current context.
 2. Inspect the existing directory structure, relevant source files, tests, dependency declarations, and Git status.
 3. Identify the smallest coherent change that satisfies the task.
 4. Preserve existing working behavior unless the specification requires changing it.
@@ -254,13 +253,11 @@ Do not modify tests merely to make incorrect implementation pass. If a requireme
 - Keep error messages actionable and understandable.
 - Do not silently continue after a partial initialization failure that makes the remapper unsafe or misleading.
 
-## 11. CLI and future daemon operation
+## 11. CLI and service operation
 
-V1 should first work reliably in the foreground. Foreground operation makes debugging and hardware testing easier.
+InpMap runs in the foreground (`inpmap run`), which makes debugging and hardware testing easier, and as a systemd user service (`inpmap@NAME`) that runs the same code in the foreground under systemd's supervision.
 
-Design for a future Linux daemon managed by `systemd`, but do not implement a full service before the basic end-to-end mapping is proven.
-
-The eventual daemon should:
+The service must keep to these rules; it must:
 - run without an interactive terminal or GUI;
 - use the same runtime and mapping engine as foreground mode;
 - load a defined configuration file path;
@@ -282,8 +279,11 @@ Keep the repository usable by a new developer and by someone installing it on an
 Maintain:
 - `README.md`: project overview, motivation, supported scope, quick start, and links to the user documentation.
 - User documentation for newcomers: `docs/installation.md` (setup, permissions, uninstall), `docs/usage.md` (workflow, every command and option, troubleshooting), `docs/configuration.md` (complete language reference); `docs/development.md` for contributors.
-- `project_spec.md`: product specification and milestones.
+- `docs/roadmap.md`: product goals, requirements, milestones and backlog.
+- `docs/manual-tests.md`: the checks on real hardware, kept up to date with the features.
+- `CHANGELOG.md`: user-visible changes per release.
 - `CLAUDE.md`: these development instructions.
+- `docs/STATUS.md`: project state for session handoff (section 16); no personal data (user names, home paths, private links).
 - example configuration(s) (`src/inpmap/data/example.inpmap`) that are tested against the current implementation.
 - installation scripts only when their behavior is clear, safe, and justified.
 
@@ -306,7 +306,7 @@ Document external system dependencies separately from Python dependencies. Do no
 - Do not overwrite user changes.
 - Check `git status` before potentially disruptive operations.
 - Never discard changes, reset branches, rewrite history, or delete files without explicit authorization.
-- Commit automatically at each completed, test-passing step (see section 17). Otherwise do not commit unless asked. Never push, amend published commits, or rewrite history without explicit authorization.
+- Commit automatically at each completed, test-passing step (see section 16). Otherwise do not commit unless asked. Never push, amend published commits, or rewrite history without explicit authorization.
 - Keep generated artifacts, caches, virtual environments, and local machine configuration out of version control using appropriate `.gitignore` entries.
 - Update tests and documentation when behavior changes.
 - Do not add generated files or large lockfiles without understanding the repository's chosen workflow.
@@ -333,32 +333,18 @@ Unless the task explicitly asks only for analysis, a code change is complete onl
 - dependencies and platform assumptions are documented;
 - user-facing configuration and documentation remain consistent;
 - cleanup and failure behavior have been considered;
-- `docs/STATUS.md` reflects the new state (section 17).
+- `docs/STATUS.md` reflects the new state (section 16).
 
 Do not claim success beyond the evidence available.
 
-## 16. First action in this repository
-
-(Historical: the repository has been initialized. New sessions follow section 17.)
-
-When beginning work on this project:
-1. Read `project_spec.md`.
-2. Inspect the repository and `git status`.
-3. Inspect the Python version and relevant Linux device access without making system changes.
-4. Report any environment constraints that materially affect implementation.
-5. Start implementing the smallest useful slice: project metadata, JSON configuration model/validation, and unit tests.
-6. Then implement and test virtual-device creation, followed by physical input handling and the end-to-end test defined in `project_spec.md`.
-
-Do not respond with another high-level project plan only. Start with concrete repository inspection and implementation.
-
-## 17. Session continuity and handoff (mandatory)
+## 16. Session continuity and handoff (mandatory)
 
 Any session may crash or be terminated at any time. A new session must be able to continue seamlessly from the repository alone, without the previous conversation. `docs/STATUS.md` is the handoff document and the single source of truth for project state.
 
 ### Starting a session
 
 The user starts a session with `claude` in the repository root and runs `/session-start` (or simply asks to continue). Claude then, before doing anything else:
-1. Reads `docs/STATUS.md`, then `project_spec.md` and this file if not already in context.
+1. Reads `docs/STATUS.md`, then `docs/roadmap.md` and this file if not already in context.
 2. Runs `git status` and `git log --oneline -10` and compares them with `docs/STATUS.md`. Any difference (uncommitted changes, commits not mentioned, a step marked in progress) means the previous session ended unexpectedly. Inspect those changes, run the test suite, and fix `docs/STATUS.md` before continuing.
 3. Reports to the user in a few lines: current position, what was last done, verification status, the next step, and any pending user decisions or manual tests. Then continues with the next step unless the user redirects.
 

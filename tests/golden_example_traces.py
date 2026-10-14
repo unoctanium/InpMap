@@ -1,8 +1,9 @@
-"""Reference timelines of config/example.inpmap (generated, do not edit).
+"""Reference timelines of tests/data/json_era_example.inpmap (generated, do not edit).
 
-Recorded on 2026-10-13 from the former JSON example config/example-macros.json,
-whose behaviour the language example was verified to match before JSON
-support was removed. Keys: (mapping name, scenario index); values: trace
+Recorded from the example of the JSON era (the configuration format before
+the language), whose behaviour was verified on real hardware; the language
+version of that example was checked to match before JSON support was
+removed. Keys: (mapping name, scenario index); values: trace
 lines as (ms, text) with seed 7.
 """
 

@@ -10,3 +10,6 @@ dist/
 .claude/settings.local.json.tmp.*
 # machine-specific configurations
 config/local*
+
+# design notes kept locally, not published
+docs/macros-research.md
