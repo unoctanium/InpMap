@@ -52,7 +52,17 @@ Last updated: 2026-10-14
    config/local.inpmap was not touched (fmt --diff shows only the gesture
    alignment).
 4. **Publishing** (user decision 2026-10-14, after `inpmap fmt`), in this order:
-   a. Independence from the repository layout: standard config location
+   a. 🔧 Proposal discussed 2026-10-14. **User decisions:** (1) profile
+      names as arguments — `inpmap run dcs` = ~/.config/inpmap/dcs.inpmap;
+      an argument ending in `.inpmap` or containing `/` is a path; no
+      argument = profile `default`; (2) drop the single-config unit
+      `inpmap.service`, keep only `inpmap@NAME` (ExecStart … run
+      --wait-for-devices %i); (3) default profile name `default`;
+      (4) command `inpmap syntax-file kate|nano` prints the editor files;
+      (5) `inpmap example` must produce `example.inpmap`, not
+      `default.inpmap`. **Open, under discussion:** what the example
+      implements, and what `default.inpmap` does.
+      Original plan text: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →
       `~/.config/inpmap/default.inpmap`, profiles in the same directory);
       ship the example and the editor syntax files with the package (e.g.
