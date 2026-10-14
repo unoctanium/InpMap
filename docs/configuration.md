@@ -30,7 +30,7 @@ input kbd {
 }
 
 output keyboard { type = keyboard }
-output gamepad  { type = gamepad }
+output gamepad { type = gamepad }
 
 # While X is held: Y on the virtual keyboard and A on the virtual gamepad
 map KEY_X {
@@ -201,11 +201,11 @@ settings {
 ### 4.2 Variables
 
 ```inpmap
-let presses = 0          # whole number
-let speed = 1.5          # decimal number
-let delay = 50ms         # duration
-let mode = "game"        # string
-let armed = false        # boolean
+let presses = 0    # whole number
+let speed = 1.5    # decimal number
+let delay = 50ms   # duration
+let mode = "game"  # string
+let armed = false  # boolean
 ```
 
 The initial value decides the type, and a variable keeps that type.
@@ -238,14 +238,14 @@ started from one keyboard is stopped from the same keyboard.
 
 ```inpmap
 version 1
-input laptop   { name = "AT Translated Set 2 keyboard" }
+input laptop { name = "AT Translated Set 2 keyboard" }
 input external { path = "/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd" }
 output keyboard { type = keyboard }
 
-map KEY_CAPSLOCK { tap KEY_ESC }            # on both keyboards
-map external.KEY_F1 { tap KEY_MUTE }        # only on the external one
-map KEY_F2 { tap KEY_VOLUMEDOWN }           # F2 on every keyboard ...
-map external.KEY_F2 { tap KEY_VOLUMEUP }    # ... except the external one, which does this
+map KEY_CAPSLOCK { tap KEY_ESC }          # on both keyboards
+map external.KEY_F1 { tap KEY_MUTE }      # only on the external one
+map KEY_F2 { tap KEY_VOLUMEDOWN }         # F2 on every keyboard ...
+map external.KEY_F2 { tap KEY_VOLUMEUP }  # ... except the external one, which does this
 ```
 
 The trigger may be followed by `modifiers(…)` (§5.2).
@@ -371,9 +371,9 @@ version 1
 input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
 output keyboard { type = keyboard }
 
-map pad.ABS_RZ above 0.5 { hold KEY_SPACE }        # right trigger pressed more than half
-map pad.ABS_HAT0Y below -0.5 { tap KEY_KP8 }       # D-pad up
-map pad.ABS_HAT0Y above 0.5 { tap KEY_KP2 }        # D-pad down
+map pad.ABS_RZ above 0.5 { hold KEY_SPACE }   # right trigger pressed more than half
+map pad.ABS_HAT0Y below -0.5 { tap KEY_KP8 }  # D-pad up
+map pad.ABS_HAT0Y above 0.5 { tap KEY_KP2 }   # D-pad down
 map pad.ABS_X below -0.7 as stick_left { hold KEY_A }
 ```
 
@@ -443,7 +443,7 @@ map pad.BTN_MODE { layer dcs toggle }
 layer dcs {
     map pad.BTN_SOUTH { tap KEY_KP5 }
     map pad.ABS_HAT0Y below -0.5 { tap KEY_KP8 }
-    map pad.BTN_EAST { hold BTN_EAST }      # still B on the virtual gamepad
+    map pad.BTN_EAST { hold BTN_EAST }  # still B on the virtual gamepad
 }
 ```
 
@@ -503,7 +503,7 @@ released. It does **not wait**: the next statement runs at once.
 
 ```inpmap
 map KEY_X {
-    hold KEY_Y          # keyboard Y and gamepad A, both held while X is held
+    hold KEY_Y  # keyboard Y and gamepad A, both held while X is held
     hold BTN_SOUTH
 }
 ```
@@ -518,12 +518,12 @@ held, optionally moving there and back gradually:
 ```inpmap
 map KEY_W {
     axis ABS_Y {
-        target  = -1.0      # left stick fully up
-        attack  = 150ms     # reach it within 150 ms (default 0ms)
-        release = 50ms      # back to rest within 50 ms after release (default 0ms)
+        target  = -1.0   # left stick fully up
+        attack  = 150ms  # reach it within 150 ms (default 0ms)
+        release = 50ms   # back to rest within 50 ms after release (default 0ms)
     }
 }
-map KEY_S { axis ABS_Y 1.0 (attack 150ms, release 50ms) }   # one-line form
+map KEY_S { axis ABS_Y 1.0 (attack 150ms, release 50ms) }  # one-line form
 map KEY_D { axis ABS_X 1.0 }
 ```
 
@@ -545,10 +545,10 @@ After every press and every release comes the key pause (default 10 ms,
 statement: `tap BTN_SOUTH (pause 30ms)`.
 
 ```inpmap
-map KEY_F1 { tap ctrl + KEY_C }          # Ctrl+C
+map KEY_F1 { tap ctrl + KEY_C }  # Ctrl+C
 
 map KEY_F2 {
-    with KEY_LEFTSHIFT {                  # Shift held around two taps: "AB"
+    with KEY_LEFTSHIFT {  # Shift held around two taps: "AB"
         tap KEY_A
         tap KEY_B
     }
@@ -579,9 +579,9 @@ mapping ends; then it returns to rest.
 
 ```inpmap
 map KEY_F4 {
-    move ABS_X to 1.0 over 500ms     # sweep the left stick right
-    move ABS_X to -1.0 over 1s       # and left
-}                                    # back to the centre at the end
+    move ABS_X to 1.0 over 500ms  # sweep the left stick right
+    move ABS_X to -1.0 over 1s    # and left
+}                                 # back to the centre at the end
 ```
 
 ### 6.4 Loops and concurrency
@@ -597,19 +597,27 @@ Each pass of a loop takes at least 1 ms, even if its statements take no
 time.
 
 ```inpmap
-map KEY_F5 {                         # autofire while held
+map KEY_F5 {  # autofire while held
     cancel on release
     while held { tap BTN_SOUTH (pause 30ms) }
 }
 
-map KEY_F6 {                         # autofire on/off with the same key
+map KEY_F6 {  # autofire on/off with the same key
     toggle { tap BTN_SOUTH (pause 50ms) }
 }
 
-map KEY_F7 {                         # sweep the stick while tapping
+map KEY_F7 {  # sweep the stick while tapping
     parallel {
-        branch { move ABS_X to 1.0 over 500ms; move ABS_X to 0.0 over 500ms }
-        branch { repeat 5 { tap BTN_WEST; wait 100ms } }
+        branch {
+            move ABS_X to 1.0 over 500ms
+            move ABS_X to 0.0 over 500ms
+        }
+        branch {
+            repeat 5 {
+                tap BTN_WEST
+                wait 100ms
+            }
+        }
     }
 }
 ```
@@ -635,7 +643,7 @@ else { … }
 | `not CONDITION` | negation |
 
 ```inpmap
-map KEY_CAPSLOCK {                   # Caps Lock alone: Escape; with another key: Ctrl
+map KEY_CAPSLOCK {  # Caps Lock alone: Escape; with another key: Ctrl
     if single { tap KEY_ESC } else { hold KEY_LEFTCTRL }
 }
 
@@ -648,7 +656,7 @@ map KEY_F8 {
 
 ```inpmap
 map KEY_F10 {
-    on tap        { tap KEY_1 }
+    on tap { tap KEY_1 }
     on double_tap { tap KEY_2 }
     on long_press { tap KEY_3 }
 }
@@ -677,7 +685,7 @@ passed).
 ```inpmap
 map KEY_F12 {
     tap KEY_1
-    on release { tap KEY_2 }         # types 1 on press, 2 on release
+    on release { tap KEY_2 }  # types 1 on press, 2 on release
 }
 ```
 
@@ -694,7 +702,7 @@ mapping; writing it last makes the order easiest to read.
 
 ```inpmap
 let mode = false
-map KEY_F12 {                        # alternate between two actions
+map KEY_F12 {  # alternate between two actions
     if mode { tap KEY_A } else { tap KEY_B }
     if mode { mode = false } else { mode = true }
 }
@@ -703,8 +711,8 @@ map KEY_F12 {                        # alternate between two actions
 ### 6.9 Disabling a key: `disable`
 
 ```inpmap
-map KEY_INSERT { disable }                  # Insert does nothing
-map KEY_Q modifiers(ctrl) { disable }       # Ctrl+Q does nothing; Q alone still types q
+map KEY_INSERT { disable }             # Insert does nothing
+map KEY_Q modifiers(ctrl) { disable }  # Ctrl+Q does nothing; Q alone still types q
 ```
 
 The key is suppressed and nothing is sent instead. `disable` must be the
@@ -722,7 +730,9 @@ only statement of the mapping, without options.
 ```inpmap
 map KEY_F1 { layer dcs on }
 map KEY_F2 { layer dcs off }
-map KEY_F3 { if layer dcs { tap KEY_1 } else { tap KEY_2 } }
+map KEY_F3 {
+    if layer dcs { tap KEY_1 } else { tap KEY_2 }
+}
 
 layer dcs {
     map KEY_F4 { tap KEY_KP5 }
@@ -928,7 +938,7 @@ map KEY_F9 as combo {
 
 # F10: tap types 1, double tap types 2, long press types 3
 map KEY_F10 {
-    on tap        { tap KEY_1 }
+    on tap { tap KEY_1 }
     on double_tap { tap KEY_2 }
     on long_press { tap KEY_3 }
 }
@@ -1002,8 +1012,16 @@ map kbd.KEY_F3 {
 # Two branches at once: stick sweep while tapping
 map kbd.KEY_F4 {
     parallel {
-        branch { move ABS_X to 1.0 over 500ms; move ABS_X to 0.0 over 500ms }
-        branch { repeat 5 { tap BTN_WEST; wait 100ms } }
+        branch {
+            move ABS_X to 1.0 over 500ms
+            move ABS_X to 0.0 over 500ms
+        }
+        branch {
+            repeat 5 {
+                tap BTN_WEST
+                wait 100ms
+            }
+        }
     }
 }
 

@@ -11,17 +11,20 @@ together.
 version 1
 input kbd { path = "/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd" }
 output keyboard { type = keyboard }
-output gamepad  { type = gamepad }
+output gamepad { type = gamepad }
 
-map KEY_X { hold KEY_Y; hold BTN_SOUTH }      # X = keyboard Y + gamepad A
+map KEY_X {  # X = keyboard Y + gamepad A
+    hold KEY_Y
+    hold BTN_SOUTH
+}
 
-map KEY_F10 {                                 # tap, double tap, long press
-    on tap        { tap KEY_1 }
+map KEY_F10 {  # tap, double tap, long press
+    on tap { tap KEY_1 }
     on double_tap { tap KEY_2 }
     on long_press { tap KEY_3 }
 }
 
-map KEY_CAPSLOCK {                            # Caps Lock alone = Esc, with another key = Ctrl
+map KEY_CAPSLOCK {  # Caps Lock alone = Esc, with another key = Ctrl
     if single { tap KEY_ESC } else { hold KEY_LEFTCTRL }
 }
 ```
@@ -68,6 +71,8 @@ InpMap was started for needs it covers less well:
   are unplugged and plugged in again are picked up automatically.
 - `inpmap input-config` finds your devices for you: press a key on the
   keyboard or gamepad you want, and it is added to the configuration.
+- `inpmap fmt` lays out configuration files consistently, without ever
+  changing what they mean.
 - `inpmap macro-trace` shows the exact timeline of a mapping without
   touching any device.
 - Runs in the foreground or as a systemd user service that starts at

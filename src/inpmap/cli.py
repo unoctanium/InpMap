@@ -54,6 +54,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     devices.set_defaults(handler=_cmd_devices)
 
+    fmt = commands.add_parser(
+        "fmt",
+        help="lay out configuration files consistently",
+        description=(
+            "Rewrite configuration files in one consistent layout without changing what "
+            "they mean (checked before writing). '-' reads standard input and writes "
+            "standard output."
+        ),
+    )
+    fmt.add_argument("files", nargs="+", metavar="FILE", help=".inpmap files, or - for stdin")
+    fmt.add_argument(
+        "--check", action="store_true", help="change nothing; exit 1 if a file is not formatted"
+    )
+    fmt.add_argument("--diff", action="store_true", help="change nothing; show the changes")
+    fmt.set_defaults(handler=_cmd_fmt)
+
     codes_cmd = commands.add_parser(
         "codes",
         help="list key, button and axis names (optionally only those containing FILTER)",
@@ -299,6 +315,52 @@ def _modifier_list(text: str | None) -> list[str] | None:
     if text == "none":
         return []
     return [name.strip() for name in text.split(",") if name.strip()]
+
+
+def _cmd_fmt(args: argparse.Namespace) -> int:
+    import difflib
+
+    from .dsl.formatter import FormatError, format_text
+    from .dsl.parser import DslSyntaxError
+    from .input_config import write_atomically
+
+    if "-" in args.files:
+        if len(args.files) > 1:
+            print("error: '-' cannot be combined with files", file=sys.stderr)
+            return EXIT_USAGE
+        try:
+            sys.stdout.write(format_text(sys.stdin.read(), "<stdin>"))
+        except (DslSyntaxError, FormatError) as exc:
+            print(exc, file=sys.stderr)
+            return EXIT_CONFIG_ERROR
+        return EXIT_OK
+    status = EXIT_OK
+    for name in args.files:
+        try:
+            original = Path(name).read_text(encoding="utf-8")
+            formatted = format_text(original, name)
+        except OSError as exc:
+            print(f"{name}: cannot read file: {exc}", file=sys.stderr)
+            status = EXIT_CONFIG_ERROR
+            continue
+        except (DslSyntaxError, FormatError) as exc:
+            print(exc, file=sys.stderr)
+            status = EXIT_CONFIG_ERROR
+            continue
+        if formatted == original:
+            continue
+        if args.check:
+            print(f"{name}: not formatted")
+            status = max(status, EXIT_CONFIG_ERROR)
+        elif args.diff:
+            diff = difflib.unified_diff(
+                original.splitlines(True), formatted.splitlines(True), name, f"{name} (formatted)"
+            )
+            sys.stdout.writelines(diff)
+        else:
+            write_atomically(name, formatted, backup=False)
+            print(f"{name}: formatted")
+    return status
 
 
 def _cmd_codes(args: argparse.Namespace) -> int:

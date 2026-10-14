@@ -80,3 +80,12 @@ def test_documented_one_line_alternation():
     lines = [t.text for t in trace(config, "KEY_F12", press_at=[0, 200], hold_ms=50)]
     taps = [line.split()[1] for line in lines if line.endswith("down")]
     assert taps == ["KEY_B", "KEY_A"]
+
+
+def test_examples_are_formatted():
+    """`inpmap fmt` would leave every documented example as it is."""
+    from inpmap.dsl.formatter import format_text
+
+    for block in inpmap_blocks() + inpmap_blocks(ROOT / "README.md"):
+        assert format_text(block) == block, block
+    assert format_text(EXAMPLE.read_text()) == EXAMPLE.read_text()

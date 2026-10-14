@@ -191,6 +191,59 @@ previous version is kept as `FILE.bak`. Afterwards the file is checked
 like with `inpmap check`. A file that does not exist is created with a
 starter configuration. A file with syntax errors is not changed.
 
+### `inpmap fmt`
+
+```text
+inpmap fmt FILE... [--check] [--diff]
+inpmap fmt -
+```
+
+Rewrites configuration files in one consistent layout. Only the layout
+changes, never the meaning: before writing, InpMap parses the result again
+and checks that it describes exactly the same configuration; otherwise
+the file is left alone and the problem is reported. A file with syntax
+errors is not touched. Files are replaced atomically; there is no backup
+file, so use `--diff` first if you are unsure (or keep the file in git).
+
+| Option | Meaning |
+|---|---|
+| `--check` | change nothing; list the files that are not formatted and exit with 1 (for scripts) |
+| `--diff` | change nothing; show what would change |
+| `-` | read from standard input, write the result to standard output (for editors) |
+
+**Formatting rules:**
+
+1. **Indentation:** 4 spaces per level; tabs become spaces.
+2. **One statement per line.** Statements joined with `;` are put on
+   separate lines, except inside a block that stays on one line (rule 3).
+3. **Short blocks:** a block (`{ … }`) with exactly one statement or
+   property and nothing nested stays on one line if it was written on one
+   line and the line stays within 100 characters:
+   `on tap { tap KEY_1 }`, `output gamepad { type = gamepad }`. Every other
+   block is written over several lines, its closing `}` on its own line.
+4. **Spaces:** one space between words and around `=`, `==`, `!=`, `+=`,
+   `-=` and the `+` of chords (`tap ctrl + KEY_C`); a space before `{`;
+   none inside parentheses, one after each comma: `modifiers(ctrl, shift)`,
+   `(pause 30ms)`, `random(40ms, 60ms)`.
+5. **`else`** follows the closing brace: `} else {`, `} else if … {`.
+6. **Blank lines:** kept where you put them, but at most one in a row;
+   none at the start or end of a block or the file.
+7. **Comments** are kept with their text unchanged. A comment on its own
+   line is indented like the line after it. Comments at the end of
+   consecutive lines are aligned to one column, at least two spaces after
+   the longest of those lines.
+8. **Alignment:** in consecutive property lines of a `settings`,
+   `input`, `output` or `axis` block, the `=` signs are aligned
+   (`target  = -1.0`, `attack  = 150ms`). Nothing else is aligned, not
+   even gesture handlers (`on tap { … }`).
+9. **Kept as written:** the order of all statements, names, numbers
+   (`0.5`, `-1.0`), durations (`1.5s`), strings, and whether a device or
+   an `as` name is written.
+10. Long lines are not wrapped.
+
+All examples in this documentation and `config/example.inpmap` are
+formatted this way (a test checks it).
+
 ### `inpmap devices`
 
 ```text

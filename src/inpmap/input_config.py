@@ -264,16 +264,17 @@ def new_file_text(blocks: list[str]) -> str:
     )
 
 
-def write_atomically(path: str, text: str) -> str | None:
+def write_atomically(path: str, text: str, backup: bool = True) -> str | None:
     """Write ``text`` to ``path`` via a temporary file; keep the old file as .bak.
 
-    Returns the backup path, or None if the file did not exist.
+    Returns the backup path, or None if there is none (new file, or ``backup``
+    is False).
     """
     target = Path(path)
-    backup = None
-    if target.exists():
-        backup = str(target) + ".bak"
-        Path(backup).write_bytes(target.read_bytes())
+    backup_path = None
+    if backup and target.exists():
+        backup_path = str(target) + ".bak"
+        Path(backup_path).write_bytes(target.read_bytes())
     directory = target.parent if str(target.parent) else Path(".")
     handle, temporary = tempfile.mkstemp(prefix=f".{target.name}.", dir=directory)
     try:
@@ -286,7 +287,7 @@ def write_atomically(path: str, text: str) -> str | None:
         if os.path.exists(temporary):
             os.unlink(temporary)
         raise
-    return backup
+    return backup_path
 
 
 # -- the interactive session -------------------------------------------------------------------

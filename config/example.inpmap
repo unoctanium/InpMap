@@ -37,7 +37,7 @@ map KEY_F9 as combo {
 
 # F10: tap types 1, double tap types 2, long press types 3
 map KEY_F10 {
-    on tap        { tap KEY_1 }
+    on tap { tap KEY_1 }
     on double_tap { tap KEY_2 }
     on long_press { tap KEY_3 }
 }

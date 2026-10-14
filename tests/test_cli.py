@@ -250,3 +250,53 @@ def test_service_unit_profiles_lists_the_profiles(tmp_path, capsys):
 def test_service_unit_profiles_needs_a_directory(tmp_path, capsys):
     assert main(["service-unit", "--profiles", str(tmp_path / "x.inpmap")]) == EXIT_USAGE
     assert "is not a directory" in capsys.readouterr().err
+
+
+# -- fmt -------------------------------------------------------------------------------------
+
+UNFORMATTED = (
+    'version 1\ninput kbd { name = "K" }\noutput keyboard { type = keyboard }\n'
+    "map KEY_X { tap KEY_A; tap KEY_B }\n"
+)
+FORMATTED = (
+    'version 1\ninput kbd { name = "K" }\noutput keyboard { type = keyboard }\n'
+    "map KEY_X {\n    tap KEY_A\n    tap KEY_B\n}\n"
+)
+
+
+def test_fmt_rewrites_in_place_without_backup(tmp_path, capsys):
+    path = tmp_path / "a.inpmap"
+    path.write_text(UNFORMATTED)
+    assert main(["fmt", str(path)]) == EXIT_OK
+    assert path.read_text() == FORMATTED
+    assert f"{path}: formatted" in capsys.readouterr().out
+    assert not (tmp_path / "a.inpmap.bak").exists()
+    assert main(["fmt", str(path)]) == EXIT_OK  # already formatted: silent
+    assert capsys.readouterr().out == ""
+
+
+def test_fmt_check_and_diff_change_nothing(tmp_path, capsys):
+    path = tmp_path / "a.inpmap"
+    path.write_text(UNFORMATTED)
+    assert main(["fmt", "--check", str(path)]) == EXIT_CONFIG_ERROR
+    assert f"{path}: not formatted" in capsys.readouterr().out
+    assert main(["fmt", "--diff", str(path)]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "-map KEY_X { tap KEY_A; tap KEY_B }" in out and "+    tap KEY_A" in out
+    assert path.read_text() == UNFORMATTED
+
+
+def test_fmt_leaves_files_with_syntax_errors_alone(tmp_path, capsys):
+    path = tmp_path / "bad.inpmap"
+    path.write_text("version 1\nmap {\n")
+    assert main(["fmt", str(path)]) == EXIT_CONFIG_ERROR
+    assert "unexpected" in capsys.readouterr().err
+    assert path.read_text() == "version 1\nmap {\n"
+
+
+def test_fmt_stdin_to_stdout(monkeypatch, capsys):
+    import io
+
+    monkeypatch.setattr("sys.stdin", io.StringIO(UNFORMATTED))
+    assert main(["fmt", "-"]) == EXIT_OK
+    assert capsys.readouterr().out == FORMATTED

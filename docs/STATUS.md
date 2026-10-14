@@ -36,7 +36,21 @@ Last updated: 2026-10-14
    deduplicated); unused block → warning. Reserved `block`, `call`;
    editor files updated (Kate checked). Tests: `tests/test_blocks.py` (13),
    incl. timeline equivalence of inline vs. block version.
-3. `inpmap fmt`.
+3. ✅ `inpmap fmt` (spec in usage.md; user chose option 1 = no gesture
+   alignment, 2026-10-14; implemented 2026-10-14): `src/inpmap/dsl/formatter.py`
+   renders from the parse tree (rules 1–10), comments collected by a cached
+   lark parser with `lexer_callbacks` and re-attached by line (trailing →
+   first output line of that source line; own-line → before the next line,
+   one level deeper before `}`), trailing comments of consecutive lines
+   aligned, `=` aligned in property blocks; result must parse to the same
+   tree and keep all comments, else FormatError. CLI `inpmap fmt FILE...
+   [--check] [--diff]`, `-` stdin→stdout; in place via `write_atomically(...,
+   backup=False)`. All docs/README examples and config/example.inpmap were
+   formatted with it (comment columns, `;` one-liners split, gesture
+   alignment removed); `tests/test_docs.py` keeps them formatted. Tests:
+   `tests/test_formatter.py` (10), CLI fmt tests. The user's
+   config/local.inpmap was not touched (fmt --diff shows only the gesture
+   alignment).
 4. **Publishing** (user decision 2026-10-14, after `inpmap fmt`), in this order:
    a. Independence from the repository layout: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →
@@ -521,8 +535,8 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 521 passed, 13 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after reusable blocks (2026-10-14) (JSON-file tests were
+- Unit tests: 536 passed, 13 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after inpmap fmt (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
