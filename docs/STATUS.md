@@ -114,9 +114,9 @@ device by bus/vendor/product/uniq/phys-prefix).
   `test_axis_thresholds_through_runtime` (synthetic pad: R2 + D-pad →
   keys, mapped axes not forwarded, ABS_X forwarded) and
   `test_monitor_axes_shows_live_values`. 490 unit + 13 hardware passed.
-- ⏳ User test with the real Razer pad: `docs/testlist.md` §7 (the
-  service must be stopped meanwhile; `inpmap axes` cannot read a grabbed
-  device).
+- ✅ User test with the real Razer pad (`docs/testlist.md` §7a live values,
+  §7b remapping incl. two-stage L2, D-pad, suppression): user reported
+  "all tests passed" (2026-10-14).
 
 ## Backlog (future features, user agreed 2026-10-14; not scheduled)
 
