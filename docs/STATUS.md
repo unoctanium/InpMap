@@ -26,7 +26,29 @@ Last updated: 2026-10-14
    Tests: `tests/test_layers.py` (15). ⏳ User test: `docs/testlist.md` §8.
 2. Named reusable blocks (spec first).
 3. `inpmap fmt`.
-4. Then the user decides what comes next.
+4. **Publishing** (user decision 2026-10-14, after `inpmap fmt`), in this order:
+   a. Independence from the repository layout: standard config location
+      `~/.config/inpmap/` (e.g. `inpmap run` without argument →
+      `~/.config/inpmap/default.inpmap`, profiles in the same directory);
+      ship the example and the editor syntax files with the package (e.g.
+      `inpmap example`); a packaged user unit `inpmap@.service` →
+      `~/.config/inpmap/%i.inpmap`; absolute links in the README (PyPI).
+   b. CI on GitHub (ruff + pytest, Python 3.11–3.14); release 0.2.0 with
+      `CHANGELOG.md` and a git tag; PyPI via GitHub Actions Trusted
+      Publishing (`pipx install inpmap`). Facts checked 2026-10-14: the PyPI
+      name `inpmap` is free; evdev 2.0.0 on PyPI is source-only (pip
+      builds it: compiler + Python and kernel headers needed).
+   c. AUR package `inpmap` (`paru -S inpmap`): PKGBUILD from the PyPI
+      release, depends `python`, `python-evdev`, `python-lark-parser`
+      (Arch extra, 1.3.1); installs program, user unit, editor files,
+      optional /dev/uinput udev rule. Needs the user's AUR account. AUR
+      name availability not checked (AUR blocked automated access).
+   d. Presentation and announcement: demo GIF/asciinema in the README,
+      repo topics, issue templates, CONTRIBUTING.md; a few external
+      testers first (only CachyOS/KDE tested so far); then posts
+      (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum
+      "Community Contributions", Show HN), respecting self-promotion rules.
+5. Then the user decides what comes next.
 
 ## Plan agreed with the user (2026-10-14), in this order
 
