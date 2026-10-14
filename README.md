@@ -84,7 +84,7 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 
 ```sh
 sudo pacman -S --needed python python-evdev     # Arch; other distributions: see installation.md
-git clone <repository-url> InpMap && cd InpMap
+git clone https://github.com/unoctanium/InpMap.git && cd InpMap
 python3 -m venv --system-site-packages .venv && .venv/bin/pip install -e .
 .venv/bin/inpmap input-config config/local.inpmap   # pick your keyboard/gamepad, creates the file
 $EDITOR config/local.inpmap                         # write your mappings

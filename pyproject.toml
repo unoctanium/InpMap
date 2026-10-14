@@ -19,6 +19,9 @@ dependencies = [
     "evdev; sys_platform == 'linux'",
 ]
 
+[project.urls]
+Homepage = "https://github.com/unoctanium/InpMap"
+
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
 

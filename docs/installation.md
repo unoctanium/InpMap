@@ -29,7 +29,7 @@ environment in step 2 **without** `--system-site-packages`.
 ## 2. InpMap in a virtual environment
 
 ```sh
-git clone <repository-url> InpMap      # or copy the directory
+git clone https://github.com/unoctanium/InpMap.git
 cd InpMap
 python3 -m venv --system-site-packages .venv   # lets the venv use the distribution's evdev
 .venv/bin/pip install -e .

@@ -422,7 +422,8 @@ device by bus/vendor/product/uniq/phys-prefix).
   `TAG+="uaccess"` rules in `/usr/lib/udev/rules.d/60-steam-input.rules`
   (package `steam-devices`) and `40-kdeconnect-uinput.rules` (`kdeconnect`).
   Other machines will need a documented udev rule.
-- No git remote configured.
+- Git remote `origin` = git@github.com:unoctanium/InpMap.git (public, MIT,
+  created 2026-10-14). Push only when the user asks.
 
 ## Verification status
 
