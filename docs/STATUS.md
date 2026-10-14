@@ -104,6 +104,7 @@ Last updated: 2026-10-14
 | Not wanted: grabbing all keyboards automatically; typing by character through the layout | wrong grabs are dangerous; key codes are what games need |
 | MIT license; PyPI via trusted publishing; `pipx install --system-site-packages` | no stored tokens; uses the distribution's evdev instead of compiling it |
 | Repository cleaned for publication (2026-10-14): the German AI-assistant brief `project_spec.md` replaced by `docs/roadmap.md`; the personal test protocol replaced by `docs/manual-tests.md`; `docs/macros-research.md` kept only locally (git-ignored); no personal data in this file | a public repository and the PyPI page should show product documentation, not internal working notes |
+| No udev RUN hook like Input Remapper's autoload; replugged devices are found by reopening every second (udev notifications are in the backlog) | a udev rule runs as root and cannot reach a user service; polling costs little and works without root |
 | Auto-commit at each finished, test-passing step; never push without the maintainer's OK | `CLAUDE.md` §13, §16 |
 
 ## Development environment (verified)
@@ -140,7 +141,10 @@ Last updated: 2026-10-14
 
 ## Open questions
 
-- What to do while the AUR step is blocked (maintainer's choice).
+- What to do while the AUR step is blocked (maintainer's choice). Step d
+  was proposed (d1 issue templates, `CONTRIBUTING.md`, topics; d2 demo
+  GIF; d3 call for testers; d4 announcement drafts); waiting for the
+  maintainer's instructions.
 
 ## Session log
 

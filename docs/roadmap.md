@@ -119,6 +119,9 @@ Not scheduled; candidates for future versions:
 - randomised "human" timing (normally distributed waits);
 - a per-side modifier setting (e.g. Right Alt as a normal key while Left Alt
   stays a modifier);
+- notice configured devices that are plugged in through udev's device
+  notifications instead of checking every second (picked up at once, no
+  work while idle; possible without root);
 - a system-wide service (without a logged-in user).
 
 Not planned: grabbing all keyboards automatically, and typing text by
