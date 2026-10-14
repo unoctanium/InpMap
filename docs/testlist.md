@@ -30,7 +30,8 @@ configurations live in `~/.config/inpmap/`.
 ```sh
 cd ~/Projects/InpMap
 systemctl --user stop 'inpmap@*' inpmap
-systemctl --user disable inpmap@local inpmap      # whichever is enabled; errors for the other are fine
+systemctl --user disable inpmap@local     # if it is enabled; an error otherwise is fine
+systemctl --user disable inpmap           # the old single unit; an error is fine
 mkdir -p ~/.local/bin
 ln -s ~/Projects/InpMap/.venv/bin/inpmap ~/.local/bin/inpmap
 inpmap --version
