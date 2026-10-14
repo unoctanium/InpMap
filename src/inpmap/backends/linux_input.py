@@ -246,6 +246,62 @@ def monitor_axes(
             device.close()
 
 
+def listen(
+    paths: Sequence[str],
+    on_key: Callable[[str, str, int, bool], None],
+    on_axis: Callable[[str, str, int, float], None],
+    timeout: float | None,
+) -> list[str]:
+    """Report key presses/releases and normalised axis values of ``paths``.
+
+    Devices are read, not grabbed. Runs until ``timeout`` (or Ctrl+C).
+    Returns notes about devices that could not be read.
+    """
+    notes: list[str] = []
+    devices: dict[int, InputDevice] = {}
+    ranges: dict[tuple[str, int], tuple[int, int]] = {}
+    try:
+        for path in paths:
+            try:
+                device = InputDevice(path)
+            except OSError:
+                notes.append(f"{path}: cannot be read (see docs/installation.md, permissions)")
+                continue
+            if _grabbed_elsewhere(device):
+                notes.append(
+                    f"{device.name}: grabbed by another program (the InpMap service?); "
+                    "stop it to detect its keys"
+                )
+                device.close()
+                continue
+            devices[device.fd] = device
+            for code, info in device.capabilities(absinfo=True).get(ecodes.EV_ABS, []):
+                ranges[(path, code)] = (info.min, info.max)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while devices and (deadline is None or time.monotonic() < deadline):
+            wait = 0.2 if deadline is None else max(0.0, min(0.2, deadline - time.monotonic()))
+            ready, _, _ = select.select(list(devices), [], [], wait)
+            for fd in ready:
+                device = devices[fd]
+                try:
+                    events = list(device.read())
+                except BlockingIOError:
+                    continue
+                except OSError:  # unplugged
+                    del devices[fd]
+                    continue
+                for event in events:
+                    if event.type == ecodes.EV_KEY and event.value in (0, 1):
+                        on_key(device.path, device.name, event.code, event.value == 1)
+                    elif event.type == ecodes.EV_ABS and (device.path, event.code) in ranges:
+                        value = normalize(event.value, *ranges[(device.path, event.code)])
+                        on_axis(device.path, device.name, event.code, value)
+        return notes
+    finally:
+        for device in devices.values():
+            device.close()
+
+
 def _grabbed_elsewhere(device: InputDevice) -> bool:
     """Whether another program holds an exclusive grab (then no events reach us)."""
     try:

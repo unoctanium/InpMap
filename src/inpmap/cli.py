@@ -70,6 +70,19 @@ def build_parser() -> argparse.ArgumentParser:
     fmt.add_argument("--diff", action="store_true", help="change nothing; show the changes")
     fmt.set_defaults(handler=_cmd_fmt)
 
+    detect = commands.add_parser(
+        "detect",
+        help="press keys, buttons, sticks: see them written as triggers",
+        description=(
+            "Show every key or button you press, and every stick, trigger or D-pad you "
+            "move past half way, written as you would write the trigger of a mapping. "
+            "Input names come from the profile; nothing is grabbed. Stop with Ctrl+C."
+        ),
+    )
+    _add_config_argument(detect)
+    detect.add_argument("--timeout", type=float, metavar="SECONDS", help="stop after this time")
+    detect.set_defaults(handler=_cmd_detect)
+
     syntax = commands.add_parser(
         "syntax-file",
         help="print the syntax highlighting file for an editor",
@@ -376,6 +389,58 @@ def _cmd_fmt(args: argparse.Namespace) -> int:
             write_atomically(name, formatted, backup=False)
             print(f"{name}: formatted")
     return status
+
+
+def _cmd_detect(args: argparse.Namespace) -> int:
+    from .backends.linux_setup import devices_for_input_config
+    from .detect import Detector
+    from .input import InputError
+
+    try:
+        from .backends.linux_input import LinuxInputBackend, listen
+    except ImportError as exc:
+        print(f"Linux backend unavailable: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
+    names: dict[str, str] = {}
+    profile = None
+    modifiers = None
+    if Path(args.config).exists():
+        try:
+            config = _load(args.config)
+        except ConfigError as exc:
+            print(exc, file=sys.stderr)
+            return EXIT_CONFIG_ERROR
+        profile = profiles.profile_name_of(args.config)
+        modifiers = config.settings.modifiers
+        backend = LinuxInputBackend()
+        for input_id, spec in config.inputs.items():
+            try:
+                names[backend.resolve_path(spec)] = input_id
+            except InputError:
+                pass  # not connected
+    detector = Detector(names, profile, modifiers) if modifiers else Detector(names, profile)
+    paths = sorted({d.path for d in devices_for_input_config()})
+    print("Press keys or buttons, move sticks or triggers (Ctrl+C stops). Nothing is grabbed.")
+
+    def show(line: str | None) -> None:
+        if line is not None:
+            print(line, flush=True)
+
+    try:
+        notes = listen(
+            paths,
+            lambda *event: show(detector.key(*event)),
+            lambda *event: show(detector.axis(*event)),
+            args.timeout,
+        )
+    except KeyboardInterrupt:
+        notes = []
+        print()
+    finally:
+        _discard_typed_input()
+    for note in notes:
+        print(note, file=sys.stderr)
+    return EXIT_OK
 
 
 def _cmd_syntax_file(args: argparse.Namespace) -> int:
@@ -712,7 +777,7 @@ def _raise_keyboard_interrupt(signum: int, frame: object) -> None:
 def _load(path: str) -> Config:
     """Load a configuration and print its warnings (to stderr)."""
     if not Path(path).exists():
-        name = Path(path).stem if Path(path).parent == profiles.config_dir() else path
+        name = profiles.profile_name_of(path)
         raise ConfigError(
             path, [f"no such configuration; create it with: inpmap input-config {name}"]
         )

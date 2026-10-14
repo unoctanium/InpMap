@@ -89,7 +89,14 @@ Last updated: 2026-10-14
       `tests/data/json_era_example.inpmap` (still checked against the
       golden timelines); 5 ✅ new example = safe tour (F1–F8, Ctrl+F7,
       Caps Lock + layer nav, Insert, block/variable on F8, commented
-      gamepad lines), reference §10 shows it; `tests/test_example.py`; 6 `detect`; 7 docs (still describe the old commands until
+      gamepad lines), reference §10 shows it; `tests/test_example.py`;
+      6 ✅ `inpmap detect [PROFILE]` (`src/inpmap/detect.py` Detector: key
+      presses with input names from the profile and held modifiers (from
+      any device, per the profile's modifier groups; modifier keys alone
+      print nothing), axes once per crossing of ±0.5 with hysteresis, D-pad
+      hints, "not in PROFILE" hint; `linux_input.listen` reads ungrabbed,
+      reports grabbed/unreadable devices; typed characters flushed);
+      tests `tests/test_detect.py`, hardware `test_listen_reports_buttons_and_axes`; 6 `detect`; 7 docs (still describe the old commands until
       then) + migration section in the test list.
       Original plan text: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →
@@ -574,7 +581,7 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 551 passed, 13 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 555 passed, 13 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after inpmap fmt (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the

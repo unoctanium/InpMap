@@ -923,3 +923,35 @@ def test_monitor_axes_shows_live_values():
     assert any(line.startswith("pad        ABS_RZ       +0.00") for line in shown)
     assert any("+0.78" in line and "r2: above 0.5 ON" in line for line in shown)
     assert any(line.startswith("pad        ABS_HAT0Y") for line in shown)
+
+
+@pytest.mark.hardware
+def test_listen_reports_buttons_and_axes():
+    """`inpmap detect`'s listener, with a synthetic gamepad read without grabbing."""
+    from inpmap.backends.linux_input import listen
+
+    pad = synthetic_pad()
+    keys, axes = [], []
+    try:
+        time.sleep(0.3)  # udev permissions for the new node
+
+        def press_later():
+            time.sleep(0.3)
+            emit(pad, ecodes.BTN_EAST, 1)
+            emit(pad, ecodes.BTN_EAST, 0)
+            emit_abs(pad, ecodes.ABS_RZ, 255)
+
+        threading.Thread(target=press_later, daemon=True).start()
+        notes = listen(
+            [pad.device.path, "/dev/input/does-not-exist"],
+            lambda path, name, code, pressed: keys.append((name, code, pressed)),
+            lambda path, name, code, value: axes.append((code, value)),
+            timeout=1.0,
+        )
+    finally:
+        pad.close()
+    assert notes == [
+        "/dev/input/does-not-exist: cannot be read (see docs/installation.md, permissions)"
+    ]
+    assert keys == [(PAD_NAME, ecodes.BTN_EAST, True), (PAD_NAME, ecodes.BTN_EAST, False)]
+    assert axes == [(ecodes.ABS_RZ, 1.0)]

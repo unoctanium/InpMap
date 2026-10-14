@@ -39,3 +39,10 @@ def profile_name(argument: str | None) -> str | None:
     if argument is None:
         return DEFAULT_PROFILE
     return None if is_path(argument) else argument
+
+
+def profile_name_of(path: str) -> str:
+    """How to name a configuration file in messages: its profile name if it
+    lives in the configuration folder, else the path."""
+    file = Path(path)
+    return file.stem if file.parent == config_dir() else path
