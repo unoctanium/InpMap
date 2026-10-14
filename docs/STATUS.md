@@ -116,7 +116,9 @@ Last updated: 2026-10-14
       be deleted. Observation: default.inpmap (copied from local.inpmap)
       still contains the spec §7 test mapping `kbd.KEY_X → KEY_Y +
       BTN_SOUTH`, so x cannot be typed while the service runs — the user's
-      own mapping, not a bug; user decides whether to remove it.
+      own mapping, not a bug. Resolved by the user: default.inpmap recreated
+      with `inpmap input-config` (keyboard only, no mappings → idle),
+      inpmap@default restarted; config/local.inpmap deleted.
       **Next: publishing step 4b** (CI, release 0.2.0, PyPI).
       then) + migration section in the test list.
       Original plan text: standard config location
