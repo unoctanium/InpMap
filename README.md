@@ -132,4 +132,5 @@ automatically at each completed step; it never pushes).
 
 ## License
 
-Not decided yet.
+MIT, see [LICENSE](LICENSE). Input Remapper (GPL-3.0) served as a
+functional reference only; InpMap contains no code from it.

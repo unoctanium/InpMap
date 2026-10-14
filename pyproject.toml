@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]  # SPDX license expression
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,8 @@ name = "inpmap"
 dynamic = ["version"]
 description = "Configuration-driven input remapper (own configuration language, multiple virtual output devices)"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 # Baseline: 3.11 (PEP 604 unions, dataclasses, enum). Developed and tested on 3.14.
 requires-python = ">=3.11"
 dependencies = [
