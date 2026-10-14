@@ -120,6 +120,24 @@ Last updated: 2026-10-14
       with `inpmap input-config` (keyboard only, no mappings → idle),
       inpmap@default restarted; config/local.inpmap deleted.
       **Next: publishing step 4b** (CI, release 0.2.0, PyPI).
+   b. 🔧 (2026-10-14) Prepared and committed: `.github/workflows/ci.yml`
+      (ruff + pytest on Python 3.11–3.14, push to main and PRs),
+      `.github/workflows/release.yml` (on tag v*: test, tag = version check,
+      `python -m build`, publish via pypa/gh-action-pypi-publish with
+      trusted publishing, environment `pypi`), version 0.2.0,
+      `CHANGELOG.md`, pyproject keywords + classifiers, docs: installation
+      §2a pipx (`pipx install --system-site-packages inpmap`, Arch package
+      python-pipx checked on archlinux.org), §2b source; development.md
+      release procedure; README quick start with pipx. Only Python 3.14 is
+      installed locally; ruff (target py311) found no too-new syntax and a
+      grep found no 3.12+ library calls — CI will run 3.11–3.13 for real.
+      Workflow YAML not validated locally (no yaml module).
+      ⏳ **Waiting for the user:** (1) on pypi.org: create an account and a
+      "pending publisher" (project inpmap, owner unoctanium, repo InpMap,
+      workflow release.yml, environment pypi); (2) on GitHub, repo
+      Settings → Environments: create environment `pypi`; then push main,
+      check that CI is green, then push tag v0.2.0 (user's OK needed) and
+      verify `pipx install --system-site-packages inpmap`.
       then) + migration section in the test list.
       Original plan text: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →

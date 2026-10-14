@@ -9,6 +9,21 @@ description = "Configuration-driven input remapper (own configuration language, 
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
+keywords = ["input", "remapper", "keyboard", "gamepad", "evdev", "uinput", "macros", "linux"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Games/Entertainment",
+    "Topic :: System :: Hardware",
+    "Topic :: Utilities",
+]
 # Baseline: 3.11 (PEP 604 unions, dataclasses, enum). Developed and tested on 3.14.
 requires-python = ">=3.11"
 dependencies = [

@@ -1,0 +1,47 @@
+# Publish to PyPI when a version tag (v0.2.0, ...) is pushed. Uses PyPI's
+# "trusted publishing": no password or token is stored anywhere; PyPI trusts
+# this workflow of this repository (set up once on pypi.org).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: python -m pip install -e ".[dev]" build
+      - run: ruff check . && ruff format --check . && python -m pytest
+      - name: The tag must match the package version
+        run: |
+          version=$(python -c "import inpmap; print(inpmap.__version__)")
+          test "${GITHUB_REF_NAME}" = "v${version}" || {
+            echo "tag ${GITHUB_REF_NAME} does not match version ${version}"; exit 1; }
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/inpmap
+    permissions:
+      id-token: write  # for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

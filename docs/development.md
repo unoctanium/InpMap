@@ -76,6 +76,22 @@ Changing the configuration language: update `docs/configuration.md` first
 and get it approved (CLAUDE.md §7), then the grammar, compiler, editor
 syntax files in `src/inpmap/data/syntax/` and the examples.
 
+## Continuous integration and releases
+
+`.github/workflows/ci.yml` runs ruff and the unit tests for Python 3.11 to
+3.14 on every push to `main` and on pull requests (the hardware tests need
+`/dev/uinput` and only run locally).
+
+A release:
+
+1. Set the version in `src/inpmap/__init__.py` and describe the changes in
+   `CHANGELOG.md`; commit.
+2. Tag and push: `git tag v0.2.0 && git push origin main v0.2.0`.
+3. `.github/workflows/release.yml` tests, checks that the tag matches the
+   version, builds the sdist and wheel and publishes them to PyPI with
+   trusted publishing (configured once on pypi.org for this repository,
+   workflow `release.yml`, environment `pypi`; no token is stored).
+
 ## Event code table
 
 `src/inpmap/_linux_codes.py` is generated from the kernel header so the core

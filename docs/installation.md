@@ -15,9 +15,12 @@ Your configurations live in `~/.config/inpmap/`.
 
 | Distribution | Command | Tested |
 |---|---|---|
-| Arch, CachyOS, Manjaro | `sudo pacman -S --needed python python-evdev git evtest` | yes (CachyOS) |
-| Debian, Ubuntu | `sudo apt install python3 python3-venv python3-evdev git evtest` | not yet |
-| Fedora | `sudo dnf install python3 python3-evdev git evtest` | not yet |
+| Arch, CachyOS, Manjaro | `sudo pacman -S --needed python python-evdev python-pipx evtest` | yes (CachyOS) |
+| Debian, Ubuntu | `sudo apt install python3 python3-evdev pipx evtest` | not yet |
+| Fedora | `sudo dnf install python3 python3-evdev pipx evtest` | not yet |
+
+For installing from the source code (step 2b) add `git`, and on Debian or
+Ubuntu `python3-venv`.
 
 `evtest` is optional; it shows the events of any input device and is
 useful for checking InpMap's virtual devices.
@@ -27,7 +30,22 @@ a C compiler, Python headers and kernel headers (Debian:
 `build-essential python3-dev linux-libc-dev`); then create the virtual
 environment in step 2 **without** `--system-site-packages`.
 
-## 2. InpMap from the source code
+## 2. InpMap
+
+### 2a. From PyPI (recommended)
+
+```sh
+pipx install --system-site-packages inpmap
+inpmap --version
+```
+
+[pipx](https://pipx.pypa.io/) installs InpMap into its own environment and
+puts the command `inpmap` into `~/.local/bin` (run `pipx ensurepath` once
+if it is not found). `--system-site-packages` lets it use the evdev package
+of your distribution instead of compiling it. Update with
+`pipx upgrade inpmap`, remove with `pipx uninstall inpmap`.
+
+### 2b. From the source code (for development)
 
 ```sh
 git clone https://github.com/unoctanium/InpMap.git ~/InpMap
@@ -198,7 +216,8 @@ systemctl --user daemon-reload
    `sudo gpasswd -d "$USER" input` (takes effect at the next login).
 4. Remove the syntax files, if you installed them (§5), and the `include`
    line from your nano configuration.
-5. Remove the link and the source code: `rm ~/.local/bin/inpmap`, then
-   delete `~/InpMap` (including `.venv`).
+5. Remove the program: `pipx uninstall inpmap`, or, if you installed from
+   the source code, `rm ~/.local/bin/inpmap` and delete `~/InpMap`
+   (including `.venv`).
 6. Your configurations are in `~/.config/inpmap/`; delete that folder if
    you do not need them any more.

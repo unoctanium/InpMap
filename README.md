@@ -94,10 +94,8 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 ## Quick start
 
 ```sh
-sudo pacman -S --needed python python-evdev     # Arch; other distributions: see installation.md
-git clone https://github.com/unoctanium/InpMap.git ~/InpMap && cd ~/InpMap
-python3 -m venv --system-site-packages .venv && .venv/bin/pip install -e .
-ln -s ~/InpMap/.venv/bin/inpmap ~/.local/bin/inpmap
+sudo pacman -S --needed python python-evdev python-pipx   # Arch; other distributions: see installation.md
+pipx install --system-site-packages inpmap
 
 inpmap input-config example          # the example with your keyboard (press i, then a key)
 inpmap run example --timeout 60      # try F1-F8, Caps Lock, Insert
@@ -107,10 +105,11 @@ inpmap detect                        # press keys: see how to write them in a ma
 
 Device permissions may be needed first: see
 [installation.md §3](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md#3-device-permissions).
+To work on InpMap itself, install it from the source code (installation.md §2b).
 
 ## Status
 
-Version 0.1, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
+Version 0.2, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
 real keyboard and gamepad: remapping, suppression of the original keys,
 passthrough, macros, modifiers, axes as triggers, the configuration
 language and the user service. Later: Windows, then GUIs.
