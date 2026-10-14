@@ -1,12 +1,11 @@
 # Using InpMap
 
-This guide shows how to write a first configuration and describes every
-command. The configuration language itself is described in
+This guide shows how to get started and describes every command. The
+configuration language itself is described in
 [configuration.md](configuration.md).
 
-The examples call the program as `.venv/bin/inpmap` from the InpMap
-directory (see [installation.md](installation.md)); after
-`source .venv/bin/activate`, plain `inpmap` works too.
+The command is written as `inpmap`; [installation.md](installation.md)
+shows how to make it available under that name.
 
 ## 1. How InpMap works
 
@@ -26,90 +25,98 @@ physical gamepad  ──grab──►        ──► virtual gamepad   ──�
 4. When InpMap stops, it releases every held key, ungrabs the devices and
    removes all its virtual devices.
 
-## 2. Your first configuration
+## 2. First contact
 
-**Choose your devices.**
+**Profiles.** Your configurations live in `~/.config/inpmap/`, one file
+per profile: the profile `example` is `~/.config/inpmap/example.inpmap`.
+Commands take a profile name or a path to a file; without either, they use
+the profile `default`:
 
 ```sh
-.venv/bin/inpmap input-config config/local.inpmap
+inpmap run                     # ~/.config/inpmap/default.inpmap
+inpmap run example             # ~/.config/inpmap/example.inpmap
+inpmap run /tmp/test.inpmap    # a file anywhere (ends in .inpmap or contains a /)
 ```
 
-```text
-Input devices for config/local.inpmap (grouped by physical device):
+**1. Get the example with your keyboard.**
 
-  ...
+```sh
+inpmap input-config example
+```
+
+This creates `~/.config/inpmap/example.inpmap` from the example that comes
+with InpMap, a safe tour of the main features
+([configuration.md §10](configuration.md#10-complete-example)), and asks
+for your keyboard:
+
+```text
+Input devices for ~/.config/inpmap/example.inpmap (grouped by physical device):
+
   Razer Razer Raiju V3 Pro(Wireless) (1532:1027)
-      4               keyboard   267 keys     Razer Razer Raiju V3 Pro(Wireless) Keyboard
-      5               mouse        5 keys     Razer Razer Raiju V3 Pro(Wireless) Mouse
-      6               touchpad     5 keys     Razer Razer Raiju V3 Pro(Wireless) Touchpad
-      7               gamepad     11 buttons  Generic X-Box pad
+      1               gamepad     11 buttons  Generic X-Box pad
+      2               keyboard   267 keys     Razer Razer Raiju V3 Pro(Wireless) Keyboard
+      ...
   2.4G Dongle (4348:4744)
-      8               keyboard   163 keys     2.4G Dongle
-      9               keyboard   130 keys     2.4G Dongle Keyboard
-     10               mouse        5 keys     2.4G Dongle Mouse
-  ...
+      5               keyboard   163 keys     2.4G Dongle
+      6               keyboard   130 keys     2.4G Dongle Keyboard
+      ...
 > i
 Press a key or button on the device you want (Ctrl+C to cancel) ...
-That was 8: 2.4G Dongle (keyboard).
-8 selected as 'kbd': 2.4G Dongle
+That was 5: 2.4G Dongle (keyboard).
+5 selected as 'kbd': 2.4G Dongle
 > w
 ```
 
-The list shows each physical device with its parts: many keyboards and
-gamepads appear as several devices (keys, media keys, mouse, touchpad).
-Type `i` and press a key on the keyboard or a button on the gamepad you
-want to remap: InpMap finds the right part for you. Or type its number;
-`8 left` selects number 8 under the name `left`. `w` writes and quits, `q`
-quits without changes. Details: [§3](#inpmap-input-config).
+Many keyboards and gamepads appear as several devices (keys, media keys,
+mouse, touchpad). Type `i` and press a key on your keyboard: InpMap finds
+the right part. `w` writes and quits. Details:
+[§3](#inpmap-input-config).
 
-If `config/local.inpmap` does not exist yet, it is created with the
-selected inputs, a keyboard and a gamepad output, and an example mapping
-as a comment. Files named `config/local*` are ignored by git, so your
-personal configuration stays out of the repository.
-
-**Write your mappings** ([configuration.md](configuration.md)):
+**2. Try it**, with a time limit:
 
 ```sh
-$EDITOR config/local.inpmap
+inpmap run example --timeout 60
 ```
 
-**Check it.**
+Now press F1 to F8, Caps Lock (alone, and held together with W A S D) and
+Insert, and compare with the comments in the file. Letters type as usual.
+InpMap stops by itself after 60 seconds or with Ctrl+C; the emergency stop
+**Backspace + Escape + Enter** (held together) always works.
+
+**3. Your own configuration.** Create the profile `default`, which the
+service uses later ([installation.md §6](installation.md#6-running-in-the-background-user-service)):
 
 ```sh
-.venv/bin/inpmap check config/local.inpmap
+inpmap input-config            # pick your devices; creates ~/.config/inpmap/default.inpmap
+inpmap detect                  # press keys: see them written as triggers
+$EDITOR ~/.config/inpmap/default.inpmap
+inpmap check                   # every problem with its position
+inpmap run --timeout 60
 ```
 
-prints a summary or every problem with its position
-(`config/local.inpmap:14:9: unknown key code 'KEY_QQ'`).
-
-**Simulate a mapping** without any devices:
-
-```sh
-.venv/bin/inpmap macro-trace config/local.inpmap KEY_F10 --press-at 0 --press-at 150 --hold-ms 50
-```
-
-**Try it for real**, with a time limit:
-
-```sh
-.venv/bin/inpmap run config/local.inpmap --timeout 30
-```
-
-It stops by itself after 30 seconds, or earlier with Ctrl+C. Use a time
-limit for first tests: if a mapping makes the keyboard hard to use, it
-ends on its own.
+`inpmap detect` prints each key you press as you would write it in a
+mapping (`kbd.KEY_F7`, `kbd.KEY_F7 modifiers(ctrl)`, `pad.ABS_RZ above
+0.5`); copy what you need into the file. `inpmap macro-trace` simulates
+a mapping without any device. A profile without mappings is valid: InpMap
+then starts but does nothing.
 
 ## 3. Commands
 
 General options: `--version` prints the version; `-v`/`--verbose` (before
 the command, e.g. `inpmap -v run …`) enables debug logging.
 
+`PROFILE_OR_FILE` is a profile name (`dcs` = `~/.config/inpmap/dcs.inpmap`)
+or a path (it ends in `.inpmap` or contains a `/`). Where it is in
+brackets it may be left out; then the profile `default` is used. A
+missing profile is reported with the command that creates it.
+
 ### `inpmap check`
 
 ```text
-inpmap check FILE
+inpmap check [PROFILE_OR_FILE]
 ```
 
-Validates `FILE` and prints a summary of inputs, outputs, mappings and
+Validates the configuration and prints a summary of inputs, outputs, mappings and
 variables. Warnings go to the error output; the file is still valid.
 Touches no devices.
 
@@ -139,11 +146,11 @@ buttons); they can still trigger mappings.
 ### `inpmap axes`
 
 ```text
-inpmap axes FILE [--timeout SECONDS]
+inpmap axes [PROFILE_OR_FILE] [--timeout SECONDS]
 ```
 
-Shows the sticks, analog triggers and D-pad axes of `FILE`'s input
-devices with their current values, as `above`/`below` use them
+Shows the sticks, analog triggers and D-pad axes of the configuration's
+input devices with their current values, as `above`/`below` use them
 ([configuration.md §5.5](configuration.md#55-sticks-analog-triggers-and-the-d-pad-as-triggers)),
 and whether each threshold of your mappings is on. Move the stick or
 press the trigger and watch the value; Ctrl+C stops.
@@ -156,17 +163,44 @@ pad        ABS_HAT0Y    -1.00   (-1..1)   dpad_up: below -0.5 ON
 
 The devices are only read, not grabbed. A device that the InpMap service
 holds cannot be read by anyone else; `axes` says so, and you stop the
-service for the moment (`systemctl --user stop inpmap 'inpmap@*'`).
+service for the moment (`systemctl --user stop 'inpmap@*'`).
+
+### `inpmap detect`
+
+```text
+inpmap detect [PROFILE_OR_FILE] [--timeout SECONDS]
+```
+
+Shows every key or button you press, and every stick, analog trigger or
+D-pad you move past half way, written as you would write the trigger of a
+mapping, with the input names of the profile and the modifiers you hold:
+
+```text
+kbd.KEY_F7                       2.4G Dongle
+kbd.KEY_F7 modifiers(ctrl)       2.4G Dongle
+pad.BTN_SOUTH                    Generic X-Box pad
+pad.ABS_RZ above 0.5             Generic X-Box pad
+pad.ABS_HAT0Y below -0.5         Generic X-Box pad   (D-pad up)
+KEY_VOLUMEUP                     2.4G Dongle Keyboard   (not in default; add it with: inpmap input-config default)
+```
+
+Copy the trigger into a mapping, e.g. `map kbd.KEY_F7 modifiers(ctrl) { … }`.
+Pressing a modifier alone prints nothing. Devices are only read, not
+grabbed, so your key presses also reach the terminal (they are thrown away
+when `detect` ends). Devices held by the InpMap service cannot be read;
+`detect` says so. Without a profile file, triggers are printed without
+input names. Ctrl+C stops.
 
 ### `inpmap input-config`
 
 ```text
-inpmap input-config FILE [--all]
+inpmap input-config [PROFILE_OR_FILE] [--all]
 ```
 
 Lists the input devices with keys or buttons, grouped by physical device
 (devices are listed from `/sys`, so this works before any permission
-setup), and adds `input` blocks for the ones you choose to `FILE`.
+setup), and adds `input` blocks for the ones you choose to the
+configuration.
 Built-in system buttons (power and sleep buttons, brightness keys) are
 left out; `--all` lists them too.
 
@@ -179,7 +213,7 @@ left out; `--all` lists them too.
 | `w` | write and quit |
 | `q` | quit without changes |
 
-Devices that `FILE` already uses are marked with their name (`[kbd]`).
+Devices that the file already uses are marked with their name (`[kbd]`).
 The new blocks select a device by its `/dev/input/by-id` link if it has
 one (stable when you plug it into another port), otherwise by its name if
 no other device has the same name, otherwise by its `/dev/input/by-path`
@@ -187,14 +221,17 @@ link.
 
 The file is changed as text: the new blocks are inserted after the last
 `input` block (or after `version`), everything else stays as it is. The
-previous version is kept as `FILE.bak`. Afterwards the file is checked
-like with `inpmap check`. A file that does not exist is created with a
-starter configuration. A file with syntax errors is not changed.
+previous version is kept with `.bak` appended to its name. Afterwards the
+file is checked like with `inpmap check`. A file that does not exist is
+created: the profile `example` from the example that comes with InpMap
+(§2), every other one as a starter file with a keyboard and a gamepad
+output and a commented example mapping. A file with syntax errors is not
+changed.
 
 ### `inpmap fmt`
 
 ```text
-inpmap fmt FILE... [--check] [--diff]
+inpmap fmt PROFILE_OR_FILE... [--check] [--diff]
 inpmap fmt -
 ```
 
@@ -241,7 +278,7 @@ file, so use `--diff` first if you are unsure (or keep the file in git).
    an `as` name is written.
 10. Long lines are not wrapped.
 
-All examples in this documentation and `config/example.inpmap` are
+All examples in this documentation and the example that comes with InpMap are
 formatted this way (a test checks it).
 
 ### `inpmap devices`
@@ -261,7 +298,7 @@ selected by an `input` block.
 ### `inpmap run`
 
 ```text
-inpmap run FILE [--timeout SECONDS] [--wait-for-devices]
+inpmap run [PROFILE_OR_FILE] [--timeout SECONDS] [--wait-for-devices]
 ```
 
 - `--timeout SECONDS`: stop by itself after this time.
@@ -309,7 +346,7 @@ Behaviour while running:
 ### `inpmap macro-trace`
 
 ```text
-inpmap macro-trace FILE MAPPING [options]
+inpmap macro-trace PROFILE_OR_FILE MAPPING [options]
 ```
 
 Runs one mapping on a simulated clock and prints every output with its
@@ -331,7 +368,7 @@ them).
 | `--seed N` | seed for random waits, for repeatable output |
 
 ```text
-$ inpmap macro-trace config/example.inpmap KEY_F10 --press-at 0 --press-at 150 --hold-ms 50
+$ inpmap macro-trace example KEY_F2 --press-at 0 --press-at 150 --hold-ms 50
       0.0 ms  >> input pressed
      50.0 ms  >> input released
     150.0 ms  >> input pressed
@@ -348,7 +385,7 @@ restored.
 ### `inpmap test-outputs`
 
 ```text
-inpmap test-outputs FILE [--delay S] [--hold S] [--only DEVICE] [--no-emit]
+inpmap test-outputs [PROFILE_OR_FILE] [--delay S] [--hold S] [--only DEVICE] [--no-emit]
 ```
 
 Creates the configured virtual devices, waits `--delay` seconds (default 3,
@@ -367,26 +404,34 @@ your configuration).
 ### `inpmap udev-rules`
 
 ```text
-inpmap udev-rules FILE
+inpmap udev-rules [PROFILE_OR_FILE]
 ```
 
 Prints udev rules that give your login session access to `/dev/uinput` and
-the input devices of `FILE`, which must be connected. Nothing is installed;
+the input devices of the configuration, which must be connected. Nothing is installed;
 see [installation.md](installation.md#3-device-permissions).
 
 ### `inpmap service-unit`
 
 ```text
-inpmap service-unit FILE
-inpmap service-unit --profiles DIRECTORY
+inpmap service-unit
 ```
 
-Prints a systemd user unit that runs `inpmap run --wait-for-devices FILE`
-at login, with the absolute paths of this installation. With `--profiles`
-it prints a template unit `inpmap@.service` instead: `inpmap@NAME` runs
-`DIRECTORY/NAME.inpmap`; the files found are listed in its comments with
-their check result. Nothing is installed; see
+Prints the systemd user unit `inpmap@.service` with the path of this
+installation: `inpmap@NAME` runs `inpmap run --wait-for-devices NAME`, i.e.
+the profile `NAME`. The profiles found in `~/.config/inpmap/` are listed in
+its comments with their check result. Nothing is installed; see
 [installation.md §6](installation.md#6-running-in-the-background-user-service).
+
+### `inpmap syntax-file`
+
+```text
+inpmap syntax-file kate|nano
+```
+
+Prints InpMap's syntax highlighting file for Kate/KWrite or nano; see
+[installation.md §5](installation.md#5-optional-syntax-highlighting) for
+where to put it.
 
 ### Exit codes
 
@@ -416,8 +461,9 @@ their check result. Nothing is installed; see
 | "cannot create virtual …" or "no read access to …" | set up permissions ([installation.md §3](installation.md#3-device-permissions)) |
 | "no readable device named …" | the `name` is wrong, the device is not connected, or you lack permission; check `inpmap devices`, or use `path` |
 | "N devices are named …" | use `path` with a `/dev/input/by-id` link instead of `name` |
-| "already grabbed by another program" | the InpMap service is running (`systemctl --user stop inpmap`), or another remapper (e.g. Input Remapper) uses the device |
-| the service does not run | `systemctl --user status inpmap` and `journalctl --user -u inpmap` show the reason (an invalid configuration is reported with its line number) |
+| "already grabbed by another program" | the InpMap service is running (`systemctl --user stop 'inpmap@*'`), or another remapper (e.g. Input Remapper) uses the device |
+| the service does not run | `systemctl --user status inpmap@default` and `journalctl --user -u inpmap@default` show the reason (an invalid configuration is reported with its line number) |
+| "no such configuration" | the profile does not exist yet; create it with the command shown (`inpmap input-config NAME`) |
 | a mapped key does nothing | the trigger may be on another entry of the same keyboard (check with `evtest`); a mapping without `modifiers(…)` does not fire while a modifier is held |
 | a key types the wrong character | codes are key positions: `KEY_Y` types `z` on a German layout |
 | holding a mapped key types `yyyy` | that is the desktop's key repeat for a held key; use `tap` for a single press |

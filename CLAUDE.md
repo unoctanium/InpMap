@@ -137,13 +137,13 @@ Do not run destructive commands, modify system configuration, install packages g
 
 The InpMap configuration language (`.inpmap` files, specified in `docs/configuration.md`) is the only user-facing configuration format. It replaced JSON on 2026-10-13 by decision of the user. Do not introduce another format (JSON, YAML, TOML, Lua, …) unless the product specification is explicitly changed.
 
-- Change the language only by first updating `docs/configuration.md` and getting the user's approval; keep the grammar (`src/inpmap/dsl/inpmap.lark`), the compiler, the editor syntax files (`editors/`) and the examples consistent with it.
+- Change the language only by first updating `docs/configuration.md` and getting the user's approval; keep the grammar (`src/inpmap/dsl/inpmap.lark`), the compiler, the editor syntax files (`src/inpmap/data/syntax/`) and the examples consistent with it.
 - Validate the configuration at startup before creating or grabbing input devices.
 - Reject unknown device references, unsupported event types, invalid codes, duplicate identifiers, and malformed rules with useful error messages.
 - Report every problem as `FILE:LINE:COLUMN: message`, all problems of a file together, and name the mapping where it helps.
 - Keep configuration parsing separate from execution: parser → compiler → validated data → internal models, once; avoid repeated ad hoc parsing throughout the runtime.
 - Include a language version and a clear policy for future incompatible changes.
-- Provide an example configuration (`config/example.inpmap`) that is valid against the current implementation and tested.
+- Provide an example configuration (`src/inpmap/data/example.inpmap`, shipped with the program) that is valid against the current implementation and tested.
 - Test both valid and invalid configurations.
 - Never execute arbitrary code from a configuration file; the language stays declarative.
 
@@ -284,7 +284,7 @@ Maintain:
 - User documentation for newcomers: `docs/installation.md` (setup, permissions, uninstall), `docs/usage.md` (workflow, every command and option, troubleshooting), `docs/configuration.md` (complete language reference); `docs/development.md` for contributors.
 - `project_spec.md`: product specification and milestones.
 - `CLAUDE.md`: these development instructions.
-- example configuration(s) (`config/example.inpmap`) that are tested against the current implementation.
+- example configuration(s) (`src/inpmap/data/example.inpmap`) that are tested against the current implementation.
 - installation scripts only when their behavior is clear, safe, and justified.
 
 Any installation script must:

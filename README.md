@@ -86,33 +86,34 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 
 | Document | Contents |
 |---|---|
-| [docs/installation.md](docs/installation.md) | requirements, installation, device permissions, user service, uninstall |
-| [docs/usage.md](docs/usage.md) | first configuration step by step, all commands and options, troubleshooting |
-| [docs/configuration.md](docs/configuration.md) | **reference** of the configuration language: every feature with examples |
-| [docs/development.md](docs/development.md) | for contributors: tests, architecture |
+| [docs/installation.md](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md) | requirements, installation, device permissions, user service, uninstall |
+| [docs/usage.md](https://github.com/unoctanium/InpMap/blob/main/docs/usage.md) | first configuration step by step, all commands and options, troubleshooting |
+| [docs/configuration.md](https://github.com/unoctanium/InpMap/blob/main/docs/configuration.md) | **reference** of the configuration language: every feature with examples |
+| [docs/development.md](https://github.com/unoctanium/InpMap/blob/main/docs/development.md) | for contributors: tests, architecture |
 
 ## Quick start
 
 ```sh
 sudo pacman -S --needed python python-evdev     # Arch; other distributions: see installation.md
-git clone https://github.com/unoctanium/InpMap.git && cd InpMap
+git clone https://github.com/unoctanium/InpMap.git ~/InpMap && cd ~/InpMap
 python3 -m venv --system-site-packages .venv && .venv/bin/pip install -e .
-.venv/bin/inpmap input-config config/local.inpmap   # pick your keyboard/gamepad, creates the file
-$EDITOR config/local.inpmap                         # write your mappings
-.venv/bin/inpmap check config/local.inpmap
-.venv/bin/inpmap run config/local.inpmap --timeout 30
+ln -s ~/InpMap/.venv/bin/inpmap ~/.local/bin/inpmap
+
+inpmap input-config example          # the example with your keyboard (press i, then a key)
+inpmap run example --timeout 60      # try F1-F8, Caps Lock, Insert
+inpmap input-config                  # your own profile: ~/.config/inpmap/default.inpmap
+inpmap detect                        # press keys: see how to write them in a mapping
 ```
 
 Device permissions may be needed first: see
-[installation.md §3](docs/installation.md#3-device-permissions).
+[installation.md §3](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md#3-device-permissions).
 
 ## Status
 
 Version 0.1, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
 real keyboard and gamepad: remapping, suppression of the original keys,
-passthrough, macros, modifiers and the configuration language. The user
-service is new and not yet tested on real hardware. Later: Windows, then
-GUIs.
+passthrough, macros, modifiers, axes as triggers, the configuration
+language and the user service. Later: Windows, then GUIs.
 
 ## Working with Claude Code
 
@@ -143,5 +144,5 @@ automatically at each completed step; it never pushes).
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Input Remapper (GPL-3.0) served as a
+MIT, see [LICENSE](https://github.com/unoctanium/InpMap/blob/main/LICENSE). Input Remapper (GPL-3.0) served as a
 functional reference only; InpMap contains no code from it.

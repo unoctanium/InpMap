@@ -19,6 +19,113 @@ Report back: for each test either "OK" or what you saw instead (copy the
 output or the log lines). The checklist at the end can be copied into
 your reply.
 
+## Next: migration and the new commands (added 2026-10-14)
+
+Do this section first; sections 0 to 8 below are the earlier tests (all
+passed except 5g). From here on the command is plain `inpmap` and
+configurations live in `~/.config/inpmap/`.
+
+### M1. Migrate your setup
+
+```sh
+cd ~/Projects/InpMap
+systemctl --user stop 'inpmap@*' inpmap
+systemctl --user disable inpmap@local inpmap      # whichever is enabled; errors for the other are fine
+mkdir -p ~/.local/bin
+ln -s ~/Projects/InpMap/.venv/bin/inpmap ~/.local/bin/inpmap
+inpmap --version
+mkdir -p ~/.config/inpmap
+cp config/local.inpmap ~/.config/inpmap/default.inpmap
+inpmap check
+```
+
+**Expected:** `inpmap 0.1.0`; `check` (without a name) says
+`/home/odo/.config/inpmap/default.inpmap: OK` with your mappings. (If
+`inpmap` is not found, log out and in again: `~/.local/bin` is then on the
+`PATH`.) Keep `config/local.inpmap` until everything works, then delete it.
+
+### M2. The new service unit
+
+```sh
+rm -f ~/.config/systemd/user/inpmap.service ~/.config/systemd/user/inpmap@.service
+inpmap service-unit > ~/.config/systemd/user/inpmap@.service
+head -12 ~/.config/systemd/user/inpmap@.service
+systemctl --user daemon-reload
+systemctl --user enable --now inpmap@default
+systemctl --user status inpmap@default
+```
+
+**Expected:** the comments list `default  OK`; the unit's `ExecStart` ends
+with `run --wait-for-devices %i`; status `active (running)`; your mappings
+work. Then log out and in again (this is also the open test 5g):
+**expected** `inpmap@default` is running again without doing anything.
+
+### M3. The example as first contact
+
+```sh
+systemctl --user stop 'inpmap@*'
+inpmap input-config example
+```
+
+Press `i`, then a letter key, then `w`. **Expected:** the dongle keyboard is
+selected as `kbd`; `Check: OK.`; `~/.config/inpmap/example.inpmap` starts
+with `# InpMap example` and has your `input kbd` block after `version 1`.
+
+```sh
+inpmap run example --timeout 60
+```
+
+**Expected** (in a text editor):
+
+| Key | Result |
+|---|---|
+| F1 held | `a` with key repeat (and gamepad A, see `evtest`) |
+| F2 tap / double tap / long press | `1` / `2` / `3` |
+| F3 | `q` |
+| Ctrl+F7 | copies (Ctrl+C); F7 alone does what F7 always does |
+| F8, F8 again | `Hi`, then `Hi!` |
+| Caps Lock tapped | Escape |
+| Caps Lock held + W A S D | arrow keys |
+| Insert | nothing |
+| letters | normal |
+
+F4, F5, F6 act on the virtual gamepad only (watch with `evtest` on
+"InpMap gamepad").
+
+### M4. detect
+
+```sh
+inpmap detect
+```
+
+Press F7, Ctrl+F7, a gamepad button, R2, D-pad up, and a volume key; then
+Ctrl+C. **Expected:** lines like `kbd.KEY_F7`, `kbd.KEY_F7
+modifiers(ctrl)`, `pad.BTN_SOUTH`, `pad.ABS_RZ above 0.5`,
+`pad.ABS_HAT0Y below -0.5 … (D-pad up)`, and for the volume key (on another
+part of the keyboard) `KEY_VOLUMEUP … (not in default; add it with: inpmap
+input-config default)`. Pressing Ctrl alone prints nothing. After Ctrl+C,
+the letters you typed do not appear at the shell prompt.
+
+### M5. A profile without mappings
+
+```sh
+inpmap input-config empty          # pick your keyboard, then w
+inpmap check empty
+inpmap run empty --timeout 10
+```
+
+**Expected:** `check` ends with `note: no mappings yet; InpMap starts but
+grabs nothing and does nothing`; `run` logs `no mappings in this
+configuration: nothing is grabbed or created`, the keyboard works normally,
+and `inpmap devices | grep -i inpmap` shows no InpMap devices meanwhile.
+Afterwards: `rm ~/.config/inpmap/empty.inpmap`, and start your service
+again: `systemctl --user start inpmap@default`.
+
+### M6. Syntax files (optional)
+
+Install them as in `docs/installation.md` §5 (`inpmap syntax-file kate >
+…`). **Expected:** Kate highlights `~/.config/inpmap/default.inpmap`.
+
 ## Safety first
 
 - **Emergency stop:** hold **Backspace + Escape + Enter** together on the
@@ -484,6 +591,12 @@ Afterwards start your service again, e.g. `systemctl --user start inpmap@local`.
 ## Checklist for your reply
 
 ```text
+M1 migration .....................
+M2 new service unit + login ......
+M3 example ........................
+M4 detect .........................
+M5 profile without mappings .......
+M6 syntax files ...................
 0  preparation ..................
 1  emergency stop (foreground) ...
 2  inpmap codes ..................

@@ -228,7 +228,7 @@ Verwende zunächst eine eindeutige Tastenidentifikation. Berücksichtige, dass L
 
 ### Vorgeschlagene JSON-Konfiguration (historisch)
 
-Historisch: JSON wurde durch die Konfigurationssprache ersetzt; dasselbe Mapping lautet heute `map KEY_X { hold KEY_Y; hold BTN_SOUTH }` (siehe `config/example.inpmap`).
+Historisch: JSON wurde durch die Konfigurationssprache ersetzt; dasselbe Mapping lautet heute `map KEY_X { hold KEY_Y; hold BTN_SOUTH }` (siehe `docs/configuration.md` §10).
 
 Das folgende Format ist ein erster Entwurf. Prüfe und verbessere es bei Bedarf, bevor du es verbindlich implementierst.
 

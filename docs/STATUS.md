@@ -52,7 +52,7 @@ Last updated: 2026-10-14
    config/local.inpmap was not touched (fmt --diff shows only the gesture
    alignment).
 4. **Publishing** (user decision 2026-10-14, after `inpmap fmt`), in this order:
-   a. 🔧 Proposal discussed 2026-10-14. **User decisions:** (1) profile
+   a. ✅ (implemented 2026-10-14, user test pending) Proposal discussed 2026-10-14. **User decisions:** (1) profile
       names as arguments — `inpmap run dcs` = ~/.config/inpmap/dcs.inpmap;
       an argument ending in `.inpmap` or containing `/` is a path; no
       argument = profile `default`; (2) drop the single-config unit
@@ -97,6 +97,16 @@ Last updated: 2026-10-14
       hints, "not in PROFILE" hint; `linux_input.listen` reads ungrabbed,
       reports grabbed/unreadable devices; typed characters flushed);
       tests `tests/test_detect.py`, hardware `test_listen_reports_buttons_and_axes`; 6 `detect`; 7 docs (still describe the old commands until
+      7 ✅ docs: installation.md rewritten (plain `inpmap` via a link in
+      ~/.local/bin, ~/.config/inpmap, syntax-file, profile service only),
+      usage.md (§2 "First contact": profiles, `input-config example`, run
+      example, own default profile, detect; commands with PROFILE_OR_FILE,
+      new detect/syntax-file/service-unit sections), README (quick start,
+      absolute GitHub links), development.md, CLAUDE.md §7/§12 paths,
+      project_spec.md reference. ⏳ **User test: `docs/testlist.md` section
+      "Next: migration" (M1–M6)**, which migrates the user's setup
+      (config/local.inpmap → ~/.config/inpmap/default.inpmap, new unit,
+      inpmap@default) and includes the open login test 5g.
       then) + migration section in the test list.
       Original plan text: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →

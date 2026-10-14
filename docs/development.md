@@ -28,10 +28,13 @@ they emit on, so no event reaches the desktop and real hardware is not
 touched.
 
 `tests/test_docs.py` checks that every ```` ```inpmap ```` block in
-`docs/configuration.md` is valid, that `config/example.inpmap` equals the
-complete example there, and that the example behaves like the recorded
-reference timelines in `tests/golden_example_traces.py`. Use ```` ```text ````
-for fragments that are not valid on their own.
+`docs/configuration.md` and the README is valid and formatted (`inpmap
+fmt`), and that the packaged example `src/inpmap/data/example.inpmap`
+equals the complete example there; `tests/test_example.py` checks that the
+example does what its comments say. The example of the JSON era,
+`tests/data/json_era_example.inpmap`, is still checked against the
+timelines recorded on real hardware in `tests/golden_example_traces.py`.
+Use ```` ```text ```` for fragments that are not valid on their own.
 
 ## Architecture
 
@@ -62,12 +65,16 @@ The core (everything outside `backends/`) does not import evdev; it works on
 | `input_config.py` | `inpmap input-config`: grouping, selectors, text insertion, the interactive session |
 | `backends/linux_setup.py` | sysfs device scan (no device access needed), udev rule generator |
 | `backends/linux_service.py` | systemd user unit generator (`inpmap service-unit`) |
+| `profiles.py` | configuration folder (`~/.config/inpmap/`) and profile names |
+| `data/`, `data_files.py` | files shipped with the program: the example and the editor syntax files |
+| `detect.py` | `inpmap detect`: events written as triggers |
+| `dsl/formatter.py` | `inpmap fmt` |
 | `trace.py` | `macro-trace` on a fake clock |
 | `cli.py` | commands, exit codes |
 
 Changing the configuration language: update `docs/configuration.md` first
-and get it approved (CLAUDE.md §7), then the grammar, compiler, editor files
-in `editors/` and the examples.
+and get it approved (CLAUDE.md §7), then the grammar, compiler, editor
+syntax files in `src/inpmap/data/syntax/` and the examples.
 
 ## Event code table
 
