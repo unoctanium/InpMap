@@ -79,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     input_config.add_argument("config", help="path to a new or existing .inpmap file")
+    input_config.add_argument(
+        "--all",
+        action="store_true",
+        help="also list built-in system buttons (power and sleep buttons, brightness keys)",
+    )
     input_config.set_defaults(handler=_cmd_input_config)
 
     udev_rules = commands.add_parser(
@@ -353,7 +358,9 @@ def _cmd_input_config(args: argparse.Namespace) -> int:
             return list(exc.problems)
         return []
 
-    session = Session(file, devices, say=print, identify=identify, check=check)
+    session = Session(
+        file, devices, say=print, identify=identify, check=check, show_builtin=args.all
+    )
     try:
         run_session(session, input)
     except KeyboardInterrupt:

@@ -70,6 +70,14 @@ def classify(keys: frozenset[int], abs_axes: frozenset[int], rel: frozenset[int]
     return "other"
 
 
+BUS_HOST = "0019"  # built-in platform devices: ACPI power/sleep buttons, Video Bus
+
+
+def is_builtin(device: Device) -> bool:
+    """A built-in system button device (never a keyboard or gamepad to remap)."""
+    return device.group[0] == BUS_HOST
+
+
 def group_key(bustype: str, vendor: str, product: str, uniq: str, phys: str) -> tuple[str, ...]:
     """Identity of the physical device a node belongs to.
 
@@ -304,12 +312,17 @@ class Session:
     say: Callable[[str], None]
     identify: Callable[[list[Device]], Device | None]
     check: Callable[[str], list[str]]
+    show_builtin: bool = False  # also list built-in system buttons (--all)
     numbered: list[Device] = field(default_factory=list)
     marks: dict[str, str] = field(default_factory=dict)
     selected: dict[str, str] = field(default_factory=dict)  # node -> new input name
 
     def __post_init__(self) -> None:
-        self.numbered = [d for group in group_devices(self.devices) for d in group.devices]
+        self.groups = group_devices(
+            d for d in self.devices if self.show_builtin or not is_builtin(d)
+        )
+        self.hidden = sum(1 for d in self.devices if is_builtin(d)) if not self.show_builtin else 0
+        self.numbered = [d for group in self.groups for d in group.devices]
         self.marks = self.file.mark(self.devices)
 
     # Returns False when the session ends.
@@ -338,13 +351,24 @@ class Session:
     def show(self) -> None:
         number = 0
         lines = []
-        for group in group_devices(self.devices):
-            ids = f" ({group.devices[0].vendor}:{group.devices[0].product})"
-            lines.append(f"  {group.title}{ids if group.devices[0].vendor else ''}")
+        titles = [group.title for group in self.groups]
+        for group in self.groups:
+            first = group.devices[0]
+            details = [f"{first.vendor}:{first.product}"] if first.vendor else []
+            if titles.count(group.title) > 1:
+                details.append(first.group[4])  # tells same-named devices apart
+            lines.append(f"  {group.title}" + (f" ({', '.join(details)})" if details else ""))
             for device in group.devices:
                 number += 1
                 lines.append(f"    {number:>3}  {self._mark(device):<12} {self._line(device)}")
-        self.say("\n".join(lines) if lines else "  (no input devices with keys or buttons)")
+        if not lines:
+            lines.append("  (no input devices with keys or buttons)")
+        if self.hidden:
+            lines.append(
+                f"  ({self.hidden} built-in system button device(s) such as the power "
+                "button are not listed; --all shows them)"
+            )
+        self.say("\n".join(lines))
 
     def _mark(self, device: Device) -> str:
         if device.node in self.marks:

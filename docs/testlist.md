@@ -1,5 +1,9 @@
 # Tests at the PC (2026-10-14)
 
+> **Results (2026-10-14):** all passed except 4a (built-in "Power Button"
+> listed twice; fixed: built-in system buttons are hidden unless `--all`)
+> and 5g (login, not done yet). Re-test: 4a list and 5g.
+
 Manual tests for everything built while you were away: the emergency stop,
 `inpmap input-config`, numpad keys, the user service and profiles. Do them
 in this order; each test needs the previous ones only where noted.

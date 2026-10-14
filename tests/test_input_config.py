@@ -307,3 +307,47 @@ def test_listing_marks_existing_and_selected(tmp_path, devices, monkeypatch):
     assert "  Pad (1532:1027)" in listing
     assert "      5  [kbd]        keyboard     3 keys     Dongle" in listing
     assert "      6  + kbd2       keyboard     3 keys     Dongle Keyboard" in listing
+
+
+def test_builtin_system_buttons_are_hidden_unless_asked(tmp_path, devices):
+    power = [
+        SysfsInput(
+            "event0",
+            "Power Button",
+            "0000",
+            "0001",
+            "PNP0C0C/button/input0",
+            "0019",
+            "",
+            frozenset({c("KEY_POWER")}),
+        ),
+        SysfsInput(
+            "event2",
+            "Power Button",
+            "0000",
+            "0001",
+            "LNXPWRBN/button/input0",
+            "0019",
+            "",
+            frozenset({c("KEY_POWER")}),
+        ),
+    ]
+    everything = devices + devices_for_input_config(power, {})
+    script = Script("q")
+    session = session_for(tmp_path / "n.inpmap", everything, script)
+    run_session(session, script.ask)
+    listing = script.output[1]
+    assert "Power Button" not in listing
+    assert "(2 built-in system button device(s) such as the power button are not listed" in listing
+    assert len(session.numbered) == len(devices)
+
+    script = Script("q")
+    session = session_for(tmp_path / "n.inpmap", everything, script)
+    session = Session(
+        session.file, everything, script.say, lambda c: None, lambda t: [], show_builtin=True
+    )
+    run_session(session, script.ask)
+    listing = script.output[1]
+    assert "  Power Button (0000:0001, PNP0C0C/button)" in listing
+    assert "  Power Button (0000:0001, LNXPWRBN/button)" in listing
+    assert "not listed" not in listing

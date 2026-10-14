@@ -139,12 +139,14 @@ buttons); they can still trigger mappings.
 ### `inpmap input-config`
 
 ```text
-inpmap input-config FILE
+inpmap input-config FILE [--all]
 ```
 
 Lists the input devices with keys or buttons, grouped by physical device
 (devices are listed from `/sys`, so this works before any permission
 setup), and adds `input` blocks for the ones you choose to `FILE`.
+Built-in system buttons (power and sleep buttons, brightness keys) are
+left out; `--all` lists them too.
 
 | Command | Meaning |
 |---|---|

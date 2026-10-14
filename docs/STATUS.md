@@ -68,9 +68,18 @@ device by bus/vendor/product/uniq/phys-prefix).
    `test_wait_for_key_press_identifies_the_device` (synthetic gamepad,
    ungrabbed, so no keyboard events) passed. ⏳ Interactive use with `i`
    on the real keyboard/gamepad not yet tried by the user.
-4. ⏳ **User's tests at the PC: step by step in `docs/testlist.md`** (written
-   2026-10-14; covers emergency stop, codes, numpad, input-config, user
-   service, profiles). Record the results here when they come in.
+4. ✅ **User's tests at the PC** (`docs/testlist.md`, results 2026-10-14):
+   **passed** 0 preparation, 1 emergency stop (foreground), 2 codes, 3 numpad
+   output, 4a (except the list, below), 4b, 4c input-config, 5a–5f and 5h
+   user service (install, mappings, emergency stop under the service,
+   gamepad receiver unplugged at start → waits and grabs it later, invalid
+   config → failed without restart loop, devices held), 6a–6d profiles
+   (start, switch, profile stops single service, login choice).
+   **Failed, fixed:** 4a — "Power Button" listed twice (two real ACPI
+   devices, PNP0C0C and LNXPWRBN, same name and ID). Now built-in devices
+   (bus 0x0019) are hidden in `input-config` unless `--all`; with `--all`,
+   same-named groups show their phys prefix. ⏳ **Open:** 5g login test (the
+   user's remote session would end at logout), and a re-look at the 4a list.
    Older wording: user's real-hardware test of the service (when back at the PC).
 
 ## Backlog (future features, user agreed 2026-10-14; not scheduled)
@@ -417,8 +426,8 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 460 passed, 11 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after profiles (2026-10-14) (JSON-file tests were
+- Unit tests: 461 passed, 11 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after the 4a fix (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 11 passed (2026-10-14, after input-config).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
