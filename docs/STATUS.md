@@ -31,12 +31,14 @@ Last updated: 2026-10-14
    maintainer's OK; release workflow succeeded; pypi.org/project/inpmap
    shows 0.2.0 (wheel + sdist, author, MIT, Python ≥ 3.11, project links). The release workflow tests, checks tag = version,
    builds and uploads to PyPI (a version can never be uploaded twice).
-2. ⏳ Maintainer verifies on the development machine: remove the
-   `~/.local/bin/inpmap` link to the source tree, `pipx install
-   --system-site-packages inpmap`, `inpmap --version` (0.2.0), regenerate
-   the unit (`inpmap service-unit > ~/.config/systemd/user/inpmap@.service`,
-   `daemon-reload`, restart `inpmap@default`), `inpmap run example`.
-3. Publishing steps c and d.
+2. ✅ Verified on the development machine (2026-10-14): `python-pipx`
+   installed, `pipx install --system-site-packages inpmap` → `inpmap
+   0.2.0`; unit regenerated (ExecStart points to the pipx Python),
+   `inpmap@default` active; `inpmap run example` works. On this machine the
+   plain `inpmap` command is now the PyPI release; development and tests
+   use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
+3. Next: publishing step c (AUR package; needs the maintainer's AUR
+   account), then d.
 
 ## Decisions (and why)
 
