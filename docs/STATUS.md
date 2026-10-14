@@ -14,7 +14,7 @@ Last updated: 2026-10-14
 - **Publishing (roadmap)** is in progress:
   - a. ✅ Independent of the source tree: profiles in `~/.config/inpmap/`,
     example and syntax files in the package, `inpmap@NAME` unit, `detect`.
-  - b. 🔧 Release 0.2.0 on PyPI: CI is green on Python 3.11–3.14; version,
+  - b. ✅ Release 0.2.0 on PyPI (published 2026-10-14): CI is green on Python 3.11–3.14; version,
     changelog, metadata, `MANIFEST.in` and the release workflow are ready;
     the PyPI "pending publisher" (project `inpmap`, workflow `release.yml`,
     environment `pypi`) and the GitHub environment `pypi` are set up.
@@ -27,12 +27,15 @@ Last updated: 2026-10-14
 
 ## Next steps
 
-1. ✅ `main` pushed (5a500af, cleaned repository); CI green on 3.11–3.14.
-   Next — **only with the maintainer's explicit OK** — push the tag
-   `v0.2.0`. The release workflow tests, checks tag = version,
+1. ✅ **InpMap 0.2.0 released** (2026-10-14): tag `v0.2.0` pushed with the
+   maintainer's OK; release workflow succeeded; pypi.org/project/inpmap
+   shows 0.2.0 (wheel + sdist, author, MIT, Python ≥ 3.11, project links). The release workflow tests, checks tag = version,
    builds and uploads to PyPI (a version can never be uploaded twice).
-2. Verify on a real machine: `pipx install --system-site-packages inpmap`,
-   then `inpmap --version`, `inpmap input-config example`, the service.
+2. ⏳ Maintainer verifies on the development machine: remove the
+   `~/.local/bin/inpmap` link to the source tree, `pipx install
+   --system-site-packages inpmap`, `inpmap --version` (0.2.0), regenerate
+   the unit (`inpmap service-unit > ~/.config/systemd/user/inpmap@.service`,
+   `daemon-reload`, restart `inpmap@default`), `inpmap run example`.
 3. Publishing steps c and d.
 
 ## Decisions (and why)
