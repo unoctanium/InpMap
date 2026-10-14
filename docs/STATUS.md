@@ -144,6 +144,20 @@ Last updated: 2026-10-14
 
 ## Open questions
 
+- **Under investigation (2026-10-14): Razer Raiju V3 Pro keyboard
+  interface (`-if01-event-kbd`, onboard profile sending Enter or F15).**
+  Observed by the maintainer: after `inpmap detect` or `inpmap run` (profile
+  with only that input) has exited, the key no longer reaches the desktop;
+  the next `inpmap detect` start produces endless Enter (stuck press with
+  key repeat) until the button is pressed again, sometimes only a
+  controller power cycle helps. While `inpmap run` ran, the mapping had no
+  visible effect either. `evtest` on the same device (without `--grab`)
+  behaves normally. USB autosuspend is off for the device. Common to both
+  InpMap commands: EVIOCGRAB (detect grabs and releases each device once to
+  check for other grabs). Next test asked: `evtest --grab` on the device,
+  then Ctrl+C, then the key in Kate — distinguishes a kernel/driver
+  reaction to grabbing from an InpMap bug.
+
 - What to do while the AUR step is blocked (maintainer's choice). Step d
   was proposed (d1 issue templates, `CONTRIBUTING.md`, topics; d2 demo
   GIF; d3 call for testers; d4 announcement drafts); waiting for the
