@@ -86,10 +86,14 @@ settings { … }                 # optional
 let NAME = VALUE               # variables, optional
 input NAME { … }               # one or more physical input devices
 output NAME { … }              # one or more virtual output devices
-map TRIGGER [as NAME] { … }    # one or more mappings
+map TRIGGER [as NAME] { … }    # mappings
 layer NAME { map … }           # layers, optional (§5.6)
 block NAME { … }               # reusable statements, optional (§6.11)
 ```
+
+A file without any mapping is valid. InpMap then grabs no device and
+creates no virtual device: it starts and does nothing until you add
+mappings (`inpmap check` notes this).
 
 `version` comes first; everything else may be in any order and can refer
 to things defined further down.
@@ -123,8 +127,9 @@ pressing a key) and writes these blocks for you
 ([usage.md](usage.md#inpmap-input-config)); `inpmap devices` lists the
 names and paths.
 
-Every input must be used: a mapping names it (`kbd.KEY_X`), or at least
-one mapping has no device name and so applies to every input (§5.1).
+Once the file has mappings, every input must be used: a mapping names it
+(`kbd.KEY_X`), or at least one mapping has no device name and so applies
+to every input (§5.1).
 Exception: when any mapping requires [modifiers](#52-modifiers), an input
 may be configured only to provide modifiers (e.g. a keyboard whose Ctrl is
 combined with gamepad buttons).
@@ -151,7 +156,7 @@ output gamepad { type = gamepad }
   `InpMap ` followed by the output's name (`InpMap gamepad`). At most 79
   bytes, unique.
 
-Every declared output must be used by a mapping. You may declare several
+Once the file has mappings, every declared output must be used by one. You may declare several
 outputs of the same type, e.g. two gamepads for two players.
 
 ### 3.3 What each output can emit

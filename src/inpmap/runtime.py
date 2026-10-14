@@ -94,6 +94,7 @@ class Runtime:
         reconnect_interval: float = 1.0,
         wait_for_inputs: bool = False,
         clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self._config = config
         self._inputs = input_backend
@@ -102,6 +103,7 @@ class Runtime:
         self._reconnect_interval = reconnect_interval
         self._wait_for_inputs = wait_for_inputs
         self._clock = clock
+        self._sleep = sleep
         self._slots: list[_Slot] = []
         self._engine: MappingEngine | None = None
         self._all_grabbed_announced = False
@@ -118,6 +120,8 @@ class Runtime:
         cleanup), and CleanupError if shutdown itself failed.
         """
         deadline = None if timeout is None else self._clock() + timeout
+        if not self._config.mappings:
+            return self._idle(stop, deadline)
         self._outputs.open()
         try:
             reason = self._start_and_loop(stop, deadline)
@@ -128,6 +132,17 @@ class Runtime:
         log.info("stopping (%s)", reason.value)
         if self._shutdown():
             raise CleanupError("shutdown completed with errors (see log)")
+        return reason
+
+    def _idle(self, stop: StopFlag, deadline: float | None) -> StopReason:
+        """No mappings: grab nothing, create nothing, just wait to be stopped."""
+        log.info("no mappings in this configuration: nothing is grabbed or created")
+        while (reason := self._should_stop(stop, deadline)) is None:
+            wait = self._poll_interval
+            if deadline is not None:
+                wait = max(0.0, min(wait, deadline - self._clock()))
+            self._sleep(wait)
+        log.info("stopping (%s)", reason.value)
         return reason
 
     def _start_and_loop(self, stop: StopFlag, deadline: float | None) -> StopReason:

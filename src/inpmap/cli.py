@@ -614,6 +614,8 @@ def _cmd_check(args: argparse.Namespace) -> int:
         return EXIT_CONFIG_ERROR
     print(f"{args.config}: OK (version {config.version})")
     print(describe_config(config))
+    if not config.mappings:
+        print("note: no mappings yet; InpMap starts but grabs nothing and does nothing")
     return EXIT_OK
 
 
@@ -623,6 +625,9 @@ def _cmd_test_outputs(args: argparse.Namespace) -> int:
     except ConfigError as exc:
         print(exc, file=sys.stderr)
         return EXIT_CONFIG_ERROR
+    if not config.mappings:
+        print("no mappings yet: there are no outputs to test")
+        return EXIT_OK
     selected = args.only or list(config.outputs)
     unknown = [device_id for device_id in selected if device_id not in config.outputs]
     if unknown:

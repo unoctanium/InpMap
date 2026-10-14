@@ -307,3 +307,10 @@ def test_fmt_stdin_to_stdout(monkeypatch, capsys):
     monkeypatch.setattr("sys.stdin", io.StringIO(UNFORMATTED))
     assert main(["fmt", "-"]) == EXIT_OK
     assert capsys.readouterr().out == FORMATTED
+
+
+def test_check_notes_a_configuration_without_mappings(tmp_path, capsys):
+    path = tmp_path / "empty.inpmap"
+    path.write_text('version 1\ninput kbd { name = "K" }\noutput keyboard { type = keyboard }\n')
+    assert main(["check", str(path)]) == EXIT_OK
+    assert "note: no mappings yet" in capsys.readouterr().out

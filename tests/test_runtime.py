@@ -736,3 +736,15 @@ def test_unreachable_named_threshold_is_an_error():
     runtime = Runtime(config, inputs, h.outputs, clock=h.clock)
     with pytest.raises(InputError, match="ABS_RZ below -0.5 can never fire"):
         runtime.run(h.stop)
+
+
+def test_without_mappings_nothing_is_opened_or_created():
+    config = compile_text(
+        'version 1\ninput kbd { name = "Kbd" }\noutput vkbd { type = keyboard }\n', "t.inpmap"
+    ).config
+    h = Harness()
+    slept = []
+    runtime = Runtime(config, h.inputs, h.outputs, clock=h.clock, sleep=slept.append)
+    assert runtime.run(h.stop, timeout=0.5) is StopReason.TIMEOUT
+    assert h.inputs.open_attempts == {} and h.outputs.created == {}
+    assert slept and all(0 <= s <= 0.1 for s in slept)

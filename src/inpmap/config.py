@@ -330,8 +330,7 @@ class _Validator:
         if not isinstance(value, list):
             self.error("mappings", f"must be a JSON array, got {_json_type(value)}")
             return ()
-        if not value:
-            self.error("mappings", "must contain at least one mapping")
+        # No mappings is valid: InpMap then stays idle (docs/configuration.md §2).
         rules: list[MappingRule] = []
         seen_ids: set[str] = set()
         trigger_owner: dict[tuple, str] = {}
@@ -746,8 +745,9 @@ class _Validator:
         mappings: tuple[MappingRule, ...],
     ) -> None:
         # Only meaningful when all mappings parsed; otherwise a device may
-        # look unused merely because its mapping had an error.
-        if self.problems:
+        # look unused merely because its mapping had an error. Without any
+        # mapping the configuration is idle and nothing is opened anyway.
+        if self.problems or not mappings:
             return
         used_inputs = {rule.trigger.device for rule in mappings}
         if None in used_inputs or any(rule.trigger.modifiers for rule in mappings):

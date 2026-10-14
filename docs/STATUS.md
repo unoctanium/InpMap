@@ -76,7 +76,11 @@ Last updated: 2026-10-14
       with: inpmap input-config NAME", input-config creates the folder);
       3 ✅ `service-unit` prints only `inpmap@.service` (ExecStart … run
       --wait-for-devices %i; `--profiles` and the single-config unit
-      removed; verified with systemd-analyze); 2 idle without mappings;
+      removed; verified with systemd-analyze); 2 ✅ idle without mappings
+      (validator: no 'at least one mapping', unused-device check only with
+      mappings; `Runtime._idle` opens/creates nothing; `check` note;
+      test-outputs says nothing to test; reference §2/§3.1/§3.2 updated;
+      deliberate test change: test_empty_mappings_rejected → valid);
       4 example + syntax files as package data, `syntax-file`; 5 new
       example; 6 `detect`; 7 docs (still describe the old commands until
       then) + migration section in the test list.
@@ -563,7 +567,7 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 535 passed, 13 `hardware` deselected (`.venv/bin/python -m
+- Unit tests: 537 passed, 13 `hardware` deselected (`.venv/bin/python -m
   pytest`), ruff clean — after inpmap fmt (2026-10-14) (JSON-file tests were
   dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the

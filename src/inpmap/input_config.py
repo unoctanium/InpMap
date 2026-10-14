@@ -437,10 +437,14 @@ class Session:
         if backup:
             self.say(f"The previous version is in {backup}.")
         problems = self.check(text)
-        if not problems:
+        if self.file.text is None:
+            self.say(
+                "Check: OK. There are no mappings yet: add them, then run `inpmap check`."
+                if not problems
+                else "Now add your mappings, then run `inpmap check` on the file."
+            )
+        elif not problems:
             self.say("Check: OK.")
-        elif self.file.text is None:
-            self.say("Now add your mappings, then run `inpmap check` on the file.")
         else:
             self.say("`inpmap check` reports:\n" + "\n".join(f"  {p}" for p in problems))
         return True

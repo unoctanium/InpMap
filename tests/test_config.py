@@ -148,10 +148,13 @@ def test_unknown_key_in_mapping():
     assert "unknown key 'output'" in problems_of(data)
 
 
-def test_empty_mappings_rejected():
+def test_empty_mappings_are_valid_and_devices_count_as_unused_only_with_mappings():
+    # User decision 2026-10-14: a configuration without mappings is valid and
+    # idle (formerly "must contain at least one mapping").
     data = valid()
     data["mappings"] = []
-    assert "at least one mapping" in problems_of(data)
+    config = parse_config(data)
+    assert config.mappings == () and config.inputs and config.outputs
 
 
 def test_all_problems_reported_together():
