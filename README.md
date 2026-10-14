@@ -97,7 +97,11 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 ## Quick start
 
 ```sh
-sudo pacman -S --needed python python-evdev python-pipx   # Arch; other distributions: see installation.md
+# Arch, CachyOS, Manjaro: build and install the package (until it is in the AUR)
+sudo pacman -S --needed base-devel git
+git clone https://github.com/unoctanium/InpMap.git ~/InpMap && cd ~/InpMap/packaging/aur && makepkg -sri
+
+# other distributions: from PyPI (see installation.md for the system packages)
 pipx install --system-site-packages inpmap
 
 inpmap input-config example          # the example with your keyboard (press i, then a key)
@@ -109,7 +113,7 @@ inpmap detect                        # press keys: see how to write them in a ma
 Device permissions may be needed first: see
 [installation.md §3](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md#3-device-permissions).
 To work on InpMap itself, install it from the source code
-([installation.md §2b](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md#2b-from-the-source-code-for-development)).
+([installation.md §2c](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md#2c-from-the-source-code-for-development)).
 
 ## Status
 

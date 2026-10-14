@@ -47,7 +47,11 @@ Last updated: 2026-10-14
     unit; `/usr/bin/inpmap` 0.2.0; packaged unit used by
     `inpmap@default` (active); Kate highlights via the system file;
     `pacman -R` with the removal message; reinstalled — the development
-    machine now runs the locally built AUR package. ⏳ **Open:** **upload to the AUR once account
+    machine now runs the locally built AUR package. Interim instructions
+    for Arch/CachyOS/Manjaro (installation.md §2a, README): clone, `cd
+    packaging/aur`, `makepkg -sri` (order checked in /usr/bin/makepkg:
+    with -s -r -i only make/check deps are removed, runtime deps stay);
+    PyPI became §2b, source §2c. ⏳ **Open:** **upload to the AUR once account
     registration reopens** (it was closed on 2026-10-14: HTTP 503, "paused
     while we deal with a wave of automated account creation"; watch
     aur-general / Arch news), following packaging/aur/README.md; then

@@ -13,13 +13,16 @@ Your configurations live in `~/.config/inpmap/`.
 
 ## 1. System packages
 
+On **Arch Linux, CachyOS or Manjaro**, skip this step and use the package
+(step 2a): it installs everything it needs.
+
 | Distribution | Command | Tested |
 |---|---|---|
 | Arch, CachyOS, Manjaro | `sudo pacman -S --needed python python-evdev python-pipx evtest` | yes (CachyOS) |
 | Debian, Ubuntu | `sudo apt install python3 python3-evdev pipx evtest` | not yet |
 | Fedora | `sudo dnf install python3 python3-evdev pipx evtest` | not yet |
 
-For installing from the source code (step 2b) add `git`, and on Debian or
+For installing from the source code (step 2c) add `git`, and on Debian or
 Ubuntu `python3-venv`.
 
 `evtest` is optional; it shows the events of any input device and is
@@ -32,7 +35,35 @@ environment in step 2 **without** `--system-site-packages`.
 
 ## 2. InpMap
 
-### 2a. From PyPI (recommended)
+### 2a. Arch Linux, CachyOS, Manjaro: as a package (recommended)
+
+InpMap will be in the AUR (`paru -S inpmap`) as soon as new AUR accounts
+can be registered again. Until then, build the same package from this
+repository:
+
+```sh
+sudo pacman -S --needed base-devel git
+git clone https://github.com/unoctanium/InpMap.git ~/InpMap
+cd ~/InpMap/packaging/aur
+makepkg -sri
+```
+
+`makepkg` downloads InpMap 0.2.0 from PyPI, installs the build tools and
+dependencies with pacman (`-s`), builds and tests the package, installs it
+(`-i`) and removes the build-only tools again (`-r`). The package contains:
+
+- the command `/usr/bin/inpmap`;
+- the user service unit (step 6 is then just `systemctl --user enable`);
+- access to `/dev/uinput` for the logged-in user (step 3 then only needs
+  the rules for your own devices; the message after installing shows the
+  commands);
+- the Kate and nano syntax files (step 5 is not needed).
+
+To update: `cd ~/InpMap && git pull && cd packaging/aur && makepkg -sri`.
+To remove: `sudo pacman -R inpmap` (your profiles in `~/.config/inpmap/`
+stay).
+
+### 2b. From PyPI (other distributions)
 
 ```sh
 pipx install --system-site-packages inpmap
@@ -45,7 +76,7 @@ if it is not found). `--system-site-packages` lets it use the evdev package
 of your distribution instead of compiling it. Update with
 `pipx upgrade inpmap`, remove with `pipx uninstall inpmap`.
 
-### 2b. From the source code (for development)
+### 2c. From the source code (for development)
 
 ```sh
 git clone https://github.com/unoctanium/InpMap.git ~/InpMap
@@ -139,6 +170,11 @@ Run the commands again after updating InpMap.
 
 ## 6. Running in the background (user service)
 
+With the package (step 2a) the unit is already installed: skip "Install"
+and only run the `enable` command below. (A unit file of your own in
+`~/.config/systemd/user/inpmap@.service` would take precedence over the
+packaged one; remove it if you created one earlier.)
+
 Once a configuration works with `inpmap run`, let systemd start it
 automatically whenever you log in. InpMap runs as a **user service**
 (`systemctl --user`): as your user, without root, with the device access
@@ -204,6 +240,10 @@ systemctl --user daemon-reload
 ```
 
 ## Uninstall
+
+With the package (step 2a): `systemctl --user disable --now 'inpmap@NAME'`
+for each enabled profile, then `sudo pacman -R inpmap`; also step 2 below
+if you created device rules, and step 6 for your profiles. Otherwise:
 
 1. If you installed the user service: remove it as described in §6.
 2. If you installed the udev rules:
