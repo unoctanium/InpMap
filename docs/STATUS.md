@@ -73,9 +73,11 @@ Last updated: 2026-10-14
    plain `inpmap` command was the PyPI release; since the AUR test it is
    the locally built package (`/usr/bin/inpmap`). Development and tests
    always use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
-3. Step c: maintainer's test build of the AUR package; the upload waits
-   until AUR registration reopens. Meanwhile the maintainer decides what
-   comes next (e.g. step d).
+3. Step c: done except the AUR upload, which waits until AUR registration
+   reopens.
+4. **Next: waiting for the maintainer's instructions.** Proposed: step d
+   (see "Open questions"). Two backlog items were added on 2026-10-14
+   (udev device notifications; guided device permissions) — not scheduled.
 
 ## Decisions (and why)
 
@@ -158,4 +160,8 @@ Last updated: 2026-10-14
   layers; blocks; `fmt`; documentation for newcomers; GitHub repository;
   publishing step a (profiles in `~/.config/inpmap`, packaged example and
   syntax files, `detect`, idle configurations); release preparation and
-  CI; repository cleaned for publication.
+  CI; repository cleaned for publication; release 0.2.0 on PyPI; AUR
+  package prepared, test-built and installed locally (upload blocked by
+  closed AUR registration); interim Arch instructions; Input Remapper's
+  autoload and root-service design compared with InpMap's user service
+  (kept), two backlog items added. All work pushed.
