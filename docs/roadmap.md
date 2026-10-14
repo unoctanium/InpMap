@@ -122,6 +122,10 @@ Not scheduled; candidates for future versions:
 - notice configured devices that are plugged in through udev's device
   notifications instead of checking every second (picked up at once, no
   work while idle; possible without root);
+- device permissions guided where they are needed: `input-config` and `run`
+  notice a device without access and print the exact command that grants
+  it (the udev rule for that one device, or the `input` group with its
+  risk stated), instead of leaving the user to find installation.md;
 - a system-wide service (without a logged-in user).
 
 Not planned: grabbing all keyboards automatically, and typing text by

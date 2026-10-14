@@ -105,6 +105,7 @@ Last updated: 2026-10-14
 | MIT license; PyPI via trusted publishing; `pipx install --system-site-packages` | no stored tokens; uses the distribution's evdev instead of compiling it |
 | Repository cleaned for publication (2026-10-14): the German AI-assistant brief `project_spec.md` replaced by `docs/roadmap.md`; the personal test protocol replaced by `docs/manual-tests.md`; `docs/macros-research.md` kept only locally (git-ignored); no personal data in this file | a public repository and the PyPI page should show product documentation, not internal working notes |
 | No udev RUN hook like Input Remapper's autoload; replugged devices are found by reopening every second (udev notifications are in the backlog) | a udev rule runs as root and cannot reach a user service; polling costs little and works without root |
+| Keep the user service rather than a root service like Input Remapper's (compared again 2026-10-14); the gaps (device permission setup, hotplug delay) go to the backlog as guided permissions and udev notifications | no root process parses user-editable files; fewer parts; one service per user |
 | Auto-commit at each finished, test-passing step; never push without the maintainer's OK | `CLAUDE.md` §13, §16 |
 
 ## Development environment (verified)
