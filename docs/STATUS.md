@@ -131,7 +131,12 @@ Last updated: 2026-10-14
       release procedure; README quick start with pipx. Only Python 3.14 is
       installed locally; ruff (target py311) found no too-new syntax and a
       grep found no 3.12+ library calls — CI will run 3.11–3.13 for real.
-      Workflow YAML not validated locally (no yaml module).
+      Workflow YAML accepted by GitHub (both workflows active). First CI run
+      (49e34b8) failed in pytest on all four versions: the cross-check of
+      `_linux_codes.py` against evdev failed because evdev on the runner is
+      built against older Ubuntu kernel headers; test now accepts codes
+      evdev does not know, still fails on different values (ad7172a).
+      **CI run for ad7172a: ✅ success on Python 3.11, 3.12, 3.13, 3.14.**
       ⏳ **Waiting for the user:** (1) on pypi.org: create an account and a
       "pending publisher" (project inpmap, owner unoctanium, repo InpMap,
       workflow release.yml, environment pypi); (2) on GitHub, repo
