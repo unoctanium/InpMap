@@ -27,8 +27,9 @@ Last updated: 2026-10-14
 
 ## Next steps
 
-1. Push `main`, check CI, then — **only with the maintainer's explicit OK** —
-   push the tag `v0.2.0`. The release workflow tests, checks tag = version,
+1. ✅ `main` pushed (5a500af, cleaned repository); CI green on 3.11–3.14.
+   Next — **only with the maintainer's explicit OK** — push the tag
+   `v0.2.0`. The release workflow tests, checks tag = version,
    builds and uploads to PyPI (a version can never be uploaded twice).
 2. Verify on a real machine: `pipx install --system-site-packages inpmap`,
    then `inpmap --version`, `inpmap input-config example`, the service.
