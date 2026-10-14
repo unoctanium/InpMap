@@ -154,6 +154,11 @@ device by bus/vendor/product/uniq/phys-prefix).
   aliases, sent by keyboard/gamepad/none) + gamepad axes; docs usage.md,
   configuration.md §12.1; tests in test_codes.py, test_cli.py.
 - ✅ Analog triggers, sticks and D-pad as buttons — done 2026-10-14 (see above).
+- Per-side modifier setting (user 2026-10-14): e.g.
+  `settings { modifiers = ctrl, shift, left_alt, meta }` keeps Left Alt a
+  modifier and makes Right Alt a normal, mappable key (today the setting
+  works per group: leaving out `alt` frees both Alt keys). Language change
+  → spec first. Note: on German layouts Right Alt is AltGr.
 - ~~Layout-aware output by character~~ — not wanted: the user prefers key
   codes (2026-10-14; e.g. numpad keys `KEY_KP*` for DCS World / flight
   simulators, which work already and are now listed in the reference).
