@@ -98,6 +98,12 @@ A release:
    trusted publishing (configured once on pypi.org for this repository,
    workflow `release.yml`, environment `pypi`; no token is stored).
 
+## Packaging
+
+`packaging/aur/` holds the Arch Linux (AUR) package: `PKGBUILD`,
+`.SRCINFO` and the packaged user unit; its README describes the test build,
+publishing and updates for a new version.
+
 ## Working with Claude Code
 
 InpMap is developed with Claude Code. The rules are in `CLAUDE.md`; the

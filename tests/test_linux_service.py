@@ -51,3 +51,19 @@ def test_python_path_must_be_absolute_and_plain():
         render_unit("python3", DIR, [])
     with pytest.raises(UnitError, match="cannot express"):
         render_unit('/odd "dir"/python3', DIR, [])
+
+
+def test_packaged_unit_matches_the_generated_one():
+    """packaging/aur/inpmap@.service (for /usr/bin/inpmap) must not drift."""
+    from pathlib import Path
+
+    packaged = Path(__file__).resolve().parent.parent / "packaging" / "aur" / "inpmap@.service"
+    if not packaged.exists():  # e.g. tests run from the source distribution
+        pytest.skip("packaging/ is not part of the source distribution")
+
+    def settings(text):
+        lines = [line for line in text.splitlines() if line and not line.startswith("#")]
+        return [line for line in lines if not line.startswith("ExecStart=")]
+
+    assert settings(packaged.read_text()) == settings(render_unit(PY, DIR, []))
+    assert "ExecStart=/usr/bin/inpmap run --wait-for-devices %i" in packaged.read_text()

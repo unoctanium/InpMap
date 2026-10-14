@@ -13,3 +13,9 @@ config/local*
 
 # design notes kept locally, not published
 docs/macros-research.md
+
+# makepkg build artifacts
+packaging/aur/src/
+packaging/aur/pkg/
+packaging/aur/*.tar.gz
+packaging/aur/*.pkg.tar.*

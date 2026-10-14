@@ -1,0 +1,40 @@
+# Maintainer: unoctanium
+
+pkgname=inpmap
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="Configuration-driven input remapper: one key can drive several virtual devices"
+arch=('any')
+url="https://github.com/unoctanium/InpMap"
+license=('MIT')
+depends=('python' 'python-evdev' 'python-lark-parser')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+checkdepends=('python-pytest')
+optdepends=('evtest: show the events of input devices')
+source=("https://files.pythonhosted.org/packages/source/i/$pkgname/$pkgname-$pkgver.tar.gz"
+        "inpmap@.service")
+sha256sums=('e3b070d2fb33259458276fb993b5f33ee42c1d05c571aff4fedc94c6e6fb0968'
+            '145e4c37729992ff6817f205590b6705066ba524361a67768ffb3565357d48ce')
+
+build() {
+  cd "$pkgname-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  # Unit tests only; the hardware tests (-m hardware) need /dev/uinput.
+  PYTHONPATH="$PWD/src" python -m pytest -q -p no:cacheprovider
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/inpmap@.service" "$pkgdir/usr/lib/systemd/user/inpmap@.service"
+  install -Dm644 src/inpmap/data/syntax/inpmap.xml \
+    "$pkgdir/usr/share/org.kde.syntax-highlighting/syntax/inpmap.xml"
+  install -Dm644 src/inpmap/data/syntax/inpmap.nanorc "$pkgdir/usr/share/nano/inpmap.nanorc"
+  install -Dm644 README.md CHANGELOG.md -t "$pkgdir/usr/share/doc/$pkgname"
+  install -Dm644 docs/*.md -t "$pkgdir/usr/share/doc/$pkgname/docs"
+}

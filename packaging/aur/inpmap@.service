@@ -1,0 +1,24 @@
+# InpMap user service (installed by the inpmap package).
+# Instance NAME runs the profile ~/.config/inpmap/NAME.inpmap while you are
+# logged in, as your user (no root). Run one profile at a time.
+#
+# Use:     systemctl --user enable --now inpmap@default.service
+# Switch:  systemctl --user stop 'inpmap@*' && systemctl --user start inpmap@dcs.service
+# Logs:    journalctl --user -u inpmap@default.service
+
+[Unit]
+Description=InpMap input remapper, profile %i
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/inpmap run --wait-for-devices %i
+Restart=on-failure
+RestartSec=3
+RestartPreventExitStatus=1 2
+Environment=PYTHONUNBUFFERED=1
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

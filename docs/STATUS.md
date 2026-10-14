@@ -20,16 +20,24 @@ Last updated: 2026-10-14
     environment `pypi`) and the GitHub environment `pypi` are set up.
     Before tagging, the repository was cleaned for publication (see the
     decisions of 2026-10-14 below).
-  - c. 🔧 **Work in progress, blocked (2026-10-14):** AUR package `inpmap`
-    needs the maintainer's AUR account, but AUR account registration is
-    temporarily closed (aur.archlinux.org/register: HTTP 503, "paused while
-    we deal with a wave of automated account creation"; no manual queue;
-    updates on aur-general and the Arch news feed). Resume when
-    registration reopens; nothing prepared yet (planned: `packaging/aur/`
-    with PKGBUILD from the PyPI release, depends python, python-evdev,
-    python-lark-parser; installs program, user unit, syntax files,
-    license; `.SRCINFO` via `makepkg --printsrcinfo`; test build with
-    makepkg).
+  - c. 🔧 **AUR package prepared; upload waits for AUR registration**
+    (2026-10-14): `packaging/aur/` — `PKGBUILD` (from the PyPI sdist
+    0.2.0, sha256 checked; depends python, python-evdev,
+    python-lark-parser; check() runs the unit tests; installs the program,
+    `/usr/lib/systemd/user/inpmap@.service` with `/usr/bin/inpmap`, Kate
+    syntax file in `/usr/share/org.kde.syntax-highlighting/syntax/` —
+    lookup via XDG_DATA_DIRS verified with ksyntaxhighlighter6 —, nano
+    file in `/usr/share/nano/`, license, docs), `.SRCINFO` (generated),
+    README (test build, first upload, updates). Verified: `makepkg
+    --printsrcinfo`, `makepkg --verifysource` (download + both checksums
+    pass), the unit with `systemd-analyze verify`, a drift test against
+    `inpmap service-unit`. ⏳ **Open:** (1) test build `makepkg -f` by the
+    maintainer (needs `python-build python-installer python-pytest
+    python-lark-parser`, sudo); (2) **upload to the AUR once account
+    registration reopens** (it was closed on 2026-10-14: HTTP 503, "paused
+    while we deal with a wave of automated account creation"; watch
+    aur-general / Arch news), following packaging/aur/README.md; then
+    document `paru -S inpmap` in installation.md and the README.
   - d. Demo (GIF or asciinema), a few external testers, then announcements
     (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum, Show HN),
     respecting each community's self-promotion rules.
@@ -46,8 +54,9 @@ Last updated: 2026-10-14
    `inpmap@default` active; `inpmap run example` works. On this machine the
    plain `inpmap` command is now the PyPI release; development and tests
    use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
-3. Publishing step c (AUR) is blocked until AUR registration reopens;
-   the maintainer decides what comes next meanwhile (e.g. step d).
+3. Step c: maintainer's test build of the AUR package; the upload waits
+   until AUR registration reopens. Meanwhile the maintainer decides what
+   comes next (e.g. step d).
 
 ## Decisions (and why)
 
@@ -91,7 +100,7 @@ Last updated: 2026-10-14
 
 ## Verification
 
-- Unit tests: 555 passed (`.venv/bin/python -m pytest`); ruff clean.
+- Unit tests: 556 passed (`.venv/bin/python -m pytest`); ruff clean.
 - Hardware tests (synthetic uinput devices, `-m hardware`): 14; all passed
   in their last runs on the development machine.
 - CI: green on Python 3.11, 3.12, 3.13, 3.14.
