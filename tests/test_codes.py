@@ -36,12 +36,16 @@ def test_non_gamepad_buttons(name):
 def test_table_matches_installed_evdev():
     """The checked-in table must agree with the Linux backend library."""
     ecodes = pytest.importorskip("evdev.ecodes")
+    # Names missing in evdev are fine: an evdev built against older kernel
+    # headers (e.g. on the CI runner) simply does not know the newest keys.
+    # A name with a *different* value would be a real error.
     mismatches = {
-        name: (value, getattr(ecodes, name, None))
+        name: (value, getattr(ecodes, name))
         for name in codes.all_names()
-        if getattr(ecodes, name, None) != (value := codes.code_from_name(name))
+        if hasattr(ecodes, name) and getattr(ecodes, name) != (value := codes.code_from_name(name))
     }
     assert mismatches == {}
+    assert hasattr(ecodes, "KEY_X") and hasattr(ecodes, "BTN_SOUTH")  # the check ran
 
 
 def test_catalog_lists_each_code_once_with_aliases_and_sender():
