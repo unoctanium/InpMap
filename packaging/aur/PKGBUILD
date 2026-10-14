@@ -2,7 +2,7 @@
 
 pkgname=inpmap
 pkgver=0.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Configuration-driven input remapper: one key can drive several virtual devices"
 arch=('any')
 url="https://github.com/unoctanium/InpMap"
@@ -11,10 +11,13 @@ depends=('python' 'python-evdev' 'python-lark-parser')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 checkdepends=('python-pytest')
 optdepends=('evtest: show the events of input devices')
+install=inpmap.install
 source=("https://files.pythonhosted.org/packages/source/i/$pkgname/$pkgname-$pkgver.tar.gz"
-        "inpmap@.service")
+        "inpmap@.service"
+        "70-inpmap-uinput.rules")
 sha256sums=('e3b070d2fb33259458276fb993b5f33ee42c1d05c571aff4fedc94c6e6fb0968'
-            '145e4c37729992ff6817f205590b6705066ba524361a67768ffb3565357d48ce')
+            '145e4c37729992ff6817f205590b6705066ba524361a67768ffb3565357d48ce'
+            '06669ec9a93c7870e2ae8f76c54ef1dbff6b6e7a85c1d1627090e563c235a2a9')
 
 build() {
   cd "$pkgname-$pkgver"
@@ -32,6 +35,7 @@ package() {
   python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 "$srcdir/inpmap@.service" "$pkgdir/usr/lib/systemd/user/inpmap@.service"
+  install -Dm644 "$srcdir/70-inpmap-uinput.rules" "$pkgdir/usr/lib/udev/rules.d/70-inpmap-uinput.rules"
   install -Dm644 src/inpmap/data/syntax/inpmap.xml \
     "$pkgdir/usr/share/org.kde.syntax-highlighting/syntax/inpmap.xml"
   install -Dm644 src/inpmap/data/syntax/inpmap.nanorc "$pkgdir/usr/share/nano/inpmap.nanorc"

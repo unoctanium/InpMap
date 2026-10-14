@@ -96,3 +96,18 @@ def test_render_rules_contains_uinput_and_inputs_and_instructions():
     # every non-comment line is a rule
     rules = [line for line in text.splitlines() if line and not line.startswith("#")]
     assert len(rules) == 2
+
+
+def test_packaged_uinput_rule_matches_the_generated_one():
+    """packaging/aur/70-inpmap-uinput.rules grants the same as `inpmap udev-rules`."""
+    from pathlib import Path
+
+    packaged = (
+        Path(__file__).resolve().parent.parent / "packaging" / "aur" / "70-inpmap-uinput.rules"
+    )
+    if not packaged.exists():  # e.g. tests run from the source distribution
+        pytest.skip("packaging/ is not part of the source distribution")
+    rules = [
+        line for line in packaged.read_text().splitlines() if line and not line.startswith("#")
+    ]
+    assert rules == [UINPUT_RULE]

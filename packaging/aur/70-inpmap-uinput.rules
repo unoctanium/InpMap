@@ -1,0 +1,5 @@
+# Installed by the inpmap package: the user of the active local session may
+# create virtual input devices (/dev/uinput), as steam-devices and kdeconnect
+# allow too. Access to physical keyboards and gamepads is NOT granted here;
+# create rules for exactly your devices with `inpmap udev-rules`.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

@@ -1,0 +1,28 @@
+_devices_hint() {
+  cat <<'MSG'
+==> InpMap can create virtual devices now (/dev/uinput).
+==> To let it read and grab your own keyboards and gamepads, create rules
+==> for exactly those devices (once; again after adding devices):
+      inpmap input-config            # choose your devices (profile 'default')
+      inpmap udev-rules > 70-inpmap.rules
+      sudo install -m 644 70-inpmap.rules /etc/udev/rules.d/70-inpmap.rules
+      sudo udevadm control --reload
+      sudo udevadm trigger --subsystem-match=input --subsystem-match=misc
+==> First steps: inpmap input-config example, then inpmap run example --timeout 60
+==> Start at login: systemctl --user enable --now inpmap@default
+==> Documentation: https://github.com/unoctanium/InpMap/blob/main/docs/usage.md
+MSG
+}
+
+post_install() {
+  _devices_hint
+}
+
+post_remove() {
+  cat <<'MSG'
+==> Kept on your system (remove them yourself if you no longer need them):
+      /etc/udev/rules.d/70-inpmap.rules   (if you created it; then reload udev)
+      ~/.config/inpmap/                   (your profiles)
+==> If a profile service is still enabled: systemctl --user disable 'inpmap@NAME'
+MSG
+}

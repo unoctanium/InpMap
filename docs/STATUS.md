@@ -32,10 +32,19 @@ Last updated: 2026-10-14
     --printsrcinfo`, `makepkg --verifysource` (download + both checksums
     pass), the unit with `systemd-analyze verify`, a drift test against
     `inpmap service-unit`. ✅ Test build by the maintainer: `makepkg -f` →
-    "Finished making: inpmap 0.2.0-1" (2026-10-14). ⏳ **Open:** (1) under
-    discussion: install a udev rule for /dev/uinput with the package and a
-    post-install message for the per-device rules; then install the built
-    package for a real test (pipx version removed first); (2) **upload to the AUR once account
+    "Finished making: inpmap 0.2.0-1" (2026-10-14). **Decision (2026-10-14,
+    after comparing user service vs. system service as root or as a
+    dedicated `inpmap` user):** keep the user service; the package installs
+    `/usr/lib/udev/rules.d/70-inpmap-uinput.rules` (uaccess for
+    /dev/uinput, like steam-devices; pacman's systemd hook reloads udev at
+    once) and shows a post-install message with the commands for the
+    per-device rules (`inpmap udev-rules`); no generic rule for all
+    keyboards (would let every program read every keyboard). pkgrel=2,
+    `inpmap.install` (post_install, post_remove), drift test against
+    `UINPUT_RULE`; `udevadm verify` and `makepkg --verifysource` pass.
+    ⏳ **Open:** (1) maintainer installs the package for a real test
+    (`makepkg -fi` after `pipx uninstall inpmap` and removing the user's
+    own unit) and removes/reinstalls it; (2) **upload to the AUR once account
     registration reopens** (it was closed on 2026-10-14: HTTP 503, "paused
     while we deal with a wave of automated account creation"; watch
     aur-general / Arch news), following packaging/aur/README.md; then
@@ -102,7 +111,7 @@ Last updated: 2026-10-14
 
 ## Verification
 
-- Unit tests: 556 passed (`.venv/bin/python -m pytest`); ruff clean.
+- Unit tests: 557 passed (`.venv/bin/python -m pytest`); ruff clean.
 - Hardware tests (synthetic uinput devices, `-m hardware`): 14; all passed
   in their last runs on the development machine.
 - CI: green on Python 3.11, 3.12, 3.13, 3.14.
