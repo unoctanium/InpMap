@@ -156,7 +156,12 @@ Last updated: 2026-10-14
   InpMap commands: EVIOCGRAB (detect grabs and releases each device once to
   check for other grabs). Next test asked: `evtest --grab` on the device,
   then Ctrl+C, then the key in Kate — distinguishes a kernel/driver
-  reaction to grabbing from an InpMap bug.
+  reaction to grabbing from an InpMap bug. The keyboard and the Razer are on
+  different USB ports (2-11 and 2-9.2). The maintainer suspected the HXSJ
+  L500 keyboard's Fn+W mode switch, then ruled it out as the root cause.
+  Paused: the maintainer is switching to another keyboard; the
+  `evtest --grab` test is still open. Not concluded whether InpMap is at
+  fault.
 
 - What to do while the AUR step is blocked (maintainer's choice). Step d
   was proposed (d1 issue templates, `CONTRIBUTING.md`, topics; d2 demo
