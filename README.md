@@ -78,9 +78,8 @@ InpMap was started for needs it covers less well:
 - `inpmap macro-trace` shows the exact timeline of a mapping without
   touching any device.
 - Runs in the foreground or as a systemd user service that starts at
-  login, with one configuration or with profiles (e.g. one per game,
-  switched with `systemctl --user`). Holding Backspace + Escape + Enter always stops it (emergency
-  stop).
+  login. Profiles (e.g. one per game) are switched with `systemctl --user`.
+  Holding Backspace + Escape + Enter always stops it (emergency stop).
 
 Not yet: mouse output, a GUI, Windows, a system-wide service.
 
@@ -91,7 +90,9 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 | [docs/installation.md](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md) | requirements, installation, device permissions, user service, uninstall |
 | [docs/usage.md](https://github.com/unoctanium/InpMap/blob/main/docs/usage.md) | first configuration step by step, all commands and options, troubleshooting |
 | [docs/configuration.md](https://github.com/unoctanium/InpMap/blob/main/docs/configuration.md) | **reference** of the configuration language: every feature with examples |
-| [docs/development.md](https://github.com/unoctanium/InpMap/blob/main/docs/development.md) | for contributors: tests, architecture |
+| [docs/development.md](https://github.com/unoctanium/InpMap/blob/main/docs/development.md) | for contributors: tests, architecture, releases |
+| [docs/roadmap.md](https://github.com/unoctanium/InpMap/blob/main/docs/roadmap.md) | goals, requirements, milestones and what comes next |
+| [CHANGELOG.md](https://github.com/unoctanium/InpMap/blob/main/CHANGELOG.md) | changes per version |
 
 ## Quick start
 
@@ -107,7 +108,8 @@ inpmap detect                        # press keys: see how to write them in a ma
 
 Device permissions may be needed first: see
 [installation.md §3](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md#3-device-permissions).
-To work on InpMap itself, install it from the source code (installation.md §2b).
+To work on InpMap itself, install it from the source code
+([installation.md §2b](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md#2b-from-the-source-code-for-development)).
 
 ## Status
 
