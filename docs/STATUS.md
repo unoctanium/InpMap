@@ -107,15 +107,17 @@ Last updated: 2026-10-14
       "Next: migration" (M1–M6)**, which migrates the user's setup
       (config/local.inpmap → ~/.config/inpmap/default.inpmap, new unit,
       inpmap@default) and includes the open login test 5g.
-      **Results so far (2026-10-14):** M1 ✅ passed (command link, config
-      copied to ~/.config/inpmap/default.inpmap, `inpmap check` OK); M2 ✅
-      passed up to `enable --now inpmap@default` (status active, mappings
-      work). ⏳ **Resume here:** the user is logging out and in again
-      (M2's login check = old test 5g): after login, `systemctl --user
-      status inpmap@default` should be `active (running)` without any
-      action. Then M3–M6. The user keeps `config/local.inpmap` until all of
-      M1–M6 passed; tell them then that it can be deleted. After that:
-      publishing step 4b (CI, release 0.2.0, PyPI).
+      **User test results (2026-10-14): M1–M6 all ✅ passed** — migration
+      (link, ~/.config/inpmap/default.inpmap, new unit, inpmap@default),
+      login: inpmap@default active and running without action (= old test
+      5g ✅), example tour, detect (note: detect does not grab, so shortcuts
+      like Ctrl+F7 also reach the desktop — documented in usage.md), profile
+      without mappings, syntax files. User told config/local.inpmap can now
+      be deleted. Observation: default.inpmap (copied from local.inpmap)
+      still contains the spec §7 test mapping `kbd.KEY_X → KEY_Y +
+      BTN_SOUTH`, so x cannot be typed while the service runs — the user's
+      own mapping, not a bug; user decides whether to remove it.
+      **Next: publishing step 4b** (CI, release 0.2.0, PyPI).
       then) + migration section in the test list.
       Original plan text: standard config location
       `~/.config/inpmap/` (e.g. `inpmap run` without argument →

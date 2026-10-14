@@ -186,8 +186,9 @@ KEY_VOLUMEUP                     2.4G Dongle Keyboard   (not in default; add it 
 
 Copy the trigger into a mapping, e.g. `map kbd.KEY_F7 modifiers(ctrl) { … }`.
 Pressing a modifier alone prints nothing. Devices are only read, not
-grabbed, so your key presses also reach the terminal (they are thrown away
-when `detect` ends). Devices held by the InpMap service cannot be read;
+grabbed, so every key you press also does its normal job: it is typed into
+the terminal (thrown away when `detect` ends), and shortcuts such as Ctrl+F7
+also act on your desktop. Press keys that are harmless there. Devices held by the InpMap service cannot be read;
 `detect` says so. Without a profile file, triggers are printed without
 input names. Ctrl+C stops.
 
