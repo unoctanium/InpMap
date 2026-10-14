@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__, codes
-from .config import ConfigError
+from .config import ConfigError, trigger_name
 from .input import InputError
 from .loading import load
 from .macros import AXIS_KINDS, AXIS_NAMES, AxisKind, Led
@@ -32,8 +32,6 @@ EXIT_CONFIG_ERROR = 1
 EXIT_USAGE = 2  # also used by argparse itself
 EXIT_DEVICE_ERROR = 3
 EXIT_INTERRUPTED = 130
-
-AXIS_NAMES_BY_NAME = {name: code for code, name in AXIS_NAMES.items()}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +66,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     codes_cmd.add_argument("filter", nargs="?", default="", help="part of a name, e.g. kp")
     codes_cmd.set_defaults(handler=_cmd_codes)
+
+    axes = commands.add_parser(
+        "axes",
+        help="show the axes of the configured inputs live, to choose thresholds",
+        description=(
+            "Show the sticks, triggers and D-pad axes of CONFIG's input devices with their "
+            "current values (as used by 'above'/'below') and whether each threshold is on. "
+            "Devices are read, not grabbed. Stop with Ctrl+C."
+        ),
+    )
+    axes.add_argument("config", help="path to the .inpmap configuration file")
+    axes.add_argument("--timeout", type=float, metavar="SECONDS", help="stop after this time")
+    axes.set_defaults(handler=_cmd_axes)
 
     input_config = commands.add_parser(
         "input-config",
@@ -299,15 +310,68 @@ def _cmd_codes(args: argparse.Namespace) -> int:
         sent_by = entry.sent_by or "- (only as input)"
         also = f"  (also {', '.join(entry.aliases)})" if entry.aliases else ""
         rows.append(f"{entry.name:<28} {entry.code:>4}  {sent_by}{also}")
-    for name, code in AXIS_NAMES_BY_NAME.items():
-        if wanted in name:
+    for name, code in codes.TRIGGER_AXES.items():
+        if wanted not in name:
+            continue
+        if code in AXIS_KINDS:
             kind = "stick" if AXIS_KINDS[code] is AxisKind.STICK else "trigger"
             rows.append(f"{name:<28} {code:>4}  gamepad axis ({kind})")
+        else:
+            rows.append(f"{name:<28} {code:>4}  - (only as input)")
     if not rows:
         print(f"no name contains '{args.filter}'")
         return EXIT_OK
     print(f"{'NAME':<28} {'CODE':>4}  SENT BY")
     print("\n".join(rows))
+    return EXIT_OK
+
+
+def _cmd_axes(args: argparse.Namespace) -> int:
+    try:
+        config = _load(args.config)
+    except ConfigError as exc:
+        print(exc, file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    try:
+        from .backends.linux_input import monitor_axes
+    except ImportError as exc:
+        print(f"Linux backend unavailable: {exc}", file=sys.stderr)
+        return EXIT_DEVICE_ERROR
+    thresholds: dict[tuple[str, int], list] = {}
+    for rule in config.mappings:
+        if rule.trigger.axis is None:
+            continue
+        targets = [rule.trigger.device] if rule.trigger.device else list(config.inputs)
+        for input_id in targets:
+            key = (input_id, rule.trigger.axis.axis)
+            thresholds.setdefault(key, []).append((rule.id, rule.trigger.axis))
+    live = sys.stdout.isatty()
+    shown = {"lines": 0, "header": False}
+
+    def show(rows, changed) -> None:
+        if not shown["header"]:
+            print("Move the sticks, triggers and D-pad; Ctrl+C stops.\n", flush=True)
+            shown["header"] = True
+        if not live:  # e.g. piped: one line per change
+            for index in sorted(changed):
+                print(rows[index].text(), flush=True)
+            return
+        if shown["lines"]:
+            sys.stdout.write(f"\x1b[{shown['lines']}F")  # back to the first row
+        for row in rows:
+            sys.stdout.write(row.text() + "\x1b[K\n")
+        sys.stdout.flush()
+        shown["lines"] = len(rows)
+
+    try:
+        notes = monitor_axes(dict(config.inputs), thresholds, show, args.timeout)
+    except KeyboardInterrupt:
+        print()
+        return EXIT_OK
+    for note in notes:
+        print(note, file=sys.stderr)
+    if not shown["header"] and not notes:
+        print("No sticks, triggers or D-pad axes on the configured inputs.", file=sys.stderr)
     return EXIT_OK
 
 
@@ -602,7 +666,7 @@ def describe_config(config: Config) -> str:
         if rule.disabled:
             targets = ["disabled"]
         device = rule.trigger.device or "every input"
-        trigger = f"{device} {codes.code_name(rule.trigger.code)}"
+        trigger = f"{device} {trigger_name(rule.trigger)}"
         if rule.trigger.any_modifiers:
             trigger += " (any modifiers)"
         elif rule.trigger.modifiers:

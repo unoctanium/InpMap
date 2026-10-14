@@ -1,10 +1,18 @@
 import threading
 
 import pytest
-from fakes import SYN, FakeInputBackend, FakeInputSource, FakeOutputBackend, key_raw
+from fakes import (
+    SYN,
+    FakeInputBackend,
+    FakeInputSource,
+    FakeOutputBackend,
+    abs_raw,
+    key_raw,
+)
 
 from inpmap.codes import code_from_name as c
 from inpmap.config import parse_config
+from inpmap.dsl.compiler import compile_text
 from inpmap.input import InputError
 from inpmap.output import OutputError
 from inpmap.runtime import CleanupError, Runtime, StopReason
@@ -629,3 +637,102 @@ def test_no_warning_when_some_input_has_the_key(caplog):
 def test_key_check_waits_until_every_input_was_opened(caplog):
     found = run_shared({KEY_X}, {c("KEY_Q")}, caplog, True, InputError("not yet"))
     assert found == []  # KEY_Q is on the pad, which was only opened later
+
+
+# -- axes as triggers (docs/configuration.md §5.5) -------------------------------------------
+
+AXES = compile_text(
+    """version 1
+input kbd { name = "Kbd" }
+input pad { name = "Pad" }
+output vkbd { type = keyboard }
+map kbd.KEY_X { hold KEY_Y }
+map pad.ABS_RZ above 0.5 { hold KEY_SPACE }
+map ABS_HAT0Y below -0.5 { tap KEY_UP }
+""",
+    "axes.inpmap",
+).config
+ABS_X, ABS_RZ, ABS_HAT0Y = 0x00, 0x05, 0x11
+PAD_AXES = {ABS_X: (-32768, 32767), ABS_RZ: (0, 255), ABS_HAT0Y: (-1, 1)}
+
+
+def axes_harness(pad_axes=PAD_AXES, kbd_axes=None):
+    h = Harness()
+    h.kbd = FakeInputSource(AXES.inputs["kbd"], journal=h.journal, axes=kbd_axes or {})
+    h.pad = FakeInputSource(AXES.inputs["pad"], journal=h.journal, axes=dict(pad_axes))
+    h.inputs = FakeInputBackend({"kbd": h.kbd, "pad": h.pad}, stop=h.stop)
+    return h
+
+
+def run_axes(h, **kw):
+    runtime = Runtime(AXES, h.inputs, h.outputs, clock=h.clock, reconnect_interval=0.0, **kw)
+    return runtime.run(h.stop)
+
+
+def test_axis_threshold_drives_outputs_and_the_axis_is_suppressed():
+    h = axes_harness()
+    h.step(lambda: h.pad.queue.extend([abs_raw(ABS_RZ, 200), abs_raw(ABS_X, 1000), SYN]))
+    h.step(lambda: h.pad.queue.extend([abs_raw(ABS_RZ, 120), SYN]))  # 0.47: still held
+    h.step(lambda: h.pad.queue.extend([abs_raw(ABS_RZ, 10), SYN]))
+    run_axes(h)
+    space = c("KEY_SPACE")
+    assert h.outputs.created["vkbd"].events == [(space, True), (space, False)]
+    assert abs_raw(ABS_RZ, 200) not in h.pad.forwarded  # mapped axis: suppressed
+    assert abs_raw(ABS_X, 1000) in h.pad.forwarded  # other axes pass through
+
+
+def test_axis_for_every_input_and_release_on_device_loss():
+    h = axes_harness(kbd_axes={ABS_HAT0Y: (-1, 1)})
+    h.inputs.replacements["pad"] = []
+    h.step(lambda: h.kbd.queue.extend([abs_raw(ABS_HAT0Y, -1), SYN]))  # D-pad up on kbd too
+    h.step(lambda: h.pad.queue.extend([abs_raw(ABS_RZ, 255), SYN]))
+
+    def unplug():
+        h.pad.lost = True
+        h.inputs.open_error["pad"] = InputError("gone")
+
+    h.step(unplug)
+    h.idle()
+    run_axes(h)
+    events = h.outputs.created["vkbd"].events
+    assert events[:2] == [(c("KEY_UP"), True), (c("KEY_UP"), False)]  # tap from kbd
+    assert events[2:] == [(c("KEY_SPACE"), True), (c("KEY_SPACE"), False)]  # released on loss
+
+
+@pytest.mark.parametrize(
+    "pad_axes, message",
+    [
+        ({ABS_HAT0Y: (-1, 1)}, "does not report ABS_RZ"),
+        ({ABS_RZ: (-128, 127), ABS_HAT0Y: (-1, 1)}, None),  # centred trigger: still reachable
+        ({ABS_RZ: (0, 255), ABS_HAT0Y: (0, 2)}, None),  # shared threshold: warning only
+    ],
+)
+def test_axes_are_checked_when_the_device_opens(pad_axes, message, caplog):
+    h = axes_harness(pad_axes)
+    if message:
+        with pytest.raises(InputError, match=message):
+            run_axes(h)
+        assert h.pad.closed and not h.pad.grabbed
+        return
+    with caplog.at_level("WARNING", logger="inpmap.runtime"):
+        assert run_axes(h) is StopReason.STOPPED
+    warned = [r.getMessage() for r in caplog.records if "can never fire" in r.getMessage()]
+    if pad_axes[ABS_HAT0Y] == (0, 2):
+        assert warned == [
+            "no input device can trigger ABS_HAT0Y below -0.5, so its mappings can never fire"
+        ]
+    else:
+        assert warned == []
+
+
+def test_unreachable_named_threshold_is_an_error():
+    h = axes_harness({ABS_RZ: (0, 255), ABS_HAT0Y: (-1, 1)})
+    config = compile_text(
+        'version 1\ninput pad { name = "Pad" }\noutput vkbd { type = keyboard }\n'
+        "map pad.ABS_RZ below -0.5 { tap KEY_A }\n",
+        "t.inpmap",
+    ).config
+    inputs = FakeInputBackend({"pad": h.pad}, stop=h.stop)
+    runtime = Runtime(config, inputs, h.outputs, clock=h.clock)
+    with pytest.raises(InputError, match="ABS_RZ below -0.5 can never fire"):
+        runtime.run(h.stop)

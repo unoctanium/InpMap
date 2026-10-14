@@ -43,7 +43,7 @@ RESERVED = {
     *"""version settings let input output map as hold tap press release with wait
     random repeat while held toggle parallel branch on double_tap long_press if
     else single not and within after axis move to over cancel restart keep
-    modifiers ignore key_pause max_run none true false disable""".split(),
+    modifiers ignore key_pause max_run none true false disable above below""".split(),
     *LEDS,
     *MODIFIER_NAMES,
 }
@@ -187,6 +187,8 @@ class _Compiler:
             key = (
                 trigger.get("device"),
                 trigger["code"],
+                trigger.get("above"),
+                trigger.get("below"),
                 modifiers if isinstance(modifiers, str) else tuple(sorted(modifiers)),
             )
             if key in seen:
@@ -413,11 +415,12 @@ class _Compiler:
         ref, *rest = stmt.children
         block = rest[-1]
         modifiers = next((c for c in rest if isinstance(c, Tree) and c.data == "modifiers"), None)
+        threshold = next((c for c in rest if isinstance(c, Tree) and c.data == "threshold"), None)
         as_name = next((c for c in rest if isinstance(c, Tree) and c.data == "as_name"), None)
         path = f"mappings[{index}]"
         self.record(path, stmt)
 
-        trigger = self.trigger(ref, modifiers, f"{path}.input")
+        trigger = self.trigger(ref, modifiers, f"{path}.input", threshold)
         if trigger is None:
             return None
         if as_name is not None:
@@ -426,7 +429,7 @@ class _Compiler:
                 return None
             mapping_id = str(name_token)
         else:
-            mapping_id = self.default_id(ref, trigger)
+            mapping_id = self.default_id(ref, trigger, threshold)
 
         statements = list(block.children)
         if not statements:
@@ -472,7 +475,9 @@ class _Compiler:
         mapping["outputs"] = [{"macro": macro}]
         return mapping
 
-    def trigger(self, ref: Tree, modifiers: Tree | None, path: str) -> dict | None:
+    def trigger(
+        self, ref: Tree, modifiers: Tree | None, path: str, threshold: Tree | None = None
+    ) -> dict | None:
         tokens = [str(t) for t in ref.children]
         device: str | None = None  # without a device: every input (§5.1)
         if len(tokens) == 2:
@@ -486,15 +491,22 @@ class _Compiler:
         if code in OUTPUT_ALIASES:
             self.error(ref, f"'{code}' is a modifier and cannot be a trigger")
             return None
-        if code.startswith("KEY_"):
-            kind = "key"
-        elif code.startswith("BTN_"):
-            kind = "button"
-        else:
-            self.error(ref, f"a trigger must be a KEY_* or BTN_* name, got '{code}'")
+        if code.startswith("ABS_"):
+            if threshold is None:
+                self.error(ref, f"an axis needs 'above' or 'below', e.g. {code} above 0.5")
+                return None
+            direction, value = threshold.children
+            trigger: dict = {"type": "axis", "code": code, str(direction): float(str(value))}
+            self.record(f"{path}.{direction}", threshold)
+        elif threshold is not None:
+            self.error(threshold, "'above' and 'below' are only for axes (ABS_*)")
             return None
-        self.check_confusing(ref, code)
-        trigger: dict = {"type": kind, "code": code}
+        elif code.startswith(("KEY_", "BTN_")):
+            self.check_confusing(ref, code)
+            trigger = {"type": "key" if code.startswith("KEY_") else "button", "code": code}
+        else:
+            self.error(ref, f"a trigger must be a KEY_*, BTN_* or ABS_* name, got '{code}'")
+            return None
         if device is not None:
             trigger["device"] = device
         self.record(path, ref)
@@ -505,8 +517,10 @@ class _Compiler:
             self.record(f"{path}.modifiers", modifiers)
         return trigger
 
-    def default_id(self, ref: Tree, trigger: dict) -> str:
+    def default_id(self, ref: Tree, trigger: dict, threshold: Tree | None = None) -> str:
         text = ".".join(str(t) for t in ref.children)
+        if threshold is not None:
+            text += "".join(f"_{t}" for t in threshold.children)  # pad.ABS_RZ_above_0.5
         modifiers = trigger.get("modifiers")
         if modifiers == "ignore":
             return f"{text}+ignore"

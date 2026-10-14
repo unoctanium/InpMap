@@ -29,6 +29,8 @@
       <item>held</item>
       <item>toggle</item>
       <item>disable</item>
+      <item>above</item>
+      <item>below</item>
       <item>parallel</item>
       <item>branch</item>
       <item>on</item>

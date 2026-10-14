@@ -35,11 +35,13 @@ from enum import Enum
 from typing import Protocol
 
 from . import codes
+from .axis_triggers import AxisEvent, AxisTriggers
+from .axis_triggers import problem as axis_problem
 from .config import Config
 from .engine import MappingEngine
 from .input import InputBackend, InputDeviceLost, InputError, InputSource
 from .macros import Led
-from .models import InputDeviceSpec, KeyAction
+from .models import AxisThreshold, InputDeviceSpec, KeyAction
 from .output import OutputBackend, OutputError, OutputManager
 
 log = logging.getLogger(__name__)
@@ -70,6 +72,7 @@ class _Slot:
 
     spec: InputDeviceSpec
     codes: frozenset[int]
+    axes: frozenset[AxisThreshold] = frozenset()  # thresholds that name this device
     source: InputSource | None = None
     grabbed: bool = False
     waiting_announced: bool = False
@@ -105,6 +108,8 @@ class Runtime:
         # (device id, code) of emergency keys currently held on grabbed inputs
         self._emergency_held: set[tuple[str, int]] = set()
         self._shared_codes_checked = False
+        self._axis_triggers = AxisTriggers(config.axis_thresholds())
+        self._watched = {device_id: config.watched_axes(device_id) for device_id in config.inputs}
 
     def run(self, stop: StopFlag, timeout: float | None = None) -> StopReason:
         """Run until ``stop`` is set or ``timeout`` seconds have passed.
@@ -130,12 +135,16 @@ class Runtime:
             self._config, self._outputs, clock=self._clock, leds=self._leds_of, inputs=self
         )
         for device_id, spec in self._config.inputs.items():
-            slot = _Slot(spec=spec, codes=self._config.input_codes(device_id))
+            slot = _Slot(
+                spec=spec,
+                codes=self._config.input_codes(device_id),
+                axes=self._config.input_axes(device_id),
+            )
             self._slots.append(slot)
             if self._wait_for_inputs:
                 self._try_open(slot)
             else:
-                slot.source = self._inputs.open(spec, slot.codes)
+                slot.source = self._open(slot)
                 log.info("opened input '%s': %s", device_id, slot.source.description)
                 self._opened(slot)
         while True:
@@ -199,9 +208,24 @@ class Runtime:
                 return slot.source.leds()
         return frozenset()
 
+    def _open(self, slot: _Slot) -> InputSource:
+        """Open the device and check the axes its mappings use (§5.5 rule 7)."""
+        source = self._inputs.open(slot.spec, slot.codes)
+        ranges = source.axis_ranges()
+        problems = []
+        for threshold in sorted(slot.axes, key=lambda t: (t.axis, t.above, t.value)):
+            if threshold.axis not in ranges:
+                problems.append(f"does not report {threshold.describe().split()[0]}")
+            elif reason := axis_problem(threshold, *ranges[threshold.axis]):
+                problems.append(reason)
+        if problems:
+            source.close()
+            raise InputError(f"input '{slot.spec.id}': {source.description} " + "; ".join(problems))
+        return source
+
     def _try_open(self, slot: _Slot) -> None:
         try:
-            slot.source = self._inputs.open(slot.spec, slot.codes)
+            slot.source = self._open(slot)
         except InputError as exc:
             # Log each distinct reason once: the device being away is normal,
             # but a lasting permission or selector problem must be visible.
@@ -232,6 +256,14 @@ class Runtime:
                 "no input device has %s, so its mappings can never fire",
                 codes.code_name(code),
             )
+        ranges = [s.source.axis_ranges() for s in self._slots if s.source is not None]
+        for threshold in sorted(self._config.shared_axes(), key=lambda t: (t.axis, t.value)):
+            usable = [r[threshold.axis] for r in ranges if threshold.axis in r]
+            if not any(axis_problem(threshold, *limits) is None for limits in usable):
+                log.warning(
+                    "no input device can trigger %s, so its mappings can never fire",
+                    threshold.describe(),
+                )
 
     def _wait_and_process(self, deadline: float | None) -> None:
         assert self._engine is not None
@@ -256,7 +288,16 @@ class Runtime:
             return
         if not slot.grabbed:
             return  # the desktop received these events already
+        watched = self._watched[slot.spec.id]
         for event, raw in events:
+            if isinstance(event, AxisEvent):
+                if event.code in watched:
+                    # The axis drives thresholds and is suppressed (§5.5 rule 5).
+                    for key_event in self._axis_triggers.update(event):
+                        self._engine.handle(key_event)
+                else:
+                    slot.source.forward(raw)
+                continue
             consumed = event is not None and self._engine.handle(event)
             if not consumed:
                 slot.source.forward(raw)
@@ -282,6 +323,7 @@ class Runtime:
             slot.source.description,
         )
         self._engine.release_device(slot.spec.id)
+        self._axis_triggers.forget_device(slot.spec.id)
         self._emergency_held = {k for k in self._emergency_held if k[0] != slot.spec.id}
         try:
             slot.source.close()

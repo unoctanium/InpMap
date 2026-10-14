@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
+from .axis_triggers import AxisEvent
 from .macros import Led
 from .models import InputDeviceSpec, InputEvent
 
@@ -43,6 +44,10 @@ class InputSource(Protocol):
         """All keys/buttons the device can report."""
         ...
 
+    def axis_ranges(self) -> dict[int, tuple[int, int]]:
+        """(minimum, maximum) of each absolute axis the device reports."""
+        ...
+
     def leds(self) -> frozenset[Led]:
         """Lock LEDs currently lit on the device (empty if it has none)."""
         ...
@@ -51,11 +56,12 @@ class InputSource(Protocol):
         """Take exclusive access: other programs stop receiving its events."""
         ...
 
-    def read(self) -> list[tuple[InputEvent | None, object]]:
+    def read(self) -> list[tuple[InputEvent | AxisEvent | None, object]]:
         """Read pending events without blocking.
 
-        Returns (normalized key event or None, raw event) pairs. Raises
-        InputDeviceLost if the device disappeared.
+        Returns (normalized key event, normalized axis value (AxisEvent) or
+        None, raw event) pairs. Raises InputDeviceLost if the device
+        disappeared.
         """
         ...
 

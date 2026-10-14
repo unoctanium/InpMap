@@ -248,8 +248,8 @@ map external.KEY_F2 { tap KEY_VOLUMEUP }    # ... except the external one, which
 
 The trigger may be followed by `modifiers(…)` (§5.2).
 
-Triggers are `KEY_*` or `BTN_*` codes. Sticks, analog triggers and mouse
-movement cannot be triggers.
+Triggers are `KEY_*` or `BTN_*` codes, or a stick, analog trigger or D-pad
+axis passing a threshold (§5.5). Mouse movement cannot be a trigger.
 
 The original key press is always **suppressed**: the desktop does not see
 the trigger key, only what the mapping does.
@@ -257,7 +257,8 @@ the trigger key, only what the mapping does.
 `as NAME` gives the mapping a name for messages and for
 `inpmap macro-trace`. Without it, the name is the trigger as written
 (`KEY_F9`, `pad.BTN_EAST`), with the modifiers appended by `+`
-(`KEY_LEFTBRACE+ctrl+shift`, `KEY_F5+ignore`).
+(`KEY_LEFTBRACE+ctrl+shift`, `KEY_F5+ignore`). For axes, spaces become
+`_` (`pad.ABS_RZ_above_0.5`).
 
 A key may be mapped several times: with different modifier requirements
 (§5.2), and with and without a device name. Which mapping fires when the
@@ -357,6 +358,56 @@ map KEY_F11 {
     while held { tap BTN_SOUTH }
 }
 ```
+
+### 5.5 Sticks, analog triggers and the D-pad as triggers
+
+A mapping can fire when an axis of an input device passes a threshold.
+The axis then works like a button:
+
+```inpmap
+version 1
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+output keyboard { type = keyboard }
+
+map pad.ABS_RZ above 0.5 { hold KEY_SPACE }        # right trigger pressed more than half
+map pad.ABS_HAT0Y below -0.5 { tap KEY_KP8 }       # D-pad up
+map pad.ABS_HAT0Y above 0.5 { tap KEY_KP2 }        # D-pad down
+map pad.ABS_X below -0.7 as stick_left { hold KEY_A }
+```
+
+**Values** are fractions of the range the device reports for the axis:
+
+| The device's range | Values | Examples |
+|---|---|---|
+| negative to positive | −1.0 … 1.0, rest 0.0; negative is left or up | sticks, D-pad (`ABS_HAT0X`/`ABS_HAT0Y`: −1, 0 or 1), rudder |
+| from 0 | 0.0 … 1.0, rest 0.0 | analog triggers (`ABS_Z`, `ABS_RZ`), most throttles |
+
+`inpmap axes FILE` shows the axes of your input devices with their
+current values while you move them, to find good thresholds
+([usage.md](usage.md#inpmap-axes)).
+
+Rules:
+
+1. `above V` presses when the value rises above `V`, `below V` when it
+   falls below `V`. `V` lies between −1.0 and 1.0 and is not 0.
+2. It is released when the value comes back past the threshold by
+   **0.05** (so a value jittering at the threshold does not press and
+   release repeatedly): `above 0.5` releases below 0.45.
+3. Everything that works with buttons works here: `hold`, `tap`, macros,
+   gestures, `while held`, `modifiers(…)`, devices or every input (§5.1).
+4. Several thresholds on one axis are fine. `above 0.3` and `above 0.9`
+   make a two-stage trigger; at full press both mappings are held. The
+   same axis, direction and value twice is an error.
+5. An axis used by a mapping is **suppressed** on that device: games no
+   longer see its analog value, only what the mappings send. The device's
+   other axes pass through.
+6. Axes that can be triggers: `ABS_X`, `ABS_Y`, `ABS_Z`, `ABS_RX`,
+   `ABS_RY`, `ABS_RZ`, `ABS_THROTTLE`, `ABS_RUDDER`, `ABS_WHEEL`,
+   `ABS_GAS`, `ABS_BRAKE`, `ABS_HAT0X` … `ABS_HAT3Y`.
+7. When InpMap opens the device it checks that the axis exists and that
+   the threshold can be reached (e.g. `below -0.5` can never fire on a
+   0.0 … 1.0 trigger): an error for a mapping that names the device, a
+   warning in the log otherwise.
 
 ## 6. Statements
 
@@ -655,7 +706,9 @@ Errors include: syntax errors; unknown names and codes; codes the device
 cannot emit; a device part left out where several outputs could emit the
 code; the same trigger and modifiers mapped twice; duplicate names; options
 after statements; `toggle` or `disable` not alone; values out of range;
-values of the wrong type; `release` of keys never pressed; unused devices.
+values of the wrong type; `release` of keys never pressed; unused devices; axis
+thresholds that are 0, outside −1.0 … 1.0, or on an axis that cannot be a
+trigger.
 
 Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3).
 
@@ -663,7 +716,9 @@ Check a file with `inpmap check FILE`.
 
 ## 9. Not supported yet
 
-Mouse output (movement, wheel); analog inputs as triggers; dual-role keys
+Mouse output (movement, wheel); analog axes driving analog outputs (e.g.
+a stick moving the virtual stick with a curve); mouse movement as a
+trigger; dual-role keys
 that hold back other keys while undecided; conditions on other held keys;
 reusable named blocks; arithmetic beyond `+=`/`-=`; typing text by
 character (codes are key positions); randomised "human" timing beyond
@@ -879,7 +934,18 @@ keyboard.
 
 ### 12.2 Gamepad buttons and axes
 
-See §3.3.
+Outputs: see §3.3. As triggers (§5.5), the usual axes of a gamepad are:
+
+| Axis | On an Xbox-style pad |
+|---|---|
+| `ABS_X`, `ABS_Y` | left stick (left/right, up/down) |
+| `ABS_RX`, `ABS_RY` | right stick |
+| `ABS_Z`, `ABS_RZ` | left and right analog trigger (LT/L2, RT/R2) |
+| `ABS_HAT0X`, `ABS_HAT0Y` | D-pad (left/right, up/down) on many pads; others have `BTN_DPAD_*` buttons |
+
+Flight sticks and throttles also use `ABS_THROTTLE`, `ABS_RUDDER` and
+further hats (`ABS_HAT1X` …). `inpmap axes FILE` shows what your devices
+have.
 
 ### 12.3 Keywords
 
@@ -891,7 +957,7 @@ random repeat while held toggle parallel branch on double_tap long_press if
 else single not and keep modifiers ignore ctrl shift alt meta left_ctrl
 right_ctrl left_shift right_shift left_alt right_alt left_meta right_meta
 within after axis move to over cancel restart key_pause max_run none true
-false capslock numlock scrolllock disable
+false capslock numlock scrolllock disable above below
 ```
 
 ## About this document

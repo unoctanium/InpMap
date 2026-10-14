@@ -82,6 +82,42 @@ device by bus/vendor/product/uniq/phys-prefix).
    user's remote session would end at logout), and a re-look at the 4a list.
    Older wording: user's real-hardware test of the service (when back at the PC).
 
+## Axes as triggers (spec approved and implemented 2026-10-14)
+
+`map pad.ABS_RZ above 0.5`, `below`; docs/configuration.md §5.5.
+- Core `src/inpmap/axis_triggers.py`: `normalize` (min<0<max → −1…1,
+  else 0…1), `problem` (unreachable thresholds), `AxisTriggers` (per
+  device state, hysteresis 0.05, emits PRESS/RELEASE of virtual key codes
+  ≥ 0x10000 — one per distinct (axis, direction, value), assigned by the
+  validator; the engine treats them as keys, so modifiers, every-input,
+  macros, gestures work unchanged), `AxisRow` for `inpmap axes`.
+  `codes.TRIGGER_AXES` (19 axes, cross-checked against evdev),
+  `models.AxisThreshold`, `InputTrigger.axis`, `Config.axis_thresholds /
+  input_axes / shared_axes / watched_axes`, `config.trigger_name`.
+- Language: grammar `threshold: (ABOVE|BELOW) NUMBER` after the trigger;
+  data `{"type": "axis", "code", "above"|"below"}`; default names
+  `pad.ABS_RZ_above_0.5`; reserved `above`/`below`; editor files updated
+  (Kate checked).
+- Input: `InputSource.axis_ranges()`; Linux source reads absinfo at open
+  and reports `AxisEvent`s (normalised) for every ABS axis; runtime feeds
+  watched axes (device-named or every-input thresholds) to `AxisTriggers`
+  and suppresses them, forwards other axes; `_open` checks device-named
+  thresholds (axis present, reachable) → InputError (closes the source);
+  shared thresholds → warning once all inputs were opened; device loss
+  forgets threshold state.
+- `inpmap axes FILE [--timeout]`: live table (TTY redraw, else one line
+  per change), threshold ON/off, detects a grab by another program (the
+  service) via EVIOCGRAB test and says so. `inpmap codes abs` lists input
+  axes as "only as input". Deliberate test update: `test_config.py`
+  unsupported type example `axis` → `wheel`.
+- Tests: `tests/test_axis_triggers.py` (22), runtime axis tests, hardware
+  `test_axis_thresholds_through_runtime` (synthetic pad: R2 + D-pad →
+  keys, mapped axes not forwarded, ABS_X forwarded) and
+  `test_monitor_axes_shows_live_values`. 490 unit + 13 hardware passed.
+- ⏳ User test with the real Razer pad: `docs/testlist.md` §7 (the
+  service must be stopped meanwhile; `inpmap axes` cannot read a grabbed
+  device).
+
 ## Backlog (future features, user agreed 2026-10-14; not scheduled)
 
 - ✅ Profiles (2026-10-14): `inpmap service-unit --profiles DIR` →
@@ -96,8 +132,7 @@ device by bus/vendor/product/uniq/phys-prefix).
 - ✅ `inpmap codes [FILTER]` (2026-10-14): `codes.catalog()` (canonical name,
   aliases, sent by keyboard/gamepad/none) + gamepad axes; docs usage.md,
   configuration.md §12.1; tests in test_codes.py, test_cli.py.
-- Analog triggers and sticks as buttons (threshold, like Input
-  Remapper's `analog_threshold`; e.g. Razer L2/R2 are analog).
+- ✅ Analog triggers, sticks and D-pad as buttons — done 2026-10-14 (see above).
 - ~~Layout-aware output by character~~ — not wanted: the user prefers key
   codes (2026-10-14; e.g. numpad keys `KEY_KP*` for DCS World / flight
   simulators, which work already and are now listed in the reference).
@@ -427,9 +462,9 @@ device by bus/vendor/product/uniq/phys-prefix).
 
 ## Verification status
 
-- Unit tests: 461 passed, 11 `hardware` deselected (`.venv/bin/python -m
-  pytest`), ruff clean — after the 4a fix (2026-10-14) (JSON-file tests were
-  dropped earlier). Hardware: 11 passed (2026-10-14, after input-config).
+- Unit tests: 490 passed, 13 `hardware` deselected (`.venv/bin/python -m
+  pytest`), ruff clean — after axes as triggers (2026-10-14) (JSON-file tests were
+  dropped earlier). Hardware: 13 passed (2026-10-14, after axes as triggers).
 - Hardware tests (`.venv/bin/python -m pytest -m hardware`): 4 passed on the
   dev machine (2026-10-13): virtual device creation/identity/capabilities,
   press/release delivery, release_all delivery + device removal, and

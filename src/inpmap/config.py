@@ -22,6 +22,7 @@ import re
 from collections.abc import Iterable
 
 from . import codes
+from .axis_triggers import VIRTUAL_CODE_BASE
 from .config_macros import MacroParser, is_number, macro_devices, value_type
 from .macros import (
     AXIS_NAMES,
@@ -34,6 +35,7 @@ from .macros import (
 from .models import (
     MODIFIER_KEYS,
     AxisOutput,
+    AxisThreshold,
     Config,
     InputDeviceSpec,
     InputTrigger,
@@ -105,6 +107,8 @@ class _Validator:
     def __init__(self, source: str) -> None:
         self.source = source
         self.problems: list[str] = []
+        # Virtual key code of each distinct axis threshold, in order of appearance.
+        self.axis_codes: dict[AxisThreshold, int] = {}
 
     def error(self, where: str, message: str) -> None:
         self.problems.append(f"{where}: {message}")
@@ -321,7 +325,7 @@ class _Validator:
             if key in trigger_owner:
                 self.error(
                     f"{where}.input",
-                    f"{rule.trigger.device or 'every input'} {codes.code_name(rule.trigger.code)}"
+                    f"{rule.trigger.device or 'every input'} {trigger_name(rule.trigger)}"
                     f"{_describe_modifiers(rule.trigger)} is already mapped by "
                     f"'{trigger_owner[key]}'; list all outputs in one mapping",
                 )
@@ -402,6 +406,8 @@ class _Validator:
     def trigger(
         self, raw: object, where: str, inputs: dict[str, InputDeviceSpec]
     ) -> InputTrigger | None:
+        if isinstance(raw, dict) and raw.get("type") == "axis":
+            return self.axis_trigger(raw, where, inputs)
         # Without "device" the trigger applies to every input (§5.1).
         event = self.event(raw, where, optional_keys={"modifiers"}, device_optional=True)
         if event is None:
@@ -424,6 +430,53 @@ class _Validator:
         required, any_modifiers = modifiers
         return InputTrigger(
             device=device, code=code, modifiers=required, any_modifiers=any_modifiers
+        )
+
+    def axis_trigger(
+        self, raw: dict, where: str, inputs: dict[str, InputDeviceSpec]
+    ) -> InputTrigger | None:
+        """{"device"?, "type": "axis", "code": "ABS_RZ", "above"|"below": value, "modifiers"?}."""
+        self.check_keys(
+            raw, where, {"device", "type", "code", "above", "below", "modifiers"}, ["code"]
+        )
+        device = raw.get("device")
+        if device is not None and device not in inputs:
+            self.error(f"{where}.device", self.unknown_device(str(device), "input", inputs))
+            return None
+        name = raw.get("code")
+        axis = codes.TRIGGER_AXES.get(name) if isinstance(name, str) else None
+        if axis is None:
+            known = ", ".join(codes.TRIGGER_AXES)
+            self.error(f"{where}.code", f"{name!r} cannot be a trigger (axes: {known})")
+            return None
+        directions = [key for key in ("above", "below") if key in raw]
+        if len(directions) != 1:
+            self.error(where, "an axis trigger needs exactly one of 'above' or 'below'")
+            return None
+        direction = directions[0]
+        value = raw[direction]
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int | float)
+            or not -1.0 < value < 1.0
+            or value == 0
+        ):
+            self.error(
+                f"{where}.{direction}", "must be a number between -1.0 and 1.0, other than 0"
+            )
+            return None
+        modifiers = self.trigger_modifiers(raw.get("modifiers", []), f"{where}.modifiers")
+        if modifiers is None:
+            return None
+        threshold = AxisThreshold(axis, direction == "above", float(value))
+        code = self.axis_codes.setdefault(threshold, VIRTUAL_CODE_BASE + len(self.axis_codes))
+        required, any_modifiers = modifiers
+        return InputTrigger(
+            device=device,
+            code=code,
+            modifiers=required,
+            any_modifiers=any_modifiers,
+            axis=threshold,
         )
 
     def trigger_modifiers(
@@ -739,3 +792,8 @@ def _json_type(value: object) -> str:
     if isinstance(value, dict):
         return "object"
     return type(value).__name__
+
+
+def trigger_name(trigger: InputTrigger) -> str:
+    """``KEY_X`` or ``ABS_RZ above 0.5``, for messages."""
+    return trigger.axis.describe() if trigger.axis else codes.code_name(trigger.code)

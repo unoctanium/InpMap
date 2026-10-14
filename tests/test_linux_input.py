@@ -511,7 +511,7 @@ class StubDevice:
     def active_keys(self):
         return list(self.active)
 
-    def capabilities(self):
+    def capabilities(self, absinfo=False):
         return {ecodes.EV_KEY: [ecodes.KEY_A, ecodes.KEY_X]}
 
     def feed(self, *events):
@@ -792,3 +792,134 @@ def test_wait_for_key_press_identifies_the_device():
     finally:
         pad.close()
         other.close()
+
+
+PAD_NAME = "InpMap Test Synthetic Axis Pad"
+
+
+def synthetic_pad() -> UInput:
+    stick = evdev.AbsInfo(0, -32768, 32767, 16, 128, 0)
+    return UInput(
+        {
+            ecodes.EV_KEY: [ecodes.BTN_SOUTH, ecodes.BTN_EAST],
+            ecodes.EV_ABS: [
+                (ecodes.ABS_X, stick),
+                (ecodes.ABS_Y, stick),
+                (ecodes.ABS_RZ, evdev.AbsInfo(0, 0, 255, 0, 0, 0)),
+                (ecodes.ABS_HAT0Y, evdev.AbsInfo(0, -1, 1, 0, 0, 0)),
+            ],
+        },
+        name=PAD_NAME,
+        phys="pytest-axis-pad",
+    )
+
+
+def emit_abs(uinput: UInput, code: int, value: int) -> None:
+    uinput.write(ecodes.EV_ABS, code, value)
+    uinput.syn()
+
+
+def read_abs_events(device: InputDevice, timeout: float = 0.5):
+    events = []
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([device.fd], [], [], deadline - time.monotonic())
+        if ready:
+            events += [(e.code, e.value) for e in device.read() if e.type == ecodes.EV_ABS]
+    return events
+
+
+@pytest.mark.hardware
+def test_axis_thresholds_through_runtime():
+    """R2 and D-pad up of a synthetic gamepad drive keys; mapped axes are suppressed."""
+    from inpmap.dsl.compiler import compile_text
+
+    config = compile_text(
+        f'version 1\ninput pad {{ name = "{PAD_NAME}" }}\n'
+        'output keyboard { type = keyboard; name = "InpMap Test Axis Keyboard" }\n'
+        "map pad.ABS_RZ above 0.5 { hold KEY_SPACE }\n"
+        "map pad.ABS_HAT0Y below -0.5 { hold KEY_UP }\n",
+        "axis-test.inpmap",
+    ).config
+    pad = synthetic_pad()
+    stop = threading.Event()
+    result: dict = {}
+    grabbed: list[InputDevice] = []
+
+    def run():
+        try:
+            result["reason"] = Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
+                stop, timeout=20
+            )
+        except BaseException as exc:  # reported by the main thread
+            result["error"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    try:
+        thread.start()
+        for name in ("InpMap Test Axis Keyboard", forward_name(PAD_NAME)):
+            device = find_device(name)
+            device.grab()
+            grabbed.append(device)
+        vkbd, forwarder = grabbed
+        time.sleep(0.3)
+        assert "error" not in result, result.get("error")
+
+        emit_abs(pad, ecodes.ABS_RZ, 200)  # 0.78: pressed
+        emit_abs(pad, ecodes.ABS_RZ, 120)  # 0.47: within the hysteresis, still held
+        emit_abs(pad, ecodes.ABS_RZ, 0)  # released
+        emit_abs(pad, ecodes.ABS_HAT0Y, -1)  # D-pad up
+        emit_abs(pad, ecodes.ABS_HAT0Y, 0)
+        emit_abs(pad, ecodes.ABS_X, 12000)  # not mapped: passes through
+
+        assert read_key_events(vkbd, 4) == [
+            (ecodes.KEY_SPACE, 1),
+            (ecodes.KEY_SPACE, 0),
+            (ecodes.KEY_UP, 1),
+            (ecodes.KEY_UP, 0),
+        ]
+        forwarded = read_abs_events(forwarder)
+        assert (ecodes.ABS_X, 12000) in forwarded
+        assert all(code not in (ecodes.ABS_RZ, ecodes.ABS_HAT0Y) for code, _ in forwarded)
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        for device in grabbed:
+            try:
+                device.ungrab()
+            except OSError:
+                pass
+            device.close()
+        pad.close()
+    assert result.get("reason") is StopReason.STOPPED, result.get("error")
+
+
+@pytest.mark.hardware
+def test_monitor_axes_shows_live_values():
+    from inpmap.backends.linux_input import monitor_axes
+    from inpmap.models import AxisThreshold
+
+    pad = synthetic_pad()
+    shown: list[str] = []
+    try:
+        time.sleep(0.3)  # udev permissions for the new node
+
+        def move():
+            time.sleep(0.3)
+            emit_abs(pad, ecodes.ABS_RZ, 200)
+
+        threading.Thread(target=move, daemon=True).start()
+        spec = InputDeviceSpec(id="pad", name=PAD_NAME)
+        threshold = AxisThreshold(ecodes.ABS_RZ, True, 0.5)
+        notes = monitor_axes(
+            {"pad": spec},
+            {("pad", ecodes.ABS_RZ): [("r2", threshold)]},
+            lambda rows, changed: shown.extend(rows[i].text() for i in sorted(changed)),
+            timeout=1.0,
+        )
+    finally:
+        pad.close()
+    assert notes == []
+    assert any(line.startswith("pad        ABS_RZ       +0.00") for line in shown)
+    assert any("+0.78" in line and "r2: above 0.5 ON" in line for line in shown)
+    assert any(line.startswith("pad        ABS_HAT0Y") for line in shown)

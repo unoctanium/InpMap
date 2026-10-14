@@ -5,16 +5,21 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from inpmap.axis_triggers import AxisEvent, normalize
 from inpmap.input import InputDeviceLost, InputError
 from inpmap.models import InputDeviceSpec, InputEvent, KeyAction, OutputDeviceSpec
 from inpmap.output import OutputError
 
-# Raw fake events: ("key", code, value) or ("syn",) or ("msc", code, value).
+# Raw fake events: ("key", code, value), ("abs", code, value), ("syn",), ("msc", code, value).
 SYN = ("syn",)
 
 
 def key_raw(code: int, value: int) -> tuple:
     return ("key", code, value)
+
+
+def abs_raw(code: int, value: int) -> tuple:
+    return ("abs", code, value)
 
 
 @dataclass
@@ -34,6 +39,10 @@ class FakeInputSource:
     masked: set = field(default_factory=set)
     physically_down: set = field(default_factory=set)
     keys: frozenset | None = None  # reported key codes; None: every code
+    axes: dict = field(default_factory=dict)  # ABS code -> (min, max)
+
+    def axis_ranges(self) -> dict:
+        return dict(self.axes)
 
     def key_codes(self) -> frozenset[int]:
         return frozenset(range(0x300)) if self.keys is None else self.keys
@@ -74,6 +83,9 @@ class FakeInputSource:
             if raw[0] == "key":
                 event = InputEvent(self.spec.id, raw[1], KeyAction(raw[2]))
                 result.append((event, raw))
+            elif raw[0] == "abs" and raw[1] in self.axes:
+                value = normalize(raw[2], *self.axes[raw[1]])
+                result.append((AxisEvent(self.spec.id, raw[1], value), raw))
             else:
                 result.append((None, raw))
         return result

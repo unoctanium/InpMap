@@ -25,17 +25,18 @@ import os
 import re
 import select
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from evdev import InputDevice, UInput, ecodes, list_devices
 from evdev.uinput import UInputError
 
 from .. import codes
+from ..axis_triggers import AxisEvent, AxisRow, normalize
 from ..config import MAX_DEVICE_NAME_BYTES
 from ..input import InputDeviceLost, InputError
 from ..macros import Led
-from ..models import InputDeviceSpec, InputEvent, KeyAction
+from ..models import AxisThreshold, InputDeviceSpec, InputEvent, KeyAction
 from .linux_setup import symlinks_by_target
 
 log = logging.getLogger(__name__)
@@ -164,6 +165,97 @@ def _drain(device: InputDevice) -> None:
         pass
 
 
+def monitor_axes(
+    inputs: dict[str, InputDeviceSpec],
+    thresholds: dict[tuple[str, int], list[tuple[str, AxisThreshold]]],
+    show: Callable[[list[AxisRow], set[int]], None],
+    timeout: float | None,
+) -> list[str]:
+    """Show the trigger-capable axes of ``inputs`` live, without grabbing.
+
+    ``show(rows, changed)`` is called first with all rows and then, at most
+    20 times a second, with the indices of rows whose value changed. Runs
+    until ``timeout`` (or Ctrl+C). Returns notes about inputs that could
+    not be shown.
+    """
+    backend = LinuxInputBackend()
+    notes: list[str] = []
+    devices: dict[int, tuple[InputDevice, str]] = {}
+    rows: list[AxisRow] = []
+    index: dict[tuple[str, int], int] = {}
+    try:
+        for input_id, spec in inputs.items():
+            try:
+                device = InputDevice(backend.resolve_path(spec))
+            except InputError as exc:
+                notes.append(str(exc))
+                continue
+            except OSError as exc:
+                notes.append(f"input '{input_id}': cannot open: {exc}")
+                continue
+            if _grabbed_elsewhere(device):
+                notes.append(
+                    f"input '{input_id}': {device.name} is grabbed by another program "
+                    "(the InpMap service?); stop it to see its values"
+                )
+                device.close()
+                continue
+            devices[device.fd] = (device, input_id)
+            for code, info in device.capabilities(absinfo=True).get(ecodes.EV_ABS, []):
+                if code in codes.TRIGGER_AXIS_NAMES:
+                    index[(input_id, code)] = len(rows)
+                    rows.append(
+                        AxisRow(
+                            input_id,
+                            code,
+                            info.min,
+                            info.max,
+                            normalize(info.value, info.min, info.max),
+                            thresholds.get((input_id, code), []),
+                        )
+                    )
+        if not rows:
+            return notes
+        show(rows, set(range(len(rows))))
+        deadline = None if timeout is None else time.monotonic() + timeout
+        changed: set[int] = set()
+        last_show = 0.0
+        while deadline is None or time.monotonic() < deadline:
+            wait = 0.05 if deadline is None else max(0.0, min(0.05, deadline - time.monotonic()))
+            ready, _, _ = select.select(list(devices), [], [], wait)
+            for fd in ready:
+                device, input_id = devices[fd]
+                try:
+                    events = list(device.read())
+                except BlockingIOError:
+                    continue
+                for event in events:
+                    row = index.get((input_id, event.code)) if event.type == ecodes.EV_ABS else None
+                    if row is not None:
+                        rows[row].value = normalize(
+                            event.value, rows[row].minimum, rows[row].maximum
+                        )
+                        changed.add(row)
+            if changed and time.monotonic() - last_show >= 0.05:
+                show(rows, changed)
+                changed = set()
+                last_show = time.monotonic()
+        return notes
+    finally:
+        for device, _ in devices.values():
+            device.close()
+
+
+def _grabbed_elsewhere(device: InputDevice) -> bool:
+    """Whether another program holds an exclusive grab (then no events reach us)."""
+    try:
+        device.grab()
+    except OSError as exc:
+        return exc.errno == errno.EBUSY
+    device.ungrab()
+    return False
+
+
 @dataclass(frozen=True)
 class _SyntheticEvent:
     """Raw event made up during resynchronization (forwardable like evdev's)."""
@@ -197,7 +289,11 @@ class LinuxInputSource:
         self._dropping = False
         self._led_warning_logged = False
         self._masked: set[int] = set()
-        self._key_codes = frozenset(device.capabilities().get(ecodes.EV_KEY, []))
+        capabilities = device.capabilities(absinfo=True)
+        self._key_codes = frozenset(capabilities.get(ecodes.EV_KEY, []))
+        self._axis_ranges = {
+            code: (info.min, info.max) for code, info in capabilities.get(ecodes.EV_ABS, [])
+        }
 
     def _query_keys_or_empty(self) -> list[int]:
         try:
@@ -273,14 +369,17 @@ class LinuxInputSource:
             raise _io_error(exc, self.description, "grabbing") from exc
         self._grabbed = True
 
-    def read(self) -> list[tuple[InputEvent | None, object]]:
+    def axis_ranges(self) -> dict[int, tuple[int, int]]:
+        return dict(self._axis_ranges)
+
+    def read(self) -> list[tuple[InputEvent | AxisEvent | None, object]]:
         try:
             raw_events = list(self._device.read())
         except BlockingIOError:
             return []
         except OSError as exc:
             raise _io_error(exc, self.description, "reading") from exc
-        result: list[tuple[InputEvent | None, object]] = []
+        result: list[tuple[InputEvent | AxisEvent | None, object]] = []
         for raw in raw_events:
             if raw.type == ecodes.EV_SYN and raw.code == ecodes.SYN_DROPPED:
                 # Kernel buffer overflow: events were lost. Per the evdev
@@ -296,6 +395,9 @@ class LinuxInputSource:
                 self._track(raw.code, raw.value)
                 event = InputEvent(self._spec.id, raw.code, _KEY_ACTIONS[raw.value])
                 result.append((event, raw))
+            elif raw.type == ecodes.EV_ABS and raw.code in self._axis_ranges:
+                value = normalize(raw.value, *self._axis_ranges[raw.code])
+                result.append((AxisEvent(self._spec.id, raw.code, value), raw))
             else:
                 result.append((None, raw))
         return result
@@ -402,7 +504,7 @@ class LinuxInputBackend:
     """Implements :class:`inpmap.input.InputBackend` with evdev."""
 
     def open(self, spec: InputDeviceSpec, mapped_codes: frozenset[int]) -> LinuxInputSource:
-        path = self._resolve(spec)
+        path = self.resolve_path(spec)
         try:
             device = InputDevice(path)
         except PermissionError as exc:
@@ -466,7 +568,8 @@ class LinuxInputBackend:
             ) from exc
         return LinuxInputSource(spec, device, forwarder)
 
-    def _resolve(self, spec: InputDeviceSpec) -> str:
+    def resolve_path(self, spec: InputDeviceSpec) -> str:
+        """The event node a selector refers to (InputError if missing or ambiguous)."""
         if spec.path is not None:
             real = os.path.realpath(spec.path)
             if not os.path.exists(real):

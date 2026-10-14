@@ -20,7 +20,8 @@ props: "{" _sep? (prop (_sep prop)*)? _sep? "}"
 prop: prop_name "=" value ("," value)*
 !prop_name: NAME | "release" | "modifiers"
 
-map_def: "map" ref modifiers? as_name? block
+map_def: "map" ref threshold? modifiers? as_name? block
+threshold: (ABOVE | BELOW) NUMBER
 modifiers: "modifiers" "(" _nl? NAME ("," _nl? NAME)* _nl? ")"
 as_name: "as" NAME
 
@@ -86,6 +87,8 @@ _sep: (_NL | ";")+
 _nl: _NL+
 
 WITHIN: "within"
+ABOVE: "above"
+BELOW: "below"
 AFTER: "after"
 RELEASE_KW: "release"
 AUGOP: "+=" | "-="

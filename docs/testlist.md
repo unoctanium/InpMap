@@ -78,8 +78,9 @@ git log --oneline -1
 - `kp`: 22 lines from `KEY_KPASTERISK` (55) to `KEY_KPRIGHTPAREN` (180),
   all "keyboard", among them `KEY_KP1 79` and `KEY_KPENTER 96`;
 - `btn_a`: `BTN_SOUTH  304  gamepad  (also BTN_A)`;
-- `abs`: the six axes `ABS_X` … `ABS_RZ`, "gamepad axis (stick)" or
-  "(trigger)".
+- `abs`: `ABS_X` … `ABS_RZ` as "gamepad axis (stick)" or "(trigger)", and
+  since test 7 was added also `ABS_THROTTLE`, `ABS_RUDDER`, …,
+  `ABS_HAT0X` … `ABS_HAT3Y` as "- (only as input)".
 
 ## 3. Numpad output
 
@@ -379,6 +380,64 @@ Keep **one** of the two variants enabled.
 
 `systemctl --user list-unit-files 'inpmap*'` shows what is enabled.
 
+## 7. Sticks, triggers and the D-pad as triggers (added 2026-10-14)
+
+`inpmap axes` cannot read the pad while the service holds it, so stop the
+service for this test:
+
+```sh
+systemctl --user stop inpmap 'inpmap@*'
+cp config/local.inpmap /tmp/axes.inpmap
+printf '%s\n' \
+  'map pad.ABS_RZ above 0.5 as r2 { hold KEY_SPACE }' \
+  'map pad.ABS_Z above 0.3 as l2_soft { tap KEY_1 }' \
+  'map pad.ABS_Z above 0.9 as l2_hard { tap KEY_2 }' \
+  'map pad.ABS_HAT0Y below -0.5 as dpad_up { tap KEY_KP8 }' \
+  'map pad.ABS_HAT0Y above 0.5 as dpad_down { tap KEY_KP2 }' >> /tmp/axes.inpmap
+.venv/bin/inpmap check /tmp/axes.inpmap
+```
+
+**Expected:** OK; the summary lists e.g. `r2: pad ABS_RZ above 0.5 -> ...`.
+
+### 7a. Live values
+
+```sh
+.venv/bin/inpmap axes /tmp/axes.inpmap
+```
+
+Press R2 slowly, then L2, then the D-pad up and down, then move the left
+stick. Ctrl+C stops.
+
+**Expected:** rows for `ABS_X`, `ABS_Y`, `ABS_Z`, `ABS_RX`, `ABS_RY`,
+`ABS_RZ`, `ABS_HAT0X`, `ABS_HAT0Y`. The values follow your movements:
+the triggers 0.00 to 1.00, the sticks -1.00 to 1.00, the D-pad -1, 0 or
+1. `r2: above 0.5` switches to `ON` past half way, `dpad_up: below -0.5
+ON` while up is held. Note roughly where the triggers feel "half" and
+"full" for your own thresholds later.
+
+### 7b. Remapping
+
+```sh
+.venv/bin/inpmap run /tmp/axes.inpmap --timeout 60
+```
+
+Open a text editor and:
+
+1. Press R2 fully and hold it, then release. **Expected:** a held space
+   (the desktop's key repeat types several spaces); it stops when you
+   release R2 past about 0.45.
+2. Press L2 gently (about a third), release; then fully, release.
+   **Expected:** gently types `1`; fully types `1` and then `2`.
+3. D-pad up, D-pad down. **Expected:** the numpad 8 and 2 (with Num Lock
+   on: `8` and `2`).
+4. In a game or `evtest` on the **InpMap forward: Generic X-Box pad**
+   device: **Expected:** no `ABS_RZ`, `ABS_Z` or `ABS_HAT0Y` events while
+   you press R2, L2 or the D-pad (suppressed), but `ABS_X`/`ABS_Y` from the
+   left stick still arrive.
+
+Afterwards start your service again, e.g.
+`systemctl --user start inpmap@local`.
+
 ## Checklist for your reply
 
 ```text
@@ -401,4 +460,6 @@ Keep **one** of the two variants enabled.
 6b profile switch ................
 6c profile stops single service ..
 6d chosen for login: .............
+7a axes: live values .............
+7b axes: remapping ...............
 ```

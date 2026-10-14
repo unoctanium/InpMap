@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 
+from .codes import TRIGGER_AXIS_NAMES
 from .macros import DEFAULT_KEY_PAUSE_MS, Macro
 
 
@@ -97,6 +98,22 @@ class ModifierRequirement:
 
 
 @dataclass(frozen=True)
+class AxisThreshold:
+    """An axis of an input device passing a value, used like a button (§5.5).
+
+    ``value`` is a fraction of the device's range (-1.0 .. 1.0, not 0).
+    """
+
+    axis: int  # Linux ABS code
+    above: bool
+    value: float
+
+    def describe(self) -> str:
+        name = TRIGGER_AXIS_NAMES.get(self.axis, f"ABS_{self.axis:#x}")
+        return f"{name} {'above' if self.above else 'below'} {self.value:g}"
+
+
+@dataclass(frozen=True)
 class InputTrigger:
     """A key/button on one named physical input device, or on every input.
 
@@ -109,9 +126,10 @@ class InputTrigger:
     """
 
     device: str | None
-    code: int
+    code: int  # for an axis threshold: its virtual key code (see axis_triggers.py)
     modifiers: frozenset[ModifierRequirement] = frozenset()
     any_modifiers: bool = False
+    axis: AxisThreshold | None = None
 
     @property
     def match_key(self) -> tuple:
@@ -181,6 +199,18 @@ class Config:
     settings: Settings = Settings()
     variables: Mapping[str, object] = field(default_factory=dict)
 
+    def axis_thresholds(self) -> dict[int, AxisThreshold]:
+        """Virtual key code -> axis threshold, for every axis trigger."""
+        return {r.trigger.code: r.trigger.axis for r in self.mappings if r.trigger.axis}
+
+    def input_axes(self, device_id: str) -> frozenset[AxisThreshold]:
+        """Axis thresholds that mappings name for this input device."""
+        return frozenset(
+            r.trigger.axis
+            for r in self.mappings
+            if r.trigger.axis and r.trigger.device == device_id
+        )
+
     def output_codes(self, device_id: str) -> frozenset[int]:
         """Key/button codes a virtual output device must declare."""
         codes = {
@@ -205,9 +235,29 @@ class Config:
         (``shared_codes``) apply only where the device has them.
         """
         return frozenset(
-            rule.trigger.code for rule in self.mappings if rule.trigger.device == device_id
+            rule.trigger.code
+            for rule in self.mappings
+            if rule.trigger.device == device_id and rule.trigger.axis is None
         )
 
     def shared_codes(self) -> frozenset[int]:
-        """Codes of mappings without a device name (they apply to every input)."""
-        return frozenset(rule.trigger.code for rule in self.mappings if rule.trigger.device is None)
+        """Key codes of mappings without a device name (they apply to every input)."""
+        return frozenset(
+            rule.trigger.code
+            for rule in self.mappings
+            if rule.trigger.device is None and rule.trigger.axis is None
+        )
+
+    def shared_axes(self) -> frozenset[AxisThreshold]:
+        """Axis thresholds of mappings without a device name."""
+        return frozenset(
+            r.trigger.axis for r in self.mappings if r.trigger.axis and r.trigger.device is None
+        )
+
+    def watched_axes(self, device_id: str) -> frozenset[int]:
+        """ABS codes whose values go to the thresholds on this device (and are suppressed)."""
+        return frozenset(
+            r.trigger.axis.axis
+            for r in self.mappings
+            if r.trigger.axis and r.trigger.device in (device_id, None)
+        )

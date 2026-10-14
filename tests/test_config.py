@@ -250,8 +250,9 @@ def test_unknown_output_device_reference():
 
 def test_unsupported_event_type():
     data = valid()
-    data["mappings"][0]["input"]["type"] = "axis"
-    assert "unsupported event type 'axis'" in problems_of(data)
+    # ("axis" became a valid trigger type with axis thresholds, §5.5.)
+    data["mappings"][0]["input"]["type"] = "wheel"
+    assert "unsupported event type 'wheel'" in problems_of(data)
 
 
 def test_unknown_code_with_suggestion():

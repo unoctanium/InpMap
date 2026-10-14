@@ -136,6 +136,28 @@ BTN_SOUTH                     304  gamepad  (also BTN_A)
 "only as input" marks codes that no InpMap output can send (e.g. mouse
 buttons); they can still trigger mappings.
 
+### `inpmap axes`
+
+```text
+inpmap axes FILE [--timeout SECONDS]
+```
+
+Shows the sticks, analog triggers and D-pad axes of `FILE`'s input
+devices with their current values, as `above`/`below` use them
+([configuration.md §5.5](configuration.md#55-sticks-analog-triggers-and-the-d-pad-as-triggers)),
+and whether each threshold of your mappings is on. Move the stick or
+press the trigger and watch the value; Ctrl+C stops.
+
+```text
+pad        ABS_X        -0.02   (-32768..32767)
+pad        ABS_RZ       +0.73   (0..255)   r2: above 0.5 ON
+pad        ABS_HAT0Y    -1.00   (-1..1)   dpad_up: below -0.5 ON
+```
+
+The devices are only read, not grabbed. A device that the InpMap service
+holds cannot be read by anyone else; `axes` says so, and you stop the
+service for the moment (`systemctl --user stop inpmap 'inpmap@*'`).
+
 ### `inpmap input-config`
 
 ```text
