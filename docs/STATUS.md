@@ -31,9 +31,11 @@ Last updated: 2026-10-14
     README (test build, first upload, updates). Verified: `makepkg
     --printsrcinfo`, `makepkg --verifysource` (download + both checksums
     pass), the unit with `systemd-analyze verify`, a drift test against
-    `inpmap service-unit`. ⏳ **Open:** (1) test build `makepkg -f` by the
-    maintainer (needs `python-build python-installer python-pytest
-    python-lark-parser`, sudo); (2) **upload to the AUR once account
+    `inpmap service-unit`. ✅ Test build by the maintainer: `makepkg -f` →
+    "Finished making: inpmap 0.2.0-1" (2026-10-14). ⏳ **Open:** (1) under
+    discussion: install a udev rule for /dev/uinput with the package and a
+    post-install message for the per-device rules; then install the built
+    package for a real test (pipx version removed first); (2) **upload to the AUR once account
     registration reopens** (it was closed on 2026-10-14: HTTP 503, "paused
     while we deal with a wave of automated account creation"; watch
     aur-general / Arch news), following packaging/aur/README.md; then
