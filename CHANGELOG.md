@@ -6,6 +6,20 @@ before 1.0, minor versions may change the configuration language (the
 
 ## Unreleased
 
+- **Unmapped input goes to the outputs** (configuration.md §3.4): keys to
+  the keyboard output, gamepad buttons, sticks and D-pad to the gamepad
+  output. Applications see exactly the configured virtual devices instead
+  of a copy of each physical device, so a gamepad plus its extra buttons is
+  one controller and several keyboards are one keyboard. A pad's D-pad
+  arrives as the D-pad buttons (which SDL and Steam use). Mouse parts and
+  other things no output carries go to a small pass-through device of that
+  input. New `to = OUTPUT` chooses the output (e.g. a second player's
+  gamepad), `to = own` keeps the previous behaviour for a device. A device
+  whose unmapped input would have nowhere to go is never grabbed: an error
+  at start (exit status 1), only logged when it appears later. Keyboard
+  LEDs follow the virtual keyboard. **Changed behaviour:** per-device
+  desktop settings of configured keyboards now apply to "InpMap keyboard";
+  use `to = own` to keep them; a keyboard input needs a keyboard output.
 - The virtual gamepad can send the back paddles `BTN_GRIPL`, `BTN_GRIPR`,
   `BTN_GRIPL2`, `BTN_GRIPR2` (shown by Steam as L4, R4, L5, R5); they are
   declared only when a mapping uses them.

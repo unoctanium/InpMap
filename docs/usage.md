@@ -10,19 +10,25 @@ shows how to make it available under that name.
 ## 1. How InpMap works
 
 ```text
-physical keyboard ──grab──► InpMap ──► virtual keyboard  ──► desktop, games
-physical gamepad  ──grab──►        ──► virtual gamepad   ──►
-                                   ──► "InpMap forward: …" (everything not mapped)
+physical keyboard ──grab──► InpMap ──► virtual keyboard ("InpMap keyboard") ──► desktop, games
+physical gamepad  ──grab──►        ──► virtual gamepad  ("InpMap gamepad")  ──►
+                                   ──► "InpMap forward: …" (only mouse parts and the like)
 ```
 
 1. InpMap creates the virtual output devices of your configuration.
 2. It opens the configured physical devices and **grabs** them, so the
    desktop no longer receives their events directly.
-3. Mapped keys and buttons drive the virtual devices. Everything else is
-   passed through unchanged by a forwarding device named
-   `InpMap forward: <device name>`, so the rest of the keyboard keeps
-   working.
-4. When InpMap stops, it releases every held key, ungrabs the devices and
+3. Mapped keys and buttons do what the mappings say. Everything else goes
+   unchanged to the virtual device of its kind: keys to the virtual
+   keyboard, buttons, sticks and D-pad to the virtual gamepad. So the
+   desktop and games see your configured outputs **instead of** the
+   physical devices, e.g. a gamepad with extra buttons as one controller
+   ([configuration.md §3.4](configuration.md#34-where-unmapped-input-goes)).
+4. What no virtual device carries — the mouse part of a combined device,
+   for example — goes to a small pass-through device named
+   `InpMap forward: <device name>`. With `to = own`, a device keeps such a
+   device of its own for everything.
+5. When InpMap stops, it releases every held key, ungrabs the devices and
    removes all its virtual devices.
 
 ## 2. First contact
@@ -333,13 +339,19 @@ Behaviour while running:
   is an error, because it usually means a wrong `name` or `path`, unless
   `--wait-for-devices` is given.
 - **Keyboard LEDs** (Caps Lock, Num Lock, Scroll Lock): the desktop sets
-  them on the forwarding device; InpMap copies them to the physical
-  keyboard.
+  them on the virtual keyboard; InpMap shows them on every physical
+  keyboard that sends to it.
 - **Event loss** under heavy load: key states are resynchronised, so no key
   stays stuck.
-- **Desktop settings per device** (e.g. a keyboard layout for one keyboard)
-  apply to the forwarding device, which has the original's vendor and
-  product ID.
+- **Desktop settings per device** (e.g. a keyboard layout for one
+  keyboard) apply to the virtual keyboard, which all configured keyboards
+  share. To keep such settings for one device, give it `to = own`: it then
+  keeps a device of its own with the original's name, vendor and product
+  ID.
+- **A device that does not fit** (keys but no keyboard output, a
+  flight stick, a touchpad) is never grabbed: InpMap stops with a message
+  naming the fix, or, for a device that appears later, leaves it alone and
+  logs why.
 - **Force feedback** (rumble) is not supported.
 - A device grabbed by another program (e.g. Input Remapper) cannot be used
   at the same time: InpMap reports "already grabbed by another program".
@@ -462,6 +474,8 @@ where to put it.
 | "cannot create virtual …" or "no read access to …" | set up permissions ([installation.md §3](installation.md#3-device-permissions)) |
 | "no readable device named …" | the `name` is wrong, the device is not connected, or you lack permission; check `inpmap devices`, or use `path` |
 | "N devices are named …" | use `path` with a `/dev/input/by-id` link instead of `name` |
+| "… is not taken over, its unmapped input would have nowhere to go" | add the output the message names, or `to = own` to that device's `input` block ([configuration.md §3.4](configuration.md#34-where-unmapped-input-goes)) |
+| a game sees two controllers | the physical pad is still visible to it: is the pad an `input` of the running profile? Steam may also list the grabbed physical pad; it no longer reacts |
 | "already grabbed by another program" | the InpMap service is running (`systemctl --user stop 'inpmap@*'`), or another remapper (e.g. Input Remapper) uses the device |
 | the service does not run | `systemctl --user status inpmap@default` and `journalctl --user -u inpmap@default` show the reason (an invalid configuration is reported with its line number) |
 | "no such configuration" | the profile does not exist yet; create it with the command shown (`inpmap input-config NAME`) |

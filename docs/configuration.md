@@ -210,10 +210,6 @@ position is 0.0.
 
 ### 3.4 Where unmapped input goes
 
-> **Being implemented for InpMap 0.3.** InpMap 0.2 still passes each
-> input's unmapped input through on a device of its own
-> ("InpMap forward: …", like `to = own` below) and does not know `to`.
-
 **The declared outputs are the devices applications see.** An input's
 unmapped keys, buttons and axes go to the output of their kind, together
 with what the mappings send there:
@@ -224,7 +220,7 @@ with what the mappings send there:
 | gamepad buttons, sticks, triggers, D-pad (the set of §3.3) | the `gamepad` output |
 | mouse buttons and movement, other buttons and axes such as `BTN_0` or a volume wheel | a pass-through device of the input (rule 3) |
 
-```text
+```inpmap
 version 1
 input kbd { name = "AT Translated Set 2 keyboard" }
 input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
@@ -253,6 +249,32 @@ see one controller.
 | `to = gamepad2` | the input's gamepad buttons and axes go to `gamepad2`, e.g. the pad of a second player |
 | `to = keyboard2, gamepad2` | one output per kind |
 | `to = own` | the input keeps a virtual device of its own that copies its name and identity; mappings still send to the outputs. For devices that do not fit the outputs: DirectInput-style gamepads and flight sticks, or a keyboard whose desktop settings (e.g. its own layout) should stay separate |
+
+Two players, each pad on a gamepad of its own, and a flight stick that
+keeps its own device:
+
+```inpmap
+version 1
+input pad1 {
+    name = "Pad One"
+    to   = gamepad1
+}
+input pad2 {
+    name = "Pad Two"
+    to   = gamepad2
+}
+input stick {
+    name = "Flight Stick"
+    to   = own
+}
+output keyboard { type = keyboard }
+output gamepad1 { type = gamepad }
+output gamepad2 { type = gamepad }
+
+map pad1.BTN_MODE { tap KEY_ESC }
+map pad2.BTN_MODE { tap KEY_ESC }
+map stick.BTN_TRIGGER { tap KEY_SPACE }
+```
 
 Rules:
 

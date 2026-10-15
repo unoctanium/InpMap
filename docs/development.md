@@ -50,8 +50,10 @@ Use ```` ```text ```` for fragments that are not valid on their own.
 .inpmap file ─► dsl/parser ─► dsl/compiler ─► config (validate) ─► models
                                                                      │
 physical device ─► backends/linux_input ─► runtime ─► engine ─► output ─► backends/linux ─► uinput
-                   (grab, forward)          (loop)    (rules,   (devices,
-                                                       macros)   ref counts)
+                   (grab, pass-through)     (loop)    (rules,   (devices)
+                                              │        macros,
+                                              └──────► routing: unmapped input
+                                                       to the outputs
 ```
 
 The core (everything outside `backends/`) does not import evdev; it works on
@@ -67,9 +69,10 @@ The core (everything outside `backends/`) does not import evdev; it works on
 | `loading.py` | load a file by extension |
 | `engine.py`, `modifiers.py`, `state.py`, `axes.py`, `macro_runtime.py` | mapping engine: rule choice incl. modifiers, reference counts, axis holder stacks, macro runs as generator fibers on a timer queue |
 | `output.py`, `input.py` | backend interfaces; output manager |
-| `runtime.py` | startup order, event loop, reconnect, masking of modifiers, guaranteed cleanup |
+| `routing.py` | where a device's unmapped input goes (`plan_route`, refusals) and the `Router` that sends it to the outputs as shared holders |
+| `runtime.py` | startup order, event loop, reconnect, masking of modifiers, keyboard LEDs, guaranteed cleanup |
 | `backends/linux.py` | virtual devices through uinput |
-| `backends/linux_input.py` | physical devices: selection, grab, forwarding device, LEDs, `SYN_DROPPED` resync |
+| `backends/linux_input.py` | physical devices: selection, grab, pass-through device, LEDs, `SYN_DROPPED` resync |
 | `input_config.py` | `inpmap input-config`: grouping, selectors, text insertion, the interactive session |
 | `backends/linux_setup.py` | sysfs device scan (no device access needed), udev rule generator |
 | `backends/linux_service.py` | systemd user unit generator (`inpmap service-unit`) |

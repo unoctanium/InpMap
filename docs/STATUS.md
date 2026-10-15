@@ -124,8 +124,18 @@ step committed with passing tests):
    physical keyboard, refused device never grabbed). Unit tests 626, all
    19 hardware tests pass. Docs (step 9) not yet updated: usage.md and
    README still describe the old pass-through model.
-8. Optional: axis events framed per SYN_REPORT.
-9. Docs, example, manual tests, CHANGELOG; remove the §3.4 note.
+8. Skipped for now (optional): routed axis events framed per SYN_REPORT
+   (each value is written with its own SYN; no problem observed).
+9. ✅ Docs: configuration.md §3.4 note removed, examples are checked
+   `inpmap` blocks (incl. two players with `to`); usage.md §1 diagram,
+   `run` notes (LEDs, per-device settings, refused devices),
+   troubleshooting; development.md architecture and modules; README
+   features; CHANGELOG "Unreleased"; manual-tests.md §2a. The example
+   profile needed no change. `docs/roadmap.md` edit (requirement text +
+   milestone "Routing by kind") awaits the maintainer's approval,
+   uncommitted.
+**Next:** release 0.3.0 (maintainer's OK needed), then the `gaming`
+profile can run as the login service.
 Risks noted: per-keyboard desktop settings lost (use `to = own`);
 DirectInput pads and flight sticks need `to = own`; Steam may read the
 physical pad via hidraw (unchanged).
@@ -226,7 +236,8 @@ physical pad via hidraw (unchanged).
 
 ## Uncommitted work
 
-- None.
+- `docs/roadmap.md`: routing requirement text and milestone row, awaiting the
+  maintainer's approval.
 
 ## Open questions
 

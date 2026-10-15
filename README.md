@@ -69,8 +69,11 @@ InpMap was started for needs it covers less well:
   e.g. Caps Lock + WASD as arrow keys, or a flight-sim layer on the gamepad.
 - Reusable blocks: write a sequence once (`block close_dialog { … }`) and
   `call` it from several mappings.
-- Unmapped keys pass through unchanged; LEDs keep working; devices that
-  are unplugged and plugged in again are picked up automatically.
+- Unmapped keys, buttons and sticks go unchanged to the virtual device of
+  their kind, so applications see exactly your configured devices: a
+  gamepad plus its extra buttons becomes **one** controller. LEDs keep
+  working; mice keep working; devices that are unplugged and plugged in
+  again are picked up automatically.
 - `inpmap input-config` finds your devices for you: press a key on the
   keyboard or gamepad you want, and it is added to the configuration.
 - `inpmap fmt` lays out configuration files consistently, without ever

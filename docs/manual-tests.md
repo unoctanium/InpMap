@@ -51,6 +51,23 @@ position of your layout), never `x`; the gamepad reports `BTN_SOUTH` 1 and 0;
 other keys type normally; holding X gives the desktop's key repeat; nothing
 stays pressed after release.
 
+## 2a. Routing: the outputs replace the physical devices
+
+During the `run` of section 2: `inpmap devices` in another terminal.
+**Expected:** no "InpMap forward: …" entry for the keyboard (unless it has
+a mouse part); typing works through "InpMap keyboard"; Num Lock and Caps
+Lock LEDs on the physical keyboard follow the desktop.
+
+With a gamepad as input `pad`: in KDE's game controller settings and in
+Steam's controller test there is **one** controller, "InpMap gamepad", and
+its sticks, triggers, D-pad and buttons all work. A gamepad with extra
+buttons that send keys (e.g. the Razer Raiju's keyboard part, mapped to
+`BTN_GRIPL` …) shows them as L4/R4/L5/R5 on the same controller.
+
+Remove the `output keyboard` line and run again. **Expected:** InpMap
+stops at once with "… is not taken over … there is no keyboard output";
+the keyboard keeps working. Restore the line afterwards.
+
 ## 3. Emergency stop
 
 During a `run`, hold Backspace + Escape + Enter. **Expected:** InpMap stops
