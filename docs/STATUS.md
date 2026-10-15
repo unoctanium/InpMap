@@ -157,25 +157,22 @@ Last updated: 2026-10-15
 
 ## Open questions
 
-- **Under investigation (2026-10-14): Razer Raiju V3 Pro keyboard
-  interface (`-if01-event-kbd`, onboard profile sending Enter or F15).**
-  Observed by the maintainer: after `inpmap detect` or `inpmap run` (profile
-  with only that input) has exited, the key no longer reaches the desktop;
-  the next `inpmap detect` start produces endless Enter (stuck press with
-  key repeat) until the button is pressed again, sometimes only a
-  controller power cycle helps. While `inpmap run` ran, the mapping had no
-  visible effect either. `evtest` on the same device (without `--grab`)
-  behaves normally. USB autosuspend is off for the device. Common to both
-  InpMap commands: EVIOCGRAB (detect grabs and releases each device once to
-  check for other grabs). Next test asked: `evtest --grab` on the device,
-  then Ctrl+C, then the key in Kate — distinguishes a kernel/driver
-  reaction to grabbing from an InpMap bug. The keyboard and the Razer are on
-  different USB ports (2-11 and 2-9.2). The maintainer suspected the HXSJ
-  L500 keyboard's Fn+W mode switch, then ruled it out as the root cause.
-  Paused: the maintainer is switching to another keyboard; the
-  `evtest --grab` test is still open. Not concluded whether InpMap is at
-  fault.
-
+- **Found (2026-10-15), not an InpMap bug: Razer Raiju V3 Pro stalls when
+  one of its USB interfaces is not read.** The controller has a gamepad
+  interface (xpad), a keyboard/mouse interface and a touchpad interface
+  (hid-multitouch); the kernel polls a HID interface only while some program
+  has one of its event devices open. KDE had the Razer touchpad (and mouse)
+  disabled (`kcminputrc` `Enabled=false`), so nobody read the touchpad.
+  Observed: after touching the touchpad the gamepad interface delivered no
+  events at all (read-only logger on the event device; no kernel, udev or
+  journal messages); opening only the touchpad event device read-only
+  revived the stick at once. This also explains the earlier symptoms with
+  the keyboard interface (stuck Enter released when `inpmap detect` opened
+  all devices) and why `detect` seemed to "repair" things. Pending: the
+  maintainer re-enables the touchpad in KDE and confirms the gamepad keeps
+  working; then decide whether to document this in usage.md
+  (troubleshooting) and whether InpMap should help (e.g. keep sibling
+  interfaces of a configured device open).
 
 ## Session log
 
