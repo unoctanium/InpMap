@@ -175,8 +175,19 @@ Last updated: 2026-10-15
 - `docs/configuration.md`: design draft of `forward = OUTPUT` (new §3.4,
   marked "planned, not implemented yet", example as `text` block; links
   in §1, §3.1, §8; stale "reusable named blocks" removed from §9).
-  Waiting for the maintainer's approval; then implement, switch the
-  example to an `inpmap` block, and commit together.
+  Not approved: the maintainer questioned the whole input/output model
+  first (2026-10-15). Under discussion: (A) today's model plus `forward`;
+  (B) "remap in place" (each input's clone is its output); (C) routing by
+  kind like InputPlumber's composite device (unmapped events go to the
+  declared output of their kind; no hidden clones). Facts gathered: Steam
+  shows the paddles of a virtual pad carrying the Raiju's vendor/product
+  IDs (maintainer's test with the Python prototype: listed as "Generic
+  X-Box Pad", extra buttons work), so device identity does not block
+  paddles. InputPlumber (GPLv3, Rust, root daemon with DBus, YAML):
+  source devices merged into a composite device, capability maps
+  normalise events, profiles translate, targets chosen by type (incl.
+  emulated models such as xbox-elite, ds5, deck); events go to the target
+  that supports them.
 
 ## Open questions
 
