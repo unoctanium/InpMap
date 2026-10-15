@@ -252,8 +252,9 @@ physical pad via hidraw (unchanged).
   new ABS_HAT0X/Y, so SDL/Steam read only the (unused) buttons. Fixed: the
   output has no D-pad axes again; a pad's D-pad axes are turned into
   BTN_DPAD_* presses by the router (shared ref counts with mappings); spec
-  §3.3 and §3.4 rule 4 updated; unit and hardware tests pass. Awaited: the
-  D-pad in Steam's controller test with the Raiju profile.
+  §3.3 and §3.4 rule 4 updated; unit and hardware tests pass. Re-test:
+  **D-pad works in Steam** (maintainer, 2026-10-15). Routing manual test
+  complete: all points passed.
 
 - **Found (2026-10-15), not an InpMap bug: Razer Raiju V3 Pro stalls when
   one of its USB interfaces is not read.** The controller has a gamepad
