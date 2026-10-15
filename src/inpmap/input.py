@@ -52,6 +52,10 @@ class InputSource(Protocol):
         """Lock LEDs currently lit on the device (empty if it has none)."""
         ...
 
+    def set_leds(self, leds: frozenset[Led]) -> None:
+        """Show these lock LEDs on the device and switch the others off (if it has LEDs)."""
+        ...
+
     def grab(self) -> None:
         """Take exclusive access: other programs stop receiving its events."""
         ...
@@ -98,6 +102,12 @@ class InputBackend(Protocol):
         """
         ...
 
-    def wait(self, sources: Sequence[InputSource], timeout: float) -> list[InputSource]:
-        """Block up to ``timeout`` seconds; return sources with pending events."""
+    def wait(
+        self, sources: Sequence[InputSource], timeout: float, feedback: Sequence[int] = ()
+    ) -> list[InputSource]:
+        """Block up to ``timeout`` seconds; return sources with pending events.
+
+        Also returns early when one of the ``feedback`` descriptors (LED
+        changes on the outputs) becomes readable.
+        """
         ...

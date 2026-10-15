@@ -17,6 +17,7 @@ from evdev import InputDevice, ecodes  # noqa: E402
 from inpmap import codes  # noqa: E402
 from inpmap.backends.linux import LinuxOutputBackend, capabilities  # noqa: E402
 from inpmap.config import parse_config  # noqa: E402
+from inpmap.macros import Led  # noqa: E402
 from inpmap.models import OutputDeviceSpec, OutputKind  # noqa: E402
 from inpmap.output import OutputManager  # noqa: E402
 
@@ -29,7 +30,8 @@ def test_keyboard_has_all_basic_keys_and_no_buttons():
     # udev sets ID_INPUT_KEYBOARD only if codes 1..31 are all present.
     assert set(range(1, 32)) <= keys
     assert not any(ecodes.BTN_MISC <= code < ecodes.KEY_OK for code in keys)
-    assert set(caps) == {ecodes.EV_KEY}
+    assert set(caps) == {ecodes.EV_KEY, ecodes.EV_LED}
+    assert set(caps[ecodes.EV_LED]) == {ecodes.LED_NUML, ecodes.LED_CAPSL, ecodes.LED_SCROLLL}
 
 
 def test_gamepad_has_standard_buttons_axes_and_no_keys():
@@ -243,5 +245,27 @@ def test_axis_values_reach_virtual_gamepad_and_reset_on_close(grabbed):
             (ecodes.ABS_RZ, 0),
             (ecodes.ABS_HAT0Y, 0),
         ]
+    finally:
+        outputs.close()
+
+
+@pytest.mark.hardware
+def test_keyboard_output_reports_leds_set_by_the_desktop():
+    outputs = OutputManager(LinuxOutputBackend(), CONFIG)
+    outputs.open()
+    try:
+        keyboard = InputDevice(outputs.devices["keyboard"].node)
+        try:
+            assert outputs.feedback_filenos()
+            assert outputs.poll_leds() == {}
+            keyboard.set_led(ecodes.LED_CAPSL, 1)  # what the desktop does
+            deadline = time.monotonic() + 2.0
+            changed = {}
+            while not changed and time.monotonic() < deadline:
+                select.select(outputs.feedback_filenos(), [], [], 0.2)
+                changed = outputs.poll_leds()
+            assert changed == {"keyboard": frozenset({Led.CAPSLOCK})}
+        finally:
+            keyboard.close()
     finally:
         outputs.close()

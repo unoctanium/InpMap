@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from . import codes
-from .macros import AXIS_REST, OUTPUT_AXIS_KINDS, AxisKind
+from .macros import AXIS_REST, OUTPUT_AXIS_KINDS, AxisKind, Led
 from .models import Config, OutputDeviceSpec, OutputKind
 
 log = logging.getLogger(__name__)
@@ -61,6 +61,17 @@ class OutputDevice(Protocol):
 
     def close(self) -> None:
         """Destroy the virtual device."""
+        ...
+
+    def fileno(self) -> int | None:
+        """Descriptor that becomes readable when the desktop sets LEDs, if any."""
+        ...
+
+    def poll_leds(self) -> frozenset[Led] | None:
+        """Lock LEDs the desktop has set on a keyboard output, if they changed.
+
+        Non-blocking; None if nothing changed (or the device has no LEDs).
+        """
         ...
 
 
@@ -127,6 +138,19 @@ class OutputManager:
             axes.pop(code, None)
         else:
             axes[code] = value
+
+    def feedback_filenos(self) -> list[int]:
+        """Descriptors on which LED changes of the outputs arrive."""
+        return [fd for d in self._devices.values() if (fd := d.fileno()) is not None]
+
+    def poll_leds(self) -> dict[str, frozenset[Led]]:
+        """Lock LEDs per output whose state the desktop changed since the last call."""
+        changed = {}
+        for device_id, device in self._devices.items():
+            leds = device.poll_leds()
+            if leds is not None:
+                changed[device_id] = leds
+        return changed
 
     def axis(self, device_id: str, code: int) -> float:
         """Current value of an axis (rest if never moved)."""

@@ -105,7 +105,10 @@ step committed with passing tests):
    (shared ref counts), axes as base values, key repeat dropped (desktops
    repeat the virtual keyboard themselves), mask/unmask for modifiers,
    detach releases everything; tests in `tests/test_routing.py`.
-6. Keyboard LEDs from outputs to routed physical keyboards.
+6. ✅ Keyboard LED parts: the virtual keyboard declares NUML/CAPSL/SCROLLL;
+   `OutputDevice.fileno/poll_leds`, `OutputManager.feedback_filenos/poll_leds`
+   (hardware test passes); `InputSource.set_leds`; `InputBackend.wait(…,
+   feedback)`. Applying them to routed keyboards is wired in step 7.
 7. Switch on in backend/runtime (refusal at start = error exit 1; later =
    log only).
 8. Optional: axis events framed per SYN_REPORT.

@@ -29,7 +29,7 @@ import logging
 from evdev import AbsInfo, UInput, ecodes
 from evdev.uinput import UInputError
 
-from ..macros import OUTPUT_AXIS_KINDS, AxisKind
+from ..macros import OUTPUT_AXIS_KINDS, AxisKind, Led
 from ..models import OutputDeviceSpec, OutputKind
 from ..output import OutputError, output_capabilities
 
@@ -48,6 +48,11 @@ _STICK = AbsInfo(value=0, min=-32768, max=32767, fuzz=16, flat=128, resolution=0
 _TRIGGER = AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)
 _HAT = AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)
 _ABS_INFO = {AxisKind.STICK: _STICK, AxisKind.TRIGGER: _TRIGGER, AxisKind.HAT: _HAT}
+LEDS = {
+    ecodes.LED_NUML: Led.NUMLOCK,
+    ecodes.LED_CAPSL: Led.CAPSLOCK,
+    ecodes.LED_SCROLLL: Led.SCROLLLOCK,
+}
 
 
 def axis_raw(code: int, value: float) -> int:
@@ -72,6 +77,10 @@ def capabilities(kind: OutputKind, mapped_codes: frozenset[int]) -> dict[int, li
     """
     caps = output_capabilities(kind, mapped_codes)
     events: dict[int, list] = {ecodes.EV_KEY: sorted(caps.keys)}
+    if kind is OutputKind.KEYBOARD:
+        # The desktop sets the lock LEDs here; InpMap shows them on the
+        # physical keyboards routed to this output (configuration.md §3.4).
+        events[ecodes.EV_LED] = sorted(LEDS)
     if caps.axes:
         events[ecodes.EV_ABS] = [(code, _ABS_INFO[k]) for code, k in sorted(caps.axes.items())]
     return events
@@ -83,6 +92,7 @@ class LinuxOutputDevice:
     def __init__(self, spec: OutputDeviceSpec, uinput: UInput) -> None:
         self.spec = spec
         self._uinput = uinput
+        self._lit: set[int] = set()  # LED codes the desktop set
 
     @property
     def node(self) -> str | None:
@@ -105,6 +115,30 @@ class LinuxOutputDevice:
             self._uinput.syn()
         except OSError as exc:
             raise OutputError(f"writing to '{self.spec.name}' failed: {exc}") from exc
+
+    def fileno(self) -> int | None:
+        return self._uinput.fd if self.spec.kind is OutputKind.KEYBOARD else None
+
+    def poll_leds(self) -> frozenset[Led] | None:
+        if self.spec.kind is not OutputKind.KEYBOARD:
+            return None
+        try:
+            events = list(self._uinput.read())
+        except BlockingIOError:
+            return None
+        except OSError as exc:
+            log.warning("reading LEDs of '%s' failed: %s", self.spec.name, exc)
+            return None
+        before = set(self._lit)
+        for event in events:
+            if event.type == ecodes.EV_LED and event.code in LEDS:
+                if event.value:
+                    self._lit.add(event.code)
+                else:
+                    self._lit.discard(event.code)
+        if self._lit == before:
+            return None
+        return frozenset(LEDS[code] for code in self._lit)
 
     def close(self) -> None:
         try:

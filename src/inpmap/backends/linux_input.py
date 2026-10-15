@@ -395,6 +395,19 @@ class LinuxInputSource:
                     log.warning("cannot set LEDs on %s: %s", self.description, exc)
                     self._led_warning_logged = True
 
+    def set_leds(self, leds: frozenset[Led]) -> None:
+        available = self._device.capabilities().get(ecodes.EV_LED, [])
+        for code, led in _LEDS.items():
+            if code not in available:
+                continue
+            try:
+                self._device.set_led(code, 1 if led in leds else 0)
+            except OSError as exc:
+                if not self._led_warning_logged:
+                    log.warning("cannot set LEDs on %s: %s", self.description, exc)
+                    self._led_warning_logged = True
+                return
+
     def leds(self) -> frozenset[Led]:
         try:
             lit = self._device.leds()
@@ -576,17 +589,21 @@ class LinuxInputBackend:
             device.close()
             raise
 
-    def wait(self, sources: Sequence[LinuxInputSource], timeout: float) -> list[LinuxInputSource]:
-        if not sources:
+    def wait(
+        self, sources: Sequence[LinuxInputSource], timeout: float, feedback: Sequence[int] = ()
+    ) -> list[LinuxInputSource]:
+        if not sources and not feedback:
             # All inputs absent (e.g. unplugged): sleep instead of spinning.
             time.sleep(timeout)
             return []
         inputs = {source.fileno(): source for source in sources}
-        feedback = {source.feedback_fileno(): source for source in sources}
-        ready, _, _ = select.select([*inputs, *feedback], [], [], timeout)
+        own_feedback = {
+            fd: source for source in sources if (fd := source.feedback_fileno()) is not None
+        }
+        ready, _, _ = select.select([*inputs, *own_feedback, *feedback], [], [], timeout)
         for fd in ready:
-            if fd in feedback:
-                feedback[fd].pump_feedback()
+            if fd in own_feedback:
+                own_feedback[fd].pump_feedback()
         return [inputs[fd] for fd in ready if fd in inputs]
 
     def _prepare(

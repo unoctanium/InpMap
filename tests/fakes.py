@@ -54,6 +54,10 @@ class FakeInputSource:
     def leds(self) -> frozenset:
         return frozenset(self.lit)
 
+    def set_leds(self, leds: frozenset) -> None:
+        self.lit = set(leds)
+        self.journal.append(f"leds {self.spec.id} {sorted(led.value for led in leds)}")
+
     def held_codes(self) -> frozenset[int]:
         if self.lost:
             raise InputDeviceLost(f"{self.description} lost")
@@ -155,7 +159,7 @@ class FakeInputBackend:
             return self.sources[spec.id]
         return self.replacements[spec.id].pop(0)
 
-    def wait(self, sources, timeout: float) -> list[FakeInputSource]:
+    def wait(self, sources, timeout: float, feedback=()) -> list[FakeInputSource]:
         if self.script:
             self.script.pop(0)()
         elif self.stop is not None:
@@ -193,6 +197,16 @@ class FakeOutputDevice:
         self.closed = True
         if self.fail_close:
             raise OutputError("simulated close failure")
+
+    def fileno(self) -> int | None:
+        return None
+
+    def poll_leds(self):
+        """LED states set by a test (``set_leds``), each reported once."""
+        leds, self.pending_leds = self.pending_leds, None
+        return leds
+
+    pending_leds: frozenset | None = None
 
 
 @dataclass
