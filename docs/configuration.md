@@ -222,7 +222,7 @@ with what the mappings send there:
 |---|---|
 | keyboard keys (`KEY_*`) | the `keyboard` output |
 | gamepad buttons, sticks, triggers, D-pad (the set of §3.3) | the `gamepad` output |
-| mouse buttons and movement, other axes such as a volume wheel | a pass-through device of the input (rule 3) |
+| mouse buttons and movement, other buttons and axes such as `BTN_0` or a volume wheel | a pass-through device of the input (rule 3) |
 
 ```text
 version 1
@@ -270,9 +270,10 @@ Rules:
    Keys and buttons that a mapping uses need no output (if such a mapping
    does not fire, e.g. because of held modifiers, the press is dropped).
    Touchpads, touchscreens and tablets always need `to = own`.
-3. Mouse buttons and movement, and axes that are neither gamepad nor
-   joystick axes (such as a volume wheel), go to a pass-through device of
-   the input ("InpMap forward: …") that carries only these, so a mouse
+3. Mouse buttons and movement, buttons that are neither keys nor gamepad
+   or joystick buttons (such as `BTN_0`), and axes that are neither gamepad
+   nor joystick axes (such as a volume wheel) go to a pass-through device
+   of the input ("InpMap forward: …") that carries only these, so a mouse
    part keeps working. (A mouse output is planned.)
 4. A gamepad output always has the D-pad axes `ABS_HAT0X`, `ABS_HAT0Y`
    (§3.3). It is created with a fixed set before any device is opened, so

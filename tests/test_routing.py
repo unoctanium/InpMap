@@ -52,9 +52,9 @@ XBOX_PAD = DeviceCapabilities(
         ABS["ABS_HAT0Y"]: HAT,
     },  # fmt: skip
 )
-# The Raiju's keyboard interface: keys, a wheel and a volume axis.
+# The Raiju's keyboard interface: keys, a misc button, a wheel and a volume axis.
 PAD_KEYS = DeviceCapabilities(
-    keys=keys("KEY_F13", "KEY_F14", "KEY_ENTER"),
+    keys=keys("KEY_F13", "KEY_F14", "KEY_ENTER", "BTN_0"),
     axes={ABS_VOLUME: (0, 1023)},
     relative=frozenset({REL_WHEEL, 0x06}),
 )
@@ -122,7 +122,8 @@ def test_xbox_pad_goes_completely_to_the_gamepad_output():
 
 def test_pad_keyboard_interface_passes_wheel_and_volume_through():
     p = plan(PAD_KEYS, BOTH_OUTPUTS + "map KEY_F13 { hold BTN_GRIPL }")
-    assert p.keys == {code: "keyboard" for code in PAD_KEYS.keys}
+    assert p.keys == {code: "keyboard" for code in keys("KEY_F13", "KEY_F14", "KEY_ENTER")}
+    assert p.passthrough_keys == keys("BTN_0")
     assert p.passthrough_axes == {ABS_VOLUME}
     assert p.passthrough_relative == PAD_KEYS.relative
     assert p.needs_passthrough

@@ -6,7 +6,8 @@ When InpMap opens a physical device, :func:`plan_route` decides for every
 key, button and axis the device reports where it goes when no mapping uses
 it: to an output (keys to the keyboard output, gamepad buttons and axes to
 the gamepad output), to the device's pass-through device (mouse parts and
-harmless extra axes such as a volume wheel, until there is a mouse output),
+harmless extra buttons and axes such as BTN_0 or a volume wheel, until
+there is a mouse output),
 or nowhere — then the device is refused and never grabbed, so it keeps
 working as if InpMap were not running (§3.4 rule 2).
 
@@ -29,8 +30,6 @@ from .output import OutputError, output_capabilities
 
 log = logging.getLogger(__name__)
 
-# Mouse buttons BTN_LEFT .. BTN_TASK.
-MOUSE_BUTTONS = range(0x110, 0x118)
 # Digitizer buttons BTN_TOOL_PEN .. BTN_TOOL_QUADTAP (incl. BTN_TOUCH):
 # touchpads, touchscreens and tablets.
 _TOUCH_BUTTONS = range(0x140, 0x150)
@@ -85,7 +84,7 @@ class RoutePlan:
     own: bool = False  # `to = own`: everything passes through on its own device
     keys: Mapping[int, str] = field(default_factory=dict)  # key/button -> output
     axes: Mapping[int, AxisRoute] = field(default_factory=dict)
-    passthrough_keys: frozenset[int] = frozenset()  # mouse buttons
+    passthrough_keys: frozenset[int] = frozenset()  # mouse and other buttons
     passthrough_axes: frozenset[int] = frozenset()  # e.g. ABS_VOLUME
     passthrough_relative: frozenset[int] = frozenset()  # EV_REL
 
@@ -129,19 +128,21 @@ def plan_route(spec: InputDeviceSpec, config: Config, caps: DeviceCapabilities) 
     # Names, for the message when the device is refused.
     no_keyboard: list[str] = []
     no_gamepad: list[str] = []
-    unknown: list[str] = []
     for code in sorted(caps.keys):
-        if code in MOUSE_BUTTONS:
-            passthrough_keys.add(code)
-        elif code in codes.KEYBOARD_OUTPUT_KEYS:
+        if code in codes.KEYBOARD_OUTPUT_KEYS:
             if keyboard:
                 keys[code] = keyboard
             elif code not in mapped:
                 no_keyboard.append(codes.code_name(code))
         elif code in gamepad_buttons:
             keys[code] = gamepad  # type: ignore[assignment]  # gamepad_buttons implies gamepad
-        elif code not in mapped:
-            (no_gamepad if codes.is_gamepad_button(code) else unknown).append(codes.code_name(code))
+        elif codes.is_gamepad_button(code):
+            if code not in mapped:
+                no_gamepad.append(codes.code_name(code))
+        else:
+            # Mouse buttons and misc buttons such as BTN_0: harmless on the
+            # pass-through device (joystick buttons would make it a controller).
+            passthrough_keys.add(code)
 
     axes: dict[int, AxisRoute] = {}
     passthrough_axes: set[int] = set()
@@ -160,7 +161,7 @@ def plan_route(spec: InputDeviceSpec, config: Config, caps: DeviceCapabilities) 
         else:
             passthrough_axes.add(code)
 
-    problems = _problems(no_keyboard, no_gamepad, centred_on_trigger, unknown, gamepad)
+    problems = _problems(no_keyboard, no_gamepad, centred_on_trigger, gamepad)
     if problems:
         raise InputRefused(
             f"input '{spec.id}' is not taken over, its unmapped input would have nowhere "
@@ -179,7 +180,6 @@ def _problems(
     no_keyboard: list[str],
     no_gamepad: list[str],
     centred_on_trigger: list[str],
-    unknown: list[str],
     gamepad: str | None,
 ) -> list[str]:
     problems = []
@@ -200,8 +200,6 @@ def _problems(
             f"{_names(centred_on_trigger)} is centred like a stick but is a trigger on the "
             "virtual gamepad; use `to = own` for this device"
         )
-    if unknown:
-        problems.append(f"it has buttons no output carries ({_names(unknown)}); use `to = own`")
     return problems
 
 

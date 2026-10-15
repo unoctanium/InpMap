@@ -240,6 +240,12 @@ physical pad via hidraw (unchanged).
   `raiju-test`): KDE game controller settings and Steam show one
   controller "InpMap gamepad" with sticks, triggers, D-pad, buttons and
   L4/R4/L5/R5; the touchpad keeps working. Awaited: pass/fail per point.
+  Result so far: test 1 (keyboard, example) **passed**. Test 2 first run
+  refused the Raiju's keyboard part because of `BTN_0` (a misc button);
+  fixed: buttons that are neither keys nor gamepad/joystick buttons go to
+  the pass-through device (spec §3.4 rule 3 updated); a dry run of
+  `plan_route` with the real Raiju capabilities is now clean. Test 2 to be
+  repeated.
 
 - **Found (2026-10-15), not an InpMap bug: Razer Raiju V3 Pro stalls when
   one of its USB interfaces is not read.** The controller has a gamepad
