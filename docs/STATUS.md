@@ -230,6 +230,17 @@ physical pad via hidraw (unchanged).
 
 ## Open questions
 
+- **Pending manual test (asked 2026-10-15): routing on real hardware**, with
+  the development build (`.venv/bin/inpmap`), services stopped:
+  (1) `run example --timeout 120`: normal typing in an editor works through
+  "InpMap keyboard", F1 gives `a` + gamepad A, Caps Lock + WASD arrows, Num
+  Lock LED on the physical keyboard follows; `inpmap devices`/KDE show no
+  "InpMap forward: …" for the keyboard. (2) a Raiju profile (pad +
+  keyboard part, F15–F18 → BTN_GRIP*; file given to the maintainer as
+  `raiju-test`): KDE game controller settings and Steam show one
+  controller "InpMap gamepad" with sticks, triggers, D-pad, buttons and
+  L4/R4/L5/R5; the touchpad keeps working. Awaited: pass/fail per point.
+
 - **Found (2026-10-15), not an InpMap bug: Razer Raiju V3 Pro stalls when
   one of its USB interfaces is not read.** The controller has a gamepad
   interface (xpad), a keyboard/mouse interface and a touchpad interface
