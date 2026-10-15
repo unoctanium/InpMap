@@ -2,8 +2,8 @@
 
 import pytest
 
-from inpmap.codes import code_from_name
 from inpmap.codes import TRIGGER_AXES as ABS
+from inpmap.codes import code_from_name
 from inpmap.dsl.compiler import compile_text
 from inpmap.macros import AxisKind
 from inpmap.routing import AxisRoute, DeviceCapabilities, InputRefused, plan_route
