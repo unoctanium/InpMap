@@ -42,6 +42,36 @@ def is_gamepad_button(code: int) -> bool:
     return any(low <= code <= high for low, high in GAMEPAD_BUTTON_RANGES)
 
 
+# What the virtual outputs always carry (docs/configuration.md §3.3): a
+# keyboard every KEY_* code, a gamepad the standard buttons. Codes that
+# mappings send are added on top.
+KEYBOARD_OUTPUT_KEYS: frozenset[int] = frozenset(
+    code for name, code in CODES.items() if name.startswith("KEY_")
+)
+GAMEPAD_OUTPUT_BUTTONS: frozenset[int] = frozenset(
+    CODES[name]
+    for name in (
+        "BTN_SOUTH",
+        "BTN_EAST",
+        "BTN_NORTH",
+        "BTN_WEST",
+        "BTN_TL",
+        "BTN_TR",
+        "BTN_TL2",
+        "BTN_TR2",
+        "BTN_SELECT",
+        "BTN_START",
+        "BTN_MODE",
+        "BTN_THUMBL",
+        "BTN_THUMBR",
+        "BTN_DPAD_UP",
+        "BTN_DPAD_DOWN",
+        "BTN_DPAD_LEFT",
+        "BTN_DPAD_RIGHT",
+    )
+)
+
+
 @dataclass(frozen=True)
 class CodeEntry:
     """One key/button code for listings (``inpmap codes``)."""

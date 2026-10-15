@@ -15,12 +15,7 @@ evdev = pytest.importorskip("evdev")
 from evdev import InputDevice, ecodes  # noqa: E402
 
 from inpmap import codes  # noqa: E402
-from inpmap.backends.linux import (  # noqa: E402
-    GAMEPAD_BUTTONS,
-    KEYBOARD_KEYS,
-    LinuxOutputBackend,
-    capabilities,
-)
+from inpmap.backends.linux import LinuxOutputBackend, capabilities  # noqa: E402
 from inpmap.config import parse_config  # noqa: E402
 from inpmap.models import OutputDeviceSpec, OutputKind  # noqa: E402
 from inpmap.output import OutputManager  # noqa: E402
@@ -41,16 +36,19 @@ def test_gamepad_has_standard_buttons_axes_and_no_keys():
     caps = capabilities(OutputKind.GAMEPAD, frozenset())
     keys = set(caps[ecodes.EV_KEY])
     assert ecodes.BTN_SOUTH in keys
-    assert keys.isdisjoint(KEYBOARD_KEYS)
-    axes = {code for code, _ in caps[ecodes.EV_ABS]}
-    assert {ecodes.ABS_X, ecodes.ABS_Y, ecodes.ABS_RX, ecodes.ABS_RY} <= axes
+    assert keys.isdisjoint(codes.KEYBOARD_OUTPUT_KEYS)
+    axes = {code: info for code, info in caps[ecodes.EV_ABS]}
+    assert {ecodes.ABS_X, ecodes.ABS_Y, ecodes.ABS_RX, ecodes.ABS_RY} <= set(axes)
+    # The D-pad axes carry a physical pad's D-pad (configuration.md §3.4).
+    for hat in (ecodes.ABS_HAT0X, ecodes.ABS_HAT0Y):
+        assert (axes[hat].min, axes[hat].max) == (-1, 1)
 
 
 def test_mapped_codes_are_always_declared():
     happy = ecodes.BTN_TRIGGER_HAPPY1
     caps = capabilities(OutputKind.GAMEPAD, frozenset({happy}))
     assert happy in caps[ecodes.EV_KEY]
-    assert happy not in GAMEPAD_BUTTONS
+    assert happy not in codes.GAMEPAD_OUTPUT_BUTTONS
 
 
 def test_paddles_declared_only_when_mapped():
@@ -204,6 +202,9 @@ def test_missing_uinput_node_gives_actionable_error():
         (ecodes.ABS_Z, 0.0, 0),
         (ecodes.ABS_Z, 1.0, 255),
         (ecodes.ABS_RZ, 0.5, 128),
+        (ecodes.ABS_HAT0X, -1.0, -1),
+        (ecodes.ABS_HAT0Y, 1.0, 1),
+        (ecodes.ABS_HAT0Y, 0.0, 0),
     ],
 )
 def test_axis_raw_scaling(code, value, raw):
@@ -230,8 +231,17 @@ def test_axis_values_reach_virtual_gamepad_and_reset_on_close(grabbed):
         gamepad = grabbed(outputs.devices["gamepad"].node)
         outputs.set_axis("gamepad", ecodes.ABS_X, -1.0)
         outputs.set_axis("gamepad", ecodes.ABS_RZ, 1.0)
-        assert read_abs_events(gamepad, 2) == [(ecodes.ABS_X, -32768), (ecodes.ABS_RZ, 255)]
+        outputs.set_axis("gamepad", ecodes.ABS_HAT0Y, -1.0)
+        assert read_abs_events(gamepad, 3) == [
+            (ecodes.ABS_X, -32768),
+            (ecodes.ABS_RZ, 255),
+            (ecodes.ABS_HAT0Y, -1),
+        ]
         outputs.release_all()  # what close() does before destroying the device
-        assert read_abs_events(gamepad, 2) == [(ecodes.ABS_X, 0), (ecodes.ABS_RZ, 0)]
+        assert read_abs_events(gamepad, 3) == [
+            (ecodes.ABS_X, 0),
+            (ecodes.ABS_RZ, 0),
+            (ecodes.ABS_HAT0Y, 0),
+        ]
     finally:
         outputs.close()

@@ -46,9 +46,10 @@ class KeyRef:
 class AxisKind(Enum):
     STICK = "stick"  # -1.0 .. 1.0, rest 0.0
     TRIGGER = "trigger"  # 0.0 .. 1.0, rest 0.0
+    HAT = "hat"  # -1.0, 0.0 or 1.0 (D-pad), rest 0.0
 
 
-# Linux ABS codes of the virtual gamepad's axes.
+# Linux ABS codes of the virtual gamepad's axes that mappings can move.
 GAMEPAD_AXES: dict[str, tuple[int, AxisKind]] = {
     "ABS_X": (0x00, AxisKind.STICK),
     "ABS_Y": (0x01, AxisKind.STICK),
@@ -61,9 +62,17 @@ AXIS_NAMES = {code: name for name, (code, _) in GAMEPAD_AXES.items()}
 AXIS_KINDS = {code: kind for _, (code, kind) in GAMEPAD_AXES.items()}
 AXIS_REST = 0.0
 
+# Every axis of a virtual gamepad: the above plus the D-pad axes, which only
+# carry a physical pad's D-pad (docs/configuration.md §3.3, §3.4).
+OUTPUT_AXIS_KINDS: dict[int, AxisKind] = {
+    **AXIS_KINDS,
+    0x10: AxisKind.HAT,  # ABS_HAT0X
+    0x11: AxisKind.HAT,  # ABS_HAT0Y
+}
+
 
 def axis_range(kind: AxisKind) -> tuple[float, float]:
-    return (-1.0, 1.0) if kind is AxisKind.STICK else (0.0, 1.0)
+    return (0.0, 1.0) if kind is AxisKind.TRIGGER else (-1.0, 1.0)
 
 
 # -- steps ------------------------------------------------------------------

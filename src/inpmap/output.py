@@ -13,17 +13,39 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Protocol
 
 from . import codes
-from .macros import AXIS_REST
-from .models import Config, OutputDeviceSpec
+from .macros import AXIS_REST, OUTPUT_AXIS_KINDS, AxisKind
+from .models import Config, OutputDeviceSpec, OutputKind
 
 log = logging.getLogger(__name__)
 
 
 class OutputError(Exception):
     """A virtual output device could not be created, written or closed."""
+
+
+@dataclass(frozen=True)
+class OutputCapabilities:
+    """What a virtual output device carries (docs/configuration.md §3.3)."""
+
+    keys: frozenset[int]
+    axes: Mapping[int, AxisKind]
+
+
+def output_capabilities(kind: OutputKind, mapped_codes: frozenset[int]) -> OutputCapabilities:
+    """The fixed set of an output of ``kind`` plus the codes mappings send to it.
+
+    The set does not depend on any input device, so an output stays the same
+    when a device is missing at start or reconnects.
+    """
+    if kind is OutputKind.KEYBOARD:
+        return OutputCapabilities(codes.KEYBOARD_OUTPUT_KEYS | mapped_codes, {})
+    if kind is OutputKind.GAMEPAD:
+        return OutputCapabilities(codes.GAMEPAD_OUTPUT_BUTTONS | mapped_codes, OUTPUT_AXIS_KINDS)
+    raise ValueError(f"unsupported output kind: {kind}")
 
 
 class OutputDevice(Protocol):
@@ -34,7 +56,7 @@ class OutputDevice(Protocol):
         ...
 
     def set_axis(self, code: int, value: float) -> None:
-        """Set an axis to a fraction of its range (sticks -1..1, triggers 0..1)."""
+        """Set an axis to a fraction of its range (sticks and D-pad -1..1, triggers 0..1)."""
         ...
 
     def close(self) -> None:
