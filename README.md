@@ -9,6 +9,67 @@ whole timed sequences ("macros"). One key can act on **several virtual
 devices at once**, for example press a keyboard key and a gamepad button
 together.
 
+## What you can do with it
+
+- 🎹 **Remap any key** — to another key, to a combination like
+  Ctrl+Shift+[, or to a whole sequence of keys with exact timing.
+- 🎮 **Play controller-only games with the keyboard** — WASD on the left
+  stick, Space on A, Shift on the trigger. The game sees a real gamepad.
+- ⌨️ **Use the gamepad as a keyboard** — buttons as shortcuts, the D-pad as
+  arrow keys, a half-pressed trigger as Space. Great for the couch.
+- 🔁 **Remap the controller itself** — swap A and B, turn a stick or a
+  two-stage trigger into buttons, add autofire.
+- 🕹️ **Unlock hidden buttons** — extra buttons that a controller only sends
+  as keyboard keys become real **back paddles** that Steam shows as L4, R4,
+  L5 and R5 and lets you bind ([see how](#example-back-paddles-for-the-razer-raiju)).
+- 🧩 **Merge devices** — a gamepad and its extra buttons become **one**
+  controller, several keyboards become one keyboard, two pads become two
+  separate players.
+- ⚡ **Smart keys and macros** — different actions on tap, hold, double tap
+  and long press; toggles; loops; random delays; "Caps Lock alone = Esc,
+  with another key = Ctrl".
+- 🗂️ **Layers** — hold Caps Lock and WASD become arrow keys; a whole
+  flight-sim layer on the gamepad, switched with one button.
+- 🎯 **Profiles per game** — one file per game, started at login as a
+  background service and switched with a single command.
+- 🛡️ **Safe by design** — no key ever stays stuck, an emergency stop
+  (Backspace + Escape + Enter) always works, and a device that does not fit
+  your configuration is never taken over. No root needed while it runs.
+- 📝 **Readable configuration** — a small text file instead of clicking
+  through a GUI, with error messages that point to line and column, syntax
+  highlighting for Kate and nano, and a `detect` command that tells you
+  what each key is called.
+
+### Example: back paddles for the Razer Raiju
+
+The Razer Raiju V3 Pro has extra buttons, but on Linux they are not part of
+the controller: programmed in the pad, they send **keyboard keys** (F13 to
+F18) on a separate keyboard interface. Games and Steam never see them as
+gamepad buttons.
+
+InpMap takes over both parts of the pad, turns those keys into the Linux
+back-paddle buttons, and presents everything as **one** virtual
+controller. Steam then shows four working back paddles:
+
+```inpmap
+version 1
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+input padkeys { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-if01-event-kbd" }
+output keyboard { type = keyboard }
+output gamepad { type = gamepad }
+
+map padkeys.KEY_F15 { hold BTN_GRIPL }   # upper left paddle  (Steam: L4)
+map padkeys.KEY_F16 { hold BTN_GRIPR }   # upper right paddle (Steam: R4)
+map padkeys.KEY_F17 { hold BTN_GRIPL2 }  # lower left paddle  (Steam: L5)
+map padkeys.KEY_F18 { hold BTN_GRIPR2 }  # lower right paddle (Steam: R5)
+```
+
+The sticks, triggers, D-pad and buttons of the pad go unchanged to the same
+virtual controller. The same works for any controller whose extra buttons
+send keys.
+
+### A first look at the configuration
+
 ```inpmap
 version 1
 input kbd { path = "/dev/input/by-id/usb-4348_2.4G_Dongle-event-kbd" }
@@ -121,10 +182,12 @@ To work on InpMap itself, install it from the source code
 
 ## Status
 
-Version 0.2, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
-real keyboard and gamepad: remapping, suppression of the original keys,
-passthrough, macros, modifiers, axes as triggers, the configuration
-language and the user service. Later: Windows, then GUIs.
+Version 0.3, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
+real keyboard and a Razer Raiju V3 Pro: remapping, suppression of the
+original keys, unmapped input on the virtual devices (one controller in
+KDE and Steam, back paddles in Steam), macros, modifiers, axes as triggers,
+the configuration language and the user service. Later: Windows, then
+GUIs.
 
 ## License
 

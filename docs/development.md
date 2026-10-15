@@ -97,7 +97,7 @@ A release:
 
 1. Set the version in `src/inpmap/__init__.py` and describe the changes in
    `CHANGELOG.md`; commit.
-2. Tag and push: `git tag v0.2.0 && git push origin main v0.2.0`.
+2. Tag and push, e.g. `git tag v0.3.0 && git push origin main v0.3.0`.
 3. `.github/workflows/release.yml` tests, checks that the tag matches the
    version, builds the sdist and wheel and publishes them to PyPI with
    trusted publishing (configured once on pypi.org for this repository,

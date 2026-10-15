@@ -52,9 +52,11 @@ def test_reference_examples_parse_and_compile(block):
         compile_text(HEADER + block + ANCHOR, "reference.inpmap")
 
 
-def test_readme_example_compiles():
-    (block,) = inpmap_blocks(ROOT / "README.md")
-    compile_text(block, "readme.inpmap")
+def test_readme_examples_compile():
+    blocks = inpmap_blocks(ROOT / "README.md")
+    assert len(blocks) >= 2
+    for block in blocks:
+        compile_text(block, "readme.inpmap")
 
 
 def test_example_file_is_the_complete_example():

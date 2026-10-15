@@ -133,8 +133,17 @@ step committed with passing tests):
    features; CHANGELOG "Unreleased"; manual-tests.md §2a. The example
    profile needed no change. `docs/roadmap.md` edit (requirement text +
    milestone "Routing by kind") approved and committed.
-**Next:** release 0.3.0 (maintainer's OK needed), then the `gaming`
-profile can run as the login service.
+**Release 0.3.0 prepared (2026-10-15):** version 0.3.0, CHANGELOG dated,
+README with a "What you can do with it" list and the Raiju back-paddle
+example (both README examples are compiled by the tests), issue template
+placeholder, version-neutral install text. Local build checked: sdist and
+wheel contain `routing.py`, data files and the new tests; the suite passes
+from the unpacked sdist (624 passed, 2 skipped). **Next, with the
+maintainer's OK:** push `main` and tag `v0.3.0` (release workflow →
+PyPI); then update `packaging/aur` (pkgver 0.3.0, pkgrel 1, sha256 of the
+PyPI sdist, `.SRCINFO`), maintainer test build with `makepkg -sri`; then
+the maintainer's `gaming` profile can run as the login service
+(`inpmap@gaming`).
 Risks noted: per-keyboard desktop settings lost (use `to = own`);
 DirectInput pads and flight sticks need `to = own`; Steam may read the
 physical pad via hidraw (unchanged).

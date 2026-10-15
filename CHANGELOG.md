@@ -4,7 +4,7 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
-## Unreleased
+## 0.3.0 (2026-10-15)
 
 - **Unmapped input goes to the outputs** (configuration.md §3.4): keys to
   the keyboard output, gamepad buttons, sticks and D-pad to the gamepad

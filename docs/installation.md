@@ -48,7 +48,7 @@ cd ~/InpMap/packaging/aur
 makepkg -sri
 ```
 
-`makepkg` downloads InpMap 0.2.0 from PyPI, installs the build tools and
+`makepkg` downloads the released InpMap from PyPI, installs the build tools and
 dependencies with pacman (`-s`), builds and tests the package, installs it
 (`-i`) and removes the build-only tools again (`-r`). The package contains:
 
