@@ -84,7 +84,7 @@ examples are `text` blocks until `to` exists). Same `version 1`, no
 compatibility with the old pass-through model (no users yet). Plan (each
 step committed with passing tests):
 0. ✅ Spec (configuration.md §1, §3.1–3.4, §7.3, §8, §9, §12.3).
-1. ✅ Output capabilities in core (`output.output_capabilities`, `codes.KEYBOARD_OUTPUT_KEYS`/`GAMEPAD_OUTPUT_BUTTONS`, `macros.OUTPUT_AXIS_KINDS` with `AxisKind.HAT`); gamepad output has ABS_HAT0X/HAT0Y (hardware test passes).
+1. ✅ Output capabilities in core (`output.output_capabilities`, `codes.KEYBOARD_OUTPUT_KEYS`/`GAMEPAD_OUTPUT_BUTTONS`, `macros.OUTPUT_AXIS_KINDS`). The D-pad axes added here were removed again after the Steam test (see "Open questions"): physical D-pad axes become BTN_DPAD_*.
 2. ✅ Language `to` (`to = OUT[, OUT]`, `to = own`; `own` reserved; grammar,
    compiler, `InputDeviceSpec.own/targets`, `Validator.resolve_targets`,
    used-rules, syntax files; tests in `tests/test_routing_config.py`).
@@ -244,8 +244,16 @@ physical pad via hidraw (unchanged).
   refused the Raiju's keyboard part because of `BTN_0` (a misc button);
   fixed: buttons that are neither keys nor gamepad/joystick buttons go to
   the pass-through device (spec §3.4 rule 3 updated); a dry run of
-  `plan_route` with the real Raiju capabilities is now clean. Test 2 to be
-  repeated.
+  `plan_route` with the real Raiju capabilities is now clean. Test 2
+  repeated: **all points passed except the D-pad in Steam's controller
+  test** (it worked in KDE's game controller page). Cause, verified in
+  SDL's Linux joystick code ("Prefer digital D-Pad buttons, but settle for
+  digital or analog hat"): the virtual gamepad had both BTN_DPAD_* and the
+  new ABS_HAT0X/Y, so SDL/Steam read only the (unused) buttons. Fixed: the
+  output has no D-pad axes again; a pad's D-pad axes are turned into
+  BTN_DPAD_* presses by the router (shared ref counts with mappings); spec
+  §3.3 and §3.4 rule 4 updated; unit and hardware tests pass. Awaited: the
+  D-pad in Steam's controller test with the Raiju profile.
 
 - **Found (2026-10-15), not an InpMap bug: Razer Raiju V3 Pro stalls when
   one of its USB interfaces is not read.** The controller has a gamepad

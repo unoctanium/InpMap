@@ -114,7 +114,7 @@ def test_xbox_pad_goes_completely_to_the_gamepad_output():
         ABS["ABS_RY"]: ("gamepad", AxisKind.STICK),
         ABS["ABS_Z"]: ("gamepad", AxisKind.TRIGGER),
         ABS["ABS_RZ"]: ("gamepad", AxisKind.TRIGGER),
-        ABS["ABS_HAT0X"]: ("gamepad", AxisKind.HAT),
+        ABS["ABS_HAT0X"]: ("gamepad", AxisKind.HAT),  # becomes the D-pad buttons
         ABS["ABS_HAT0Y"]: ("gamepad", AxisKind.HAT),
     }
     assert not p.needs_passthrough
@@ -340,8 +340,27 @@ def test_axes_go_to_the_gamepad_and_a_mapping_overrides_them():
     assert router.axis("dev", x, 1.0)  # moved while overridden: not visible
     feed(engine, router, "dev", c("BTN_TL"), RELEASE)
     assert sink.events == [("gamepad", x, -0.5), ("gamepad", x, 1.0)]
-    assert router.axis("dev", ABS["ABS_HAT0Y"], -1.0)
-    assert sink.events[-1] == ("gamepad", ABS["ABS_HAT0Y"], -1.0)
+
+
+def test_dpad_axes_become_dpad_buttons_shared_with_mappings():
+    engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { hold BTN_DPAD_UP }", XBOX_PAD)
+    hat_y, hat_x = ABS["ABS_HAT0Y"], ABS["ABS_HAT0X"]
+    up, down, right = c("BTN_DPAD_UP"), c("BTN_DPAD_DOWN"), c("BTN_DPAD_RIGHT")
+    router.axis("dev", hat_y, -1.0)  # up
+    feed(engine, router, "dev", c("BTN_TL"), PRESS)  # a mapping holds up too
+    router.axis("dev", hat_y, 1.0)  # straight to down: up stays (the mapping holds it)
+    router.axis("dev", hat_x, 1.0)
+    router.axis("dev", hat_y, 0.0)
+    feed(engine, router, "dev", c("BTN_TL"), RELEASE)
+    router.detach("dev")  # releases right
+    assert sink.events == [
+        ("gamepad", up, 1),
+        ("gamepad", down, 1),
+        ("gamepad", right, 1),
+        ("gamepad", down, 0),
+        ("gamepad", up, 0),
+        ("gamepad", right, 0),
+    ]
 
 
 def test_detach_releases_held_keys_and_returns_axes_to_rest():

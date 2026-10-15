@@ -1063,8 +1063,9 @@ def test_routed_keyboard_and_pad_come_out_of_the_outputs_only():
             events = read_all_events(vpad)
             keys = [(e.code, e.value) for e in events if e.type == ecodes.EV_KEY]
             axes = [(e.code, e.value) for e in events if e.type == ecodes.EV_ABS]
-            assert keys == [(ecodes.BTN_SOUTH, 1), (ecodes.BTN_SOUTH, 0)]
-            assert axes == [(ecodes.ABS_X, 16384), (ecodes.ABS_RZ, 255), (ecodes.ABS_HAT0Y, -1)]
+            # The D-pad axis arrives as the D-pad button (SDL uses only those).
+            assert keys == [(ecodes.BTN_SOUTH, 1), (ecodes.BTN_SOUTH, 0), (ecodes.BTN_DPAD_UP, 1)]
+            assert axes == [(ecodes.ABS_X, 16384), (ecodes.ABS_RZ, 255)]
     finally:
         keyboard.close()
         pad.close()

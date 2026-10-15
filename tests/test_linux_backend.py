@@ -41,9 +41,10 @@ def test_gamepad_has_standard_buttons_axes_and_no_keys():
     assert keys.isdisjoint(codes.KEYBOARD_OUTPUT_KEYS)
     axes = {code: info for code, info in caps[ecodes.EV_ABS]}
     assert {ecodes.ABS_X, ecodes.ABS_Y, ecodes.ABS_RX, ecodes.ABS_RY} <= set(axes)
-    # The D-pad axes carry a physical pad's D-pad (configuration.md §3.4).
-    for hat in (ecodes.ABS_HAT0X, ecodes.ABS_HAT0Y):
-        assert (axes[hat].min, axes[hat].max) == (-1, 1)
+    # No D-pad axes: SDL would then ignore them in favour of BTN_DPAD_*
+    # (a physical pad's D-pad axes become those buttons, configuration.md §3.4).
+    assert ecodes.ABS_HAT0X not in axes and ecodes.ABS_HAT0Y not in axes
+    assert ecodes.BTN_DPAD_UP in keys
 
 
 def test_mapped_codes_are_always_declared():
@@ -204,9 +205,6 @@ def test_missing_uinput_node_gives_actionable_error():
         (ecodes.ABS_Z, 0.0, 0),
         (ecodes.ABS_Z, 1.0, 255),
         (ecodes.ABS_RZ, 0.5, 128),
-        (ecodes.ABS_HAT0X, -1.0, -1),
-        (ecodes.ABS_HAT0Y, 1.0, 1),
-        (ecodes.ABS_HAT0Y, 0.0, 0),
     ],
 )
 def test_axis_raw_scaling(code, value, raw):
@@ -233,18 +231,9 @@ def test_axis_values_reach_virtual_gamepad_and_reset_on_close(grabbed):
         gamepad = grabbed(outputs.devices["gamepad"].node)
         outputs.set_axis("gamepad", ecodes.ABS_X, -1.0)
         outputs.set_axis("gamepad", ecodes.ABS_RZ, 1.0)
-        outputs.set_axis("gamepad", ecodes.ABS_HAT0Y, -1.0)
-        assert read_abs_events(gamepad, 3) == [
-            (ecodes.ABS_X, -32768),
-            (ecodes.ABS_RZ, 255),
-            (ecodes.ABS_HAT0Y, -1),
-        ]
+        assert read_abs_events(gamepad, 2) == [(ecodes.ABS_X, -32768), (ecodes.ABS_RZ, 255)]
         outputs.release_all()  # what close() does before destroying the device
-        assert read_abs_events(gamepad, 3) == [
-            (ecodes.ABS_X, 0),
-            (ecodes.ABS_RZ, 0),
-            (ecodes.ABS_HAT0Y, 0),
-        ]
+        assert read_abs_events(gamepad, 2) == [(ecodes.ABS_X, 0), (ecodes.ABS_RZ, 0)]
     finally:
         outputs.close()
 

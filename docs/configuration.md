@@ -170,7 +170,7 @@ players.
 | Output | Codes |
 |---|---|
 | `keyboard` | every `KEY_*` code |
-| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger); the D-pad axes `ABS_HAT0X`, `ABS_HAT0Y` (−1, 0, 1) carry a physical pad's D-pad (§3.4), mappings use the `BTN_DPAD_*` buttons |
+| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger). The D-pad is the `BTN_DPAD_*` buttons; a physical pad's D-pad axes `ABS_HAT0X`/`ABS_HAT0Y` arrive as these buttons (§3.4) |
 
 Gamepad buttons are named by **position**, because the printed labels
 differ between controllers:
@@ -275,9 +275,12 @@ Rules:
    nor joystick axes (such as a volume wheel) go to a pass-through device
    of the input ("InpMap forward: …") that carries only these, so a mouse
    part keeps working. (A mouse output is planned.)
-4. A gamepad output always has the D-pad axes `ABS_HAT0X`, `ABS_HAT0Y`
-   (§3.3). It is created with a fixed set before any device is opened, so
-   it stays the same when a device is missing at start or reconnects.
+4. A pad's D-pad axes (`ABS_HAT0X`, `ABS_HAT0Y`) arrive on the gamepad
+   output as the D-pad buttons `BTN_DPAD_*`, the D-pad that mappings use
+   too. (A device with both D-pad buttons and D-pad axes would confuse
+   games: SDL and Steam read only the buttons.) A gamepad output is created
+   with a fixed set (§3.3) before any device is opened, so it stays the
+   same when a device is missing at start or reconnects.
 5. Buttons pass unchanged, key repeat included. Axes are converted by
    their fraction of the range (§5.5): a stick at half way is at half way
    on the output.

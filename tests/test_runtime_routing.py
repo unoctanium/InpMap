@@ -75,9 +75,10 @@ def test_pad_buttons_and_axes_reach_the_gamepad_output():
     s.step(lambda: s.pad.queue.extend([key_raw(BTN_EAST, 1), key_raw(BTN_EAST, 0), SYN]))
     s.run()
     gamepad = s.outputs.created["gamepad"]
-    assert gamepad.events == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
-    # Axis values, then the axes return to rest when InpMap stops.
-    assert gamepad.axis_events == [(ABS_X, -0.5), (ABS_HAT0Y, -1.0), (ABS_X, 0.0), (ABS_HAT0Y, 0.0)]
+    up = c("BTN_DPAD_UP")
+    # The D-pad axis arrives as the D-pad button; everything is released at stop.
+    assert gamepad.events == [(BTN_SOUTH, True), (up, True), (BTN_SOUTH, False), (up, False)]
+    assert gamepad.axis_events == [(ABS_X, -0.5), (ABS_X, 0.0)]
     assert s.events("keyboard") == [(KEY_Y, True), (KEY_Y, False)]  # BTN_EAST is mapped
 
 

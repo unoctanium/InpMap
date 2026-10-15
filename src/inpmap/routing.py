@@ -36,6 +36,12 @@ _TOUCH_BUTTONS = range(0x140, 0x150)
 # ABS_PRESSURE .. ABS_TOOL_WIDTH and ABS_MT_SLOT .. ABS_MT_TOOL_Y.
 _TOUCH_AXES = (*range(0x18, 0x1D), *range(0x2F, 0x3E))
 _JOYSTICK_AXES = frozenset(codes.TRIGGER_AXIS_NAMES)
+# A physical D-pad axis becomes the virtual gamepad's D-pad buttons:
+# ABS_HAT0X -> (left, right), ABS_HAT0Y -> (up, down).
+DPAD_BUTTONS: dict[int, tuple[int, int]] = {
+    0x10: (codes.CODES["BTN_DPAD_LEFT"], codes.CODES["BTN_DPAD_RIGHT"]),
+    0x11: (codes.CODES["BTN_DPAD_UP"], codes.CODES["BTN_DPAD_DOWN"]),
+}
 _MAX_NAMES = 5
 
 
@@ -150,7 +156,7 @@ def plan_route(spec: InputDeviceSpec, config: Config, caps: DeviceCapabilities) 
     for code, (low, high) in sorted(caps.axes.items()):
         if code in watched:
             continue
-        kind = OUTPUT_AXIS_KINDS.get(code)
+        kind = OUTPUT_AXIS_KINDS.get(code) or (AxisKind.HAT if code in DPAD_BUTTONS else None)
         if kind is not None and gamepad:
             if kind is AxisKind.TRIGGER and low < 0 < high:
                 centred_on_trigger.append(_axis_name(code))  # e.g. a right stick on ABS_Z
@@ -243,12 +249,14 @@ class Router:
         self._down: dict[str, set[int]] = {}  # physically held routed keys
         self._held: dict[str, set[int]] = {}  # keys this input holds on an output
         self._masked: dict[str, set[int]] = {}  # hidden while a mapping runs (§5.2)
+        self._dpad: dict[str, dict[int, int]] = {}  # D-pad axis -> button held for it
 
     def attach(self, input_id: str, plan: RoutePlan) -> None:
         self._plans[input_id] = plan
         self._down[input_id] = set()
         self._held[input_id] = set()
         self._masked[input_id] = set()
+        self._dpad[input_id] = {}
 
     def routes(self, input_id: str) -> bool:
         """Whether this input's unmapped input goes to the outputs."""
@@ -286,8 +294,26 @@ class Router:
         route = plan.axes.get(code)
         if route is None:
             return code not in plan.passthrough_axes
-        self._host.axes.set_base((route.output, code), input_id, route.value(normalized))
+        if route.kind is AxisKind.HAT:
+            self._dpad_axis(input_id, code, route, route.value(normalized))
+        else:
+            self._host.axes.set_base((route.output, code), input_id, route.value(normalized))
         return True
+
+    def _dpad_axis(self, input_id: str, code: int, route: AxisRoute, value: float) -> None:
+        """Hold the D-pad button for the axis' direction (none at rest)."""
+        held = self._dpad[input_id]
+        negative, positive = DPAD_BUTTONS[code]
+        button = negative if value < 0 else positive if value > 0 else None
+        previous = held.get(code)
+        if button == previous:
+            return
+        if previous is not None:
+            del held[code]
+            self._host.release_key(KeyRef(route.output, previous))
+        if button is not None:
+            held[code] = button  # before writing: a failed press is still released later
+            self._host.press_key(KeyRef(route.output, button))
 
     def mask(self, input_id: str, code: int) -> None:
         """Hide a held key from the output while a mapping with modifiers runs."""
@@ -313,7 +339,14 @@ class Router:
                 self._host.release_key(KeyRef(plan.keys[code], code))
             except OutputError as exc:
                 failures.append(str(exc))
+        for code, button in sorted(self._dpad.pop(input_id).items()):
+            try:
+                self._host.release_key(KeyRef(plan.axes[code].output, button))
+            except OutputError as exc:
+                failures.append(str(exc))
         for code, route in plan.axes.items():
+            if route.kind is AxisKind.HAT:
+                continue
             try:
                 self._host.axes.clear_base((route.output, code), input_id)
             except OutputError as exc:

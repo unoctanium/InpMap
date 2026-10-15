@@ -9,9 +9,9 @@ Linux joystick and gamepad code):
   keyboard. Declaring the full key set also prepares for passthrough of
   unmapped keys. No ``EV_REP``: compositors implement key repeat themselves.
 * Virtual gamepad: the standard face/shoulder/menu/stick buttons, D-pad
-  buttons, two sticks, two triggers and the D-pad axes ``ABS_HAT0X``/``ABS_HAT0Y``
-  (which carry a physical pad's D-pad), and no ``KEY_*`` codes (those would make
-  udev/libinput stop treating it as a joystick). ``ABS_X``/``ABS_Y`` are needed
+  buttons, two sticks and two triggers, and no ``KEY_*`` codes (those would make
+  udev/libinput stop treating it as a joystick). No D-pad axes: with both D-pad
+  buttons and axes, SDL (and so Steam) uses only the buttons. ``ABS_X``/``ABS_Y`` are needed
   for SDL's non-udev detection path (e.g. inside containers); a complete
   standard layout lets SDL generate a gamepad mapping automatically.
 
@@ -46,8 +46,7 @@ PHYS = "inpmap"
 
 _STICK = AbsInfo(value=0, min=-32768, max=32767, fuzz=16, flat=128, resolution=0)
 _TRIGGER = AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)
-_HAT = AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)
-_ABS_INFO = {AxisKind.STICK: _STICK, AxisKind.TRIGGER: _TRIGGER, AxisKind.HAT: _HAT}
+_ABS_INFO = {AxisKind.STICK: _STICK, AxisKind.TRIGGER: _TRIGGER}
 LEDS = {
     ecodes.LED_NUML: Led.NUMLOCK,
     ecodes.LED_CAPSL: Led.CAPSLOCK,
@@ -59,8 +58,7 @@ def axis_raw(code: int, value: float) -> int:
     """Convert a fraction of the axis range to the device's raw value.
 
     Sticks: -1.0 -> min, 0.0 -> 0, 1.0 -> max (the asymmetric int16 range is
-    scaled separately per side). Triggers: 0.0 -> min, 1.0 -> max. D-pad
-    axes: -1, 0 or 1.
+    scaled separately per side). Triggers: 0.0 -> min, 1.0 -> max.
     """
     kind = OUTPUT_AXIS_KINDS[code]
     info = _ABS_INFO[kind]
