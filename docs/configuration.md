@@ -267,6 +267,9 @@ Rules:
    (`output keyboard { type = keyboard }` or `to = own`). At start this is
    an error, before any device is grabbed. A device that appears later is
    left alone, the reason is logged and the other devices keep running.
+   Keys and buttons that a mapping uses need no output (if such a mapping
+   does not fire, e.g. because of held modifiers, the press is dropped).
+   Touchpads, touchscreens and tablets always need `to = own`.
 3. Mouse buttons and movement, and axes that are neither gamepad nor
    joystick axes (such as a volume wheel), go to a pass-through device of
    the input ("InpMap forward: …") that carries only these, so a mouse

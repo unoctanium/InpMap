@@ -90,9 +90,13 @@ step committed with passing tests):
    used-rules, syntax files; tests in `tests/test_routing_config.py`).
    Until step 7 the runtime still passes every input through on its own
    device (as if `to = own`).
-3. Route planner (pure core module `routing.py`): per device which code
-   goes to which output, what goes to the pass-through (mouse buttons,
-   EV_REL, non-gamepad/non-joystick axes like ABS_VOLUME), what is refused.
+3. ✅ Route planner `routing.py` (`plan_route` → `RoutePlan`,
+   `AxisRoute.value` conversion incl. unsigned sticks and D-pad axes,
+   `InputRefused` with fix hints; tests `tests/test_routing.py`). Decisions
+   made here (spec §3.4 rule 2 updated): codes a mapping names need no
+   target (dropped when the mapping does not fire); touch devices always
+   need `to = own`; ABS axes outside the joystick/touch sets (ABS_VOLUME,
+   ABS_MISC) go to the pass-through.
 4. Shared holders (engine ref counts + axis base values).
 5. Router (unmapped input onto outputs; repeat; modifier masking; release
    on loss).
