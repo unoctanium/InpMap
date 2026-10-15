@@ -172,7 +172,11 @@ Last updated: 2026-10-15
 
 ## Uncommitted work
 
-- None.
+- `docs/configuration.md`: design draft of `forward = OUTPUT` (new §3.4,
+  marked "planned, not implemented yet", example as `text` block; links
+  in §1, §3.1, §8; stale "reusable named blocks" removed from §9).
+  Waiting for the maintainer's approval; then implement, switch the
+  example to an `inpmap` block, and commit together.
 
 ## Open questions
 
