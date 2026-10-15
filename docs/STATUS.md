@@ -62,10 +62,10 @@ Last updated: 2026-10-15
     - d1. ✅ (2026-10-15) Issue forms `.github/ISSUE_TEMPLATE/`
       (`bug_report.yml`, `test_report.yml`, `config.yml` linking the
       troubleshooting table), `CONTRIBUTING.md` (linked from the README and
-      development.md, in the sdist). No YAML parser on the machine: the
-      forms were checked by reading only; check the "New issue" page after
-      the push. Repository topics proposed to the maintainer (set in the
-      GitHub UI or with `gh repo edit --add-topic`).
+      development.md, in the sdist). Pushed; the maintainer confirmed both
+      forms appear on GitHub's "New issue" page and set the repository
+      topics in the GitHub UI (`gh` is not installed on the development
+      machine).
     - d2. Demo GIF: the maintainer records with Spectacle following the
       storyboard (`input-config example` with `i`; `run example` beside an
       editor and a gamepad tester; F1 → `a` + gamepad A; Caps Lock + WASD;
@@ -89,8 +89,7 @@ Last updated: 2026-10-15
    always use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
 3. Step c: done except the AUR upload, which waits until AUR registration
    reopens.
-4. **Next: step d2** (demo recording by the maintainer), after d1 is
-   pushed and the topics are set. Two backlog items were added on 2026-10-14
+4. **Next: step d2** (demo recording by the maintainer). Two backlog items were added on 2026-10-14
    (udev device notifications; guided device permissions) — not scheduled.
 
 ## Decisions (and why)
