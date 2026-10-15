@@ -76,6 +76,32 @@ Last updated: 2026-10-15
 
 ## Next steps
 
+**Current work: routing by kind (InpMap 0.3)** — decided 2026-10-15 by the
+maintainer (replaces the `forward` idea; inspired by InputPlumber's
+composite devices). Spec: configuration.md §3.4 (approved 2026-10-15;
+carries a temporary "being implemented" note to remove in step 9; its
+examples are `text` blocks until `to` exists). Same `version 1`, no
+compatibility with the old pass-through model (no users yet). Plan (each
+step committed with passing tests):
+0. ✅ Spec (configuration.md §1, §3.1–3.4, §7.3, §8, §9, §12.3).
+1. Output capabilities in core; gamepad output gets ABS_HAT0X/HAT0Y.
+2. Language `to` (`to = OUT[, OUT]`, `to = own`; `own` reserved), validator
+   (several outputs of a kind → `to` required for every input; used-rules).
+3. Route planner (pure core module `routing.py`): per device which code
+   goes to which output, what goes to the pass-through (mouse buttons,
+   EV_REL, non-gamepad/non-joystick axes like ABS_VOLUME), what is refused.
+4. Shared holders (engine ref counts + axis base values).
+5. Router (unmapped input onto outputs; repeat; modifier masking; release
+   on loss).
+6. Keyboard LEDs from outputs to routed physical keyboards.
+7. Switch on in backend/runtime (refusal at start = error exit 1; later =
+   log only).
+8. Optional: axis events framed per SYN_REPORT.
+9. Docs, example, manual tests, CHANGELOG; remove the §3.4 note.
+Risks noted: per-keyboard desktop settings lost (use `to = own`);
+DirectInput pads and flight sticks need `to = own`; Steam may read the
+physical pad via hidraw (unchanged).
+
 0. ✅ (2026-10-15) Back paddles on the virtual gamepad: `BTN_GRIPL`,
    `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` accepted as gamepad outputs
    (range 0x220–0x227 in `codes.py`), declared only when mapped;
@@ -172,25 +198,7 @@ Last updated: 2026-10-15
 
 ## Uncommitted work
 
-- `docs/configuration.md`: draft of language version 2, "routing by
-  kind" (model C, chosen by the maintainer 2026-10-15, replacing the
-  `forward` draft): new §3.4 "Where unmapped input goes" marked "draft,
-  not implemented", examples as `text` blocks; links in §1, §3.1, §8;
-  stale "reusable named blocks" removed from §9. Decisions in the draft:
-  declared outputs are the only devices applications see; unmapped input
-  goes to the output of its kind; `to = OUTPUT | (list) | own`; version 1
-  files keep the old meaning (every input `to = own`); an input reporting
-  something its targets cannot carry is never grabbed (maintainer's
-  requirement: the original device must keep working; error at start,
-  log for devices appearing later); gamepad output gets HAT0X/HAT0Y; no
-  mouse output in v2 (mice use `to = own`). Waiting for the maintainer's
-  review; then implement and commit together.
-  Background: Steam shows the paddles of a virtual pad carrying the
-  Raiju's vendor/product IDs (maintainer's test with the Python
-  prototype), so device identity does not block paddles. InputPlumber
-  (GPLv3, Rust, root daemon with DBus, YAML): source devices merged into
-  a composite device, capability maps, profiles, targets by type (incl.
-  emulated models); events go to the target that supports them.
+- None.
 
 ## Open questions
 

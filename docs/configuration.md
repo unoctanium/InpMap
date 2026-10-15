@@ -51,13 +51,15 @@ A configuration has three parts:
   InpMap grabs them exclusively, so the desktop no longer sees them
   directly.
 - **Outputs**: virtual devices InpMap creates (a keyboard, a gamepad, or
-  several). Applications see them like real devices.
+  several). Applications see them like real devices — instead of the
+  inputs.
 - **Mappings**: what happens when a key or button of an input is pressed.
   A mapping can press keys and buttons and move sticks on **any** output
   device, also several at once.
 
-Everything that no mapping uses — all other keys, the mouse part of a
-combined device, the sticks of a gamepad — is passed through unchanged.
+Everything that no mapping uses — all other keys, the sticks of a
+gamepad — goes unchanged to the output of its kind: keys to the keyboard
+output, buttons and sticks to the gamepad output (§3.4).
 
 ## 2. File basics
 
@@ -122,6 +124,8 @@ Each input names a physical device with exactly one of:
   devices; some keyboards expose several devices with similar names.
 - `path`: an absolute path, usually a stable link in `/dev/input/by-id/`.
 
+Optionally, `to = …` says where the device's unmapped input goes (§3.4).
+
 `inpmap input-config FILE` lets you pick devices (or identify them by
 pressing a key) and writes these blocks for you
 ([usage.md](usage.md#inpmap-input-config)); `inpmap devices` lists the
@@ -156,15 +160,17 @@ output gamepad { type = gamepad }
   `InpMap ` followed by the output's name (`InpMap gamepad`). At most 79
   bytes, unique.
 
-Once the file has mappings, every declared output must be used by one. You may declare several
-outputs of the same type, e.g. two gamepads for two players.
+Once the file has mappings, every declared output must be used: a
+mapping sends to it, or an input's unmapped input goes to it (§3.4). You
+may declare several outputs of the same type, e.g. two gamepads for two
+players.
 
 ### 3.3 What each output can emit
 
 | Output | Codes |
 |---|---|
 | `keyboard` | every `KEY_*` code |
-| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger) |
+| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger); the D-pad axes `ABS_HAT0X`, `ABS_HAT0Y` (−1, 0, 1) carry a physical pad's D-pad (§3.4), mappings use the `BTN_DPAD_*` buttons |
 
 Gamepad buttons are named by **position**, because the printed labels
 differ between controllers:
@@ -201,6 +207,94 @@ types is decided by the keyboard layout of your desktop.
 Axis values are fractions of the range: sticks −1.0 (left/up) … 1.0
 (right/down), triggers 0.0 (released) … 1.0 (fully pressed). The rest
 position is 0.0.
+
+### 3.4 Where unmapped input goes
+
+> **Being implemented for InpMap 0.3.** InpMap 0.2 still passes each
+> input's unmapped input through on a device of its own
+> ("InpMap forward: …", like `to = own` below) and does not know `to`.
+
+**The declared outputs are the devices applications see.** An input's
+unmapped keys, buttons and axes go to the output of their kind, together
+with what the mappings send there:
+
+| An input reports | Its unmapped input goes to |
+|---|---|
+| keyboard keys (`KEY_*`) | the `keyboard` output |
+| gamepad buttons, sticks, triggers, D-pad (the set of §3.3) | the `gamepad` output |
+| mouse buttons and movement, other axes such as a volume wheel | a pass-through device of the input (rule 3) |
+
+```text
+version 1
+input kbd { name = "AT Translated Set 2 keyboard" }
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+input padkeys { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-if01-event-kbd" }
+output keyboard { type = keyboard }
+output gamepad { type = gamepad }
+
+map kbd.KEY_CAPSLOCK { tap KEY_ESC }
+
+# The pad's extra buttons send F13 to F16: make them back paddles
+map padkeys.KEY_F13 { hold BTN_GRIPL }
+map padkeys.KEY_F14 { hold BTN_GRIPR }
+map padkeys.KEY_F15 { hold BTN_GRIPL2 }
+map padkeys.KEY_F16 { hold BTN_GRIPR2 }
+```
+
+Applications see "InpMap keyboard" with all keys of `kbd` (Caps Lock as
+Escape) and the unmapped keys of `padkeys`, and "InpMap gamepad" with the
+Raiju's sticks, triggers, D-pad and buttons plus the four paddles. Games
+see one controller.
+
+**`to`** chooses the target when the default does not fit:
+
+| `to = …` | Meaning |
+|---|---|
+| `to = gamepad2` | the input's gamepad buttons and axes go to `gamepad2`, e.g. the pad of a second player |
+| `to = keyboard2, gamepad2` | one output per kind |
+| `to = own` | the input keeps a virtual device of its own that copies its name and identity; mappings still send to the outputs. For devices that do not fit the outputs: DirectInput-style gamepads and flight sticks, or a keyboard whose desktop settings (e.g. its own layout) should stay separate |
+
+Rules:
+
+1. Without `to`, each kind goes to the only output of that kind. A kind
+   not named in `to` also goes to its only output. If a file declares
+   several outputs of a kind, every input names one of them in `to` (or
+   uses `to = own`); `inpmap check` reports a missing one.
+2. **The device must keep working.** If an input reports keys but there
+   is no keyboard output, or gamepad buttons or axes that the gamepad
+   output does not have (other buttons, flight-stick axes, a right stick
+   on `ABS_Z`/`ABS_RZ`), InpMap does **not** grab it and says what to add
+   (`output keyboard { type = keyboard }` or `to = own`). At start this is
+   an error, before any device is grabbed. A device that appears later is
+   left alone, the reason is logged and the other devices keep running.
+3. Mouse buttons and movement, and axes that are neither gamepad nor
+   joystick axes (such as a volume wheel), go to a pass-through device of
+   the input ("InpMap forward: …") that carries only these, so a mouse
+   part keeps working. (A mouse output is planned.)
+4. A gamepad output always has the D-pad axes `ABS_HAT0X`, `ABS_HAT0Y`
+   (§3.3). It is created with a fixed set before any device is opened, so
+   it stays the same when a device is missing at start or reconnects.
+5. Buttons pass unchanged, key repeat included. Axes are converted by
+   their fraction of the range (§5.5): a stick at half way is at half way
+   on the output.
+6. Mappings work as before: a key, button or axis that a mapping uses is
+   not passed on (§5.5 rule 5), and a mapping may send to any output.
+7. Unmapped input counts as a holder like a mapping (§7.3).
+8. When a device disappears or InpMap stops, everything it holds on the
+   outputs is released and its axes return to rest (§7.4).
+9. Keyboard LEDs (Caps Lock, Num Lock, Scroll Lock) set on a keyboard
+   output are shown on every physical keyboard that sends to it.
+10. Outputs keep their own name and identity (§3.2). Rumble (force
+    feedback) is not passed on.
+
+What this means in practice:
+
+- Several keyboards arrive as one keyboard; desktop settings for a
+  particular physical keyboard or mouse no longer apply to it (use
+  `to = own` for that device).
+- A file with only a gamepad output and a keyboard input is rejected:
+  the keyboard's other keys would have nowhere to go. Add a keyboard
+  output.
 
 ## 4. Settings and variables
 
@@ -858,6 +952,10 @@ Rules:
 - If several mappings hold the same axis, the most recent one wins; when
   it lets go, the previous holder's value applies again, otherwise the
   axis returns to rest.
+- Unmapped input that goes to an output (§3.4) counts as a holder too: a
+  button held on a pad and by a mapping stays down until both let go. A
+  mapping that moves an axis overrides the device's value while it holds;
+  afterwards the device's current value applies again.
 
 ### 7.4 Safety
 
@@ -896,7 +994,11 @@ values of the wrong type; `release` of keys never pressed; unused devices; axis
 thresholds that are 0, outside −1.0 … 1.0, or on an axis that cannot be a
 trigger; unknown, duplicate or empty layers; statements other than `map`
 inside a layer; unknown or duplicate blocks, blocks that call themselves,
-and statements a block may not contain (§6.11).
+and statements a block may not contain (§6.11); `to` naming an
+unknown output or two outputs of one kind, `own` together with outputs, a
+missing `to` where several outputs of a kind exist (§3.4). When InpMap
+opens a device: keys without a keyboard output, gamepad buttons or axes
+the gamepad output does not have (§3.4 rule 2).
 
 Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3); blocks that
 are never called.
@@ -905,11 +1007,11 @@ Check a file with `inpmap check FILE`.
 
 ## 9. Not supported yet
 
-Mouse output (movement, wheel); analog axes driving analog outputs (e.g.
+Mouse output (movement, wheel; mice pass through, §3.4 rule 3); analog axes driving analog outputs (e.g.
 a stick moving the virtual stick with a curve); mouse movement as a
 trigger; dual-role keys
 that hold back other keys while undecided; conditions on other held keys;
-reusable named blocks; arithmetic beyond `+=`/`-=`; typing text by
+arithmetic beyond `+=`/`-=`; typing text by
 character (codes are key positions); randomised "human" timing beyond
 `random`.
 
@@ -1185,4 +1287,5 @@ else single not and keep modifiers ignore ctrl shift alt meta left_ctrl
 right_ctrl left_shift right_shift left_alt right_alt left_meta right_meta
 within after axis move to over cancel restart key_pause max_run none true
 false capslock numlock scrolllock disable above below layer off block call
+own
 ```
