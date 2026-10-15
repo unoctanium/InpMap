@@ -470,4 +470,5 @@ where to put it.
 | holding a mapped key types `yyyy` | that is the desktop's key repeat for a held key; use `tap` for a single press |
 | a game ignores very short taps | increase the key pause (`settings { key_pause = 30ms }`) |
 | the keyboard is unusable because of a mapping | hold Backspace + Escape + Enter together: InpMap stops (emergency stop) |
+| a controller or keyboard stops responding (e.g. after touching its touchpad), and works again while `inpmap detect` runs | not caused by InpMap: some devices with several parts (gamepad, keyboard, touchpad) stall when one part is read by no program, for example a touchpad switched off in the desktop settings (seen with the Razer Raiju V3 Pro). Switch that part on again; to keep a touchpad from moving the pointer, change its function in the game or in Steam instead |
 | more detail needed | run with `inpmap -v run …` for debug logging |

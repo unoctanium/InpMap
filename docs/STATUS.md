@@ -166,13 +166,13 @@ Last updated: 2026-10-15
   Observed: after touching the touchpad the gamepad interface delivered no
   events at all (read-only logger on the event device; no kernel, udev or
   journal messages); opening only the touchpad event device read-only
-  revived the stick at once. This also explains the earlier symptoms with
+  revived the stick at once. Confirmed fix: with the touchpad enabled in
+  KDE again, the stick keeps working after touching the touchpad. This also explains the earlier symptoms with
   the keyboard interface (stuck Enter released when `inpmap detect` opened
-  all devices) and why `detect` seemed to "repair" things. Pending: the
-  maintainer re-enables the touchpad in KDE and confirms the gamepad keeps
-  working; then decide whether to document this in usage.md
-  (troubleshooting) and whether InpMap should help (e.g. keep sibling
-  interfaces of a configured device open).
+  all devices) and why `detect` seemed to "repair" things. Documented in
+  usage.md §5 (troubleshooting). Open: whether InpMap should help (e.g.
+  keep the other interfaces of a configured device open) — proposed for the
+  backlog, maintainer to decide.
 
 ## Session log
 
