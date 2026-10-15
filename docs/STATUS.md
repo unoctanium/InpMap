@@ -9,185 +9,60 @@ Last updated: 2026-10-15
 
 ## Current position
 
-- V1, V1.1, the configuration language and the systemd user service are
-  done and verified on real hardware (see "Verification").
+- V1, V1.1, the configuration language, the systemd user service and
+  **routing by kind** (0.3.0) are done and verified on real hardware.
+- **InpMap 0.3.0 released** (2026-10-15): on PyPI; CI and the release
+  workflow green; the Arch package in `packaging/aur` is 0.3.0 (pkgrel 1),
+  test-built and installed by the maintainer with `makepkg -sri`. The
+  maintainer's login service runs a personal profile (`inpmap@gaming`:
+  small keyboard with a Caps Lock layer, Raiju pad + its keyboard part as
+  one controller with back paddles) with the packaged 0.3.0.
 - **Publishing (roadmap)** is in progress:
-  - a. ✅ Independent of the source tree: profiles in `~/.config/inpmap/`,
-    example and syntax files in the package, `inpmap@NAME` unit, `detect`.
-  - b. ✅ Release 0.2.0 on PyPI (published 2026-10-14): CI is green on Python 3.11–3.14; version,
-    changelog, metadata, `MANIFEST.in` and the release workflow are ready;
-    the PyPI "pending publisher" (project `inpmap`, workflow `release.yml`,
-    environment `pypi`) and the GitHub environment `pypi` are set up.
-    Before tagging, the repository was cleaned for publication (see the
-    decisions of 2026-10-14 below).
-  - c. 🔧 **AUR package prepared; upload waits for AUR registration**
-    (2026-10-14): `packaging/aur/` — `PKGBUILD` (from the PyPI sdist
-    0.2.0, sha256 checked; depends python, python-evdev,
-    python-lark-parser; check() runs the unit tests; installs the program,
-    `/usr/lib/systemd/user/inpmap@.service` with `/usr/bin/inpmap`, Kate
-    syntax file in `/usr/share/org.kde.syntax-highlighting/syntax/` —
-    lookup via XDG_DATA_DIRS verified with ksyntaxhighlighter6 —, nano
-    file in `/usr/share/nano/`, license, docs), `.SRCINFO` (generated),
-    README (test build, first upload, updates). Verified: `makepkg
-    --printsrcinfo`, `makepkg --verifysource` (download + both checksums
-    pass), the unit with `systemd-analyze verify`, a drift test against
-    `inpmap service-unit`. ✅ Test build by the maintainer: `makepkg -f` →
-    "Finished making: inpmap 0.2.0-1" (2026-10-14). **Decision (2026-10-14,
-    after comparing user service vs. system service as root or as a
-    dedicated `inpmap` user):** keep the user service; the package installs
-    `/usr/lib/udev/rules.d/70-inpmap-uinput.rules` (uaccess for
-    /dev/uinput, like steam-devices; pacman's systemd hook reloads udev at
-    once) and shows a post-install message with the commands for the
-    per-device rules (`inpmap udev-rules`); no generic rule for all
-    keyboards (would let every program read every keyboard). pkgrel=2,
-    `inpmap.install` (post_install, post_remove), drift test against
-    `UINPUT_RULE`; `udevadm verify` and `makepkg --verifysource` pass.
-    ✅ Installation test by the maintainer (2026-10-14, "all as expected"):
-    `makepkg -fi` (0.2.0-2) after removing the pipx version and the own
-    unit; `/usr/bin/inpmap` 0.2.0; packaged unit used by
-    `inpmap@default` (active); Kate highlights via the system file;
-    `pacman -R` with the removal message; reinstalled — the development
-    machine now runs the locally built AUR package. Interim instructions
-    for Arch/CachyOS/Manjaro (installation.md §2a, README): clone, `cd
-    packaging/aur`, `makepkg -sri` (order checked in /usr/bin/makepkg:
-    with -s -r -i only make/check deps are removed, runtime deps stay);
-    PyPI became §2b, source §2c. ⏳ **Open:** **upload to the AUR once account
-    registration reopens** (it was closed on 2026-10-14: HTTP 503, "paused
-    while we deal with a wave of automated account creation"; watch
-    aur-general / Arch news), following packaging/aur/README.md; then
-    document `paru -S inpmap` in installation.md and the README.
-  - d. 🔧 Demo, a few external testers, then announcements
-    (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum, Show HN),
-    respecting each community's self-promotion rules. Plan:
-    - d1. ✅ (2026-10-15) Issue forms `.github/ISSUE_TEMPLATE/`
-      (`bug_report.yml`, `test_report.yml`, `config.yml` linking the
-      troubleshooting table), `CONTRIBUTING.md` (linked from the README and
-      development.md, in the sdist). Pushed; the maintainer confirmed both
-      forms appear on GitHub's "New issue" page and set the repository
-      topics in the GitHub UI (`gh` is not installed on the development
-      machine).
-    - d2. Demo GIF: the maintainer records with Spectacle following the
-      storyboard (`input-config example` with `i`; `run example` beside an
-      editor and a gamepad tester; F1 → `a` + gamepad A; Caps Lock + WASD;
-      `detect`); Claude converts it with ffmpeg to `docs/media/demo.gif`.
-    - d3. "Call for testers" issue text.
-    - d4. Announcement drafts per venue after checking each venue's rules,
-      as a private page, not in the repository.
+  - a. ✅ Independent of the source tree (profiles, packaged example and
+    syntax files, `inpmap@NAME`, `detect`).
+  - b. ✅ PyPI: 0.2.0 (2026-10-14), 0.3.0 (2026-10-15); trusted publishing
+    via `.github/workflows/release.yml`, environment `pypi`.
+  - c. 🔧 AUR package ready (`packaging/aur/`, README there: test build,
+    first upload, updates). User service + packaged uaccess rule for
+    /dev/uinput + post-install hint for per-device rules. ⏳ **Upload waits
+    until AUR account registration reopens** (closed since 2026-10-14,
+    HTTP 503); then document `paru -S inpmap`. Interim: installation.md §2a
+    (clone, `makepkg -sri`).
+  - d. 🔧 Demo, testers, announcements. d1 ✅ (issue forms,
+    `CONTRIBUTING.md`, topics). d2 demo GIF: the maintainer records with
+    Spectacle (storyboard: `run example` beside an editor and a gamepad
+    tester; F1 → `a` + gamepad A; F4 autofire; F8; Caps Lock + WASD;
+    `detect`), Claude converts with ffmpeg to `docs/media/demo.gif` (< 5 MB)
+    for review. d3 "call for testers" issue text. d4 announcement drafts
+    per venue (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum,
+    Show HN) after checking each venue's rules, as a private page.
 
 ## Next steps
 
-**Current work: routing by kind (InpMap 0.3)** — decided 2026-10-15 by the
-maintainer (replaces the `forward` idea; inspired by InputPlumber's
-composite devices). Spec: configuration.md §3.4 (approved 2026-10-15;
-carries a temporary "being implemented" note to remove in step 9; its
-examples are `text` blocks until `to` exists). Same `version 1`, no
-compatibility with the old pass-through model (no users yet). Plan (each
-step committed with passing tests):
-0. ✅ Spec (configuration.md §1, §3.1–3.4, §7.3, §8, §9, §12.3).
-1. ✅ Output capabilities in core (`output.output_capabilities`, `codes.KEYBOARD_OUTPUT_KEYS`/`GAMEPAD_OUTPUT_BUTTONS`, `macros.OUTPUT_AXIS_KINDS`). The D-pad axes added here were removed again after the Steam test (see "Open questions"): physical D-pad axes become BTN_DPAD_*.
-2. ✅ Language `to` (`to = OUT[, OUT]`, `to = own`; `own` reserved; grammar,
-   compiler, `InputDeviceSpec.own/targets`, `Validator.resolve_targets`,
-   used-rules, syntax files; tests in `tests/test_routing_config.py`).
-   Until step 7 the runtime still passes every input through on its own
-   device (as if `to = own`).
-3. ✅ Route planner `routing.py` (`plan_route` → `RoutePlan`,
-   `AxisRoute.value` conversion incl. unsigned sticks and D-pad axes,
-   `InputRefused` with fix hints; tests `tests/test_routing.py`). Decisions
-   made here (spec §3.4 rule 2 updated): codes a mapping names need no
-   target (dropped when the mapping does not fire); touch devices always
-   need `to = own`; ABS axes outside the joystick/touch sets (ABS_VOLUME,
-   ABS_MISC) go to the pass-through.
-4. ✅ Shared holders: axis base values (`AxisStacks.set_base/clear_base`;
-   a mapping overrides, afterwards the device value applies again; most
-   recently updated device wins). Buttons share the engine's reference
-   counts through its `press_key`/`release_key` (used by the router).
-5. ✅ Router (`routing.Router`): unmapped keys/buttons as engine holders
-   (shared ref counts), axes as base values, key repeat dropped (desktops
-   repeat the virtual keyboard themselves), mask/unmask for modifiers,
-   detach releases everything; tests in `tests/test_routing.py`.
-6. ✅ Keyboard LED parts: the virtual keyboard declares NUML/CAPSL/SCROLLL;
-   `OutputDevice.fileno/poll_leds`, `OutputManager.feedback_filenos/poll_leds`
-   (hardware test passes); `InputSource.set_leds`; `InputBackend.wait(…,
-   feedback)`. Applying them to routed keyboards is wired in step 7.
-7. ✅ Switched on (2026-10-15): backend opens without a forwarder;
-   `InputSource.capabilities/start_passthrough` (full copy for `to = own`,
-   partial device for mouse buttons/EV_REL/extra axes, none otherwise);
-   runtime plans each device at open (`plan_route`), routes unmapped
-   keys/axes through `Router`, applies keyboard-output LEDs to routed
-   keyboards (also at grab), detaches on loss/shutdown. Refusal: error at
-   start (also with --wait-for-devices; CLI exit 1 = no service restart),
-   later only logged and retried. Existing pass-through tests now use
-   `to = own`; new tests: `tests/test_runtime_routing.py` (fakes) and
-   routed hardware tests in `tests/test_linux_input.py` (keyboard + pad
-   into the outputs with no pass-through devices, axes scaled incl. D-pad,
-   mouse part on a pass-through device with only BTN_LEFT/REL, LEDs to the
-   physical keyboard, refused device never grabbed). Unit tests 626, all
-   19 hardware tests pass. Docs (step 9) not yet updated: usage.md and
-   README still describe the old pass-through model.
-8. Skipped for now (optional): routed axis events framed per SYN_REPORT
-   (each value is written with its own SYN; no problem observed).
-9. ✅ Docs: configuration.md §3.4 note removed, examples are checked
-   `inpmap` blocks (incl. two players with `to`); usage.md §1 diagram,
-   `run` notes (LEDs, per-device settings, refused devices),
-   troubleshooting; development.md architecture and modules; README
-   features; CHANGELOG "Unreleased"; manual-tests.md §2a. The example
-   profile needed no change. `docs/roadmap.md` edit (requirement text +
-   milestone "Routing by kind") approved and committed.
-**Release 0.3.0 prepared (2026-10-15):** version 0.3.0, CHANGELOG dated,
-README with a "What you can do with it" list and the Raiju back-paddle
-example (both README examples are compiled by the tests), issue template
-placeholder, version-neutral install text. Local build checked: sdist and
-wheel contain `routing.py`, data files and the new tests; the suite passes
-from the unpacked sdist (624 passed, 2 skipped). **Released (2026-10-15):** `main`
-and tag `v0.3.0` pushed with the maintainer's OK; on PyPI about 80 s later
-(sdist sha256 468de4ad…0d75). `packaging/aur` updated (pkgver 0.3.0,
-pkgrel 1, checksum, `.SRCINFO`); `makepkg --verifysource` passes. **Next:**
-maintainer test build `makepkg -sri` in `packaging/aur`: **works**; the
-login service runs the `gaming` profile with the packaged 0.3.0. Steam
-showed the virtual pad as "InpMap Test Gamepad": Steam stores a name per
-vendor/product ID (`Steam Controller Configs/…/preferences_*.vdf`) and had
-first seen a hardware-test device with the same IDs; the device itself is
-named "InpMap gamepad". Fixed for the future: hardware tests use product
-IDs 0x7E01/0x7E02 (`tests/hardware.py`); the maintainer renames the pad in
-Steam's controller settings.
-Risks noted: per-keyboard desktop settings lost (use `to = own`);
-DirectInput pads and flight sticks need `to = own`; Steam may read the
-physical pad via hidraw (unchanged).
+1. Step d2 (demo recording by the maintainer), then d3, d4 — or whatever
+   the maintainer chooses.
+2. AUR upload when registration reopens.
+3. Optional, not scheduled: capitalised default device names ("InpMap
+   Gamepad") — offered, maintainer has not decided; routed axis events
+   framed per SYN_REPORT (skipped, no problem observed).
+4. Backlog items added 2026-10-14/15 (roadmap): udev device notifications
+   instead of 1 s polling; guided device permissions; keeping the other
+   interfaces of configured devices open (Raiju stalls when one is unread).
 
-0. ✅ (2026-10-15) Back paddles on the virtual gamepad: `BTN_GRIPL`,
-   `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` accepted as gamepad outputs
-   (range 0x220–0x227 in `codes.py`), declared only when mapped;
-   configuration.md §3.3 with example, CHANGELOG "Unreleased". Verified:
-   unit tests, hardware backend tests, a real uinput gamepad declaring the
-   four codes. Not verified: Steam showing them from an InpMap profile.
-   **Proposed next (maintainer to approve the design in configuration.md
-   first):** merge a physical device into a named output (e.g. `input pad
-   { …; forward = gamepad }`), so a controller's sticks and buttons and
-   mapped extras come out of one virtual gamepad instead of a forwarding
-   device plus the InpMap gamepad.
+### Routing by kind (0.3.0) — how it was built, for reference
 
-1. ✅ **InpMap 0.2.0 released** (2026-10-14): tag `v0.2.0` pushed with the
-   maintainer's OK; release workflow succeeded; pypi.org/project/inpmap
-   shows 0.2.0 (wheel + sdist, author, MIT, Python ≥ 3.11, project links). The release workflow tests, checks tag = version,
-   builds and uploads to PyPI (a version can never be uploaded twice).
-2. ✅ Verified on the development machine (2026-10-14): `python-pipx`
-   installed, `pipx install --system-site-packages inpmap` → `inpmap
-   0.2.0`; unit regenerated (ExecStart points to the pipx Python),
-   `inpmap@default` active; `inpmap run example` works. On this machine the
-   plain `inpmap` command was the PyPI release; since the AUR test it is
-   the locally built package (`/usr/bin/inpmap`). Development and tests
-   always use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
-3. Step c: done except the AUR upload, which waits until AUR registration
-   reopens.
-4. **Next: step d2** — the maintainer records the demo with Spectacle
-   following the storyboard (under "Current position", d2) and gives the
-   video's path; Claude converts it to `docs/media/demo.gif` (target under
-   5 MB) for the maintainer to review before it goes into the README.
-   Preparation asked of the maintainer: add the new keyboard to the
-   `example` profile (`inpmap input-config example`), since the old
-   keyboard was replaced. Three backlog items were added on 2026-10-14/15
-   (udev device notifications; guided device permissions; keeping the
-   other interfaces of configured devices open) — not scheduled.
+Decided 2026-10-15 by the maintainer after comparing a `forward` option,
+"remap in place" and InputPlumber's composite devices; replaces the old
+model (every input passed through on a clone), no compatibility kept (no
+users yet). Spec: configuration.md §3.4. Code: `routing.py`
+(`plan_route` → `RoutePlan`, `Router`), `axes.py` (base values), runtime
+wiring, `InputSource.capabilities/start_passthrough`, keyboard LEDs from
+the output. Findings during the hardware test: misc buttons (`BTN_0` on the
+Raiju's keyboard part) go to the pass-through device; a pad's D-pad axes
+become `BTN_DPAD_*` because SDL/Steam ignore hat axes when a device also
+has D-pad buttons (SDL Linux joystick code: "Prefer digital D-Pad
+buttons"). Steam remembers a controller's name per vendor/product ID, so
+the hardware tests now use product IDs 0x7E01/0x7E02 (`tests/hardware.py`).
 
 ## Decisions (and why)
 
@@ -196,7 +71,9 @@ physical pad via hidraw (unchanged).
 | Configuration language `.inpmap` (lark LALR parser) replaced JSON | readable by hand; errors with `FILE:LINE:COLUMN`; one format only |
 | `docs/configuration.md` is the language specification; changes there first, with the maintainer's approval | the reference and the implementation must not drift |
 | Linux code names (`KEY_X`, `BTN_SOUTH`) as vocabulary; table generated into `_linux_codes.py` | core free of evdev (Windows later); test cross-checks with evdev |
-| Passthrough through one forwarding uinput device per grabbed input, copying vendor/product, without `EV_REP` and `EV_FF` | unmapped input keeps working; per-device desktop settings apply; no double key repeat; no 30 s rumble stalls |
+| Routing by kind (0.3.0): unmapped input goes to the output of its kind; what no output carries (mouse parts, misc buttons, extra axes) to a small pass-through device; `to = OUTPUT`/`to = own`; a device that does not fit is never grabbed (error at start, exit 1; later only logged) | applications see exactly the configured devices (one controller per pad incl. extra buttons); the original device keeps working when the configuration does not fit (maintainer's requirement) |
+| Pass-through devices copy vendor/product, without `EV_REP` and `EV_FF`; key repeat is not routed to the outputs | no double key repeat (desktops repeat themselves); no 30 s rumble stalls |
+| The virtual gamepad has no D-pad axes; a pad's D-pad axes become `BTN_DPAD_*` | SDL and Steam use only the D-pad buttons when a device has both |
 | Startup: outputs → open inputs → wait until no key is held → grab | never leave a grab behind on failure; no stuck keys in the desktop |
 | Device loss releases its outputs; the device is reopened every second | wireless sleep and replugging work without a restart |
 | Shared outputs reference-counted; axes: most recent holder wins | releasing one input never releases another's output |
@@ -233,20 +110,23 @@ physical pad via hidraw (unchanged).
 
 ## Verification
 
-- Unit tests: 557 passed (`.venv/bin/python -m pytest`); ruff clean.
-- Hardware tests (synthetic uinput devices, `-m hardware`): 14; all passed
-  in their last runs on the development machine.
-- CI: green on Python 3.11, 3.12, 3.13, 3.14.
-- Real hardware (a USB keyboard dongle and a Razer Raiju V3 Pro gamepad):
-  acceptance test X → Y + gamepad A with suppression; passthrough; LEDs;
-  macros; modifiers; tap/hold gestures; axes as triggers (R2, two-stage L2,
-  D-pad); layers; the user service incl. login, emergency stop, missing
-  gamepad at start, invalid configuration without restart loop; profiles;
-  `input-config` with key identification; `detect`; the example; a profile
-  without mappings; Kate syntax file — all passed.
-- Not verified: Debian/Ubuntu/Fedora installation, other desktops, Steam
-  and SDL recognition of the virtual gamepad in games, the nano syntax
-  file, installing the generated udev rules.
+- Unit tests: 627 passed (`.venv/bin/python -m pytest`); ruff clean.
+- Hardware tests (synthetic uinput devices, `-m hardware`): 19, all passed
+  on 2026-10-15 (incl. routing: keyboard + pad into the outputs, mouse part
+  on a pass-through device, LEDs to the physical keyboard, refused device
+  never grabbed).
+- CI: green on Python 3.11–3.14 for `6935fbc`; release workflow green for
+  `v0.3.0`.
+- Real hardware (keyboard dongle, Razer Raiju V3 Pro): everything listed
+  for 0.2 (acceptance test, macros, modifiers, gestures, axes, layers,
+  service, profiles, tools) plus, on 2026-10-15, routing: typing through
+  "InpMap keyboard", LEDs, no keyboard clone; the Raiju with its extra
+  buttons as one controller in KDE and Steam (sticks, triggers, D-pad,
+  buttons, L4/R4/L5/R5); touchpad unaffected; the packaged 0.3.0 as login
+  service.
+- Not verified: Debian/Ubuntu/Fedora installation, other desktops, the
+  nano syntax file, installing the generated udev rules, two players with
+  `to`.
 
 ## Uncommitted work
 
@@ -254,48 +134,10 @@ physical pad via hidraw (unchanged).
 
 ## Open questions
 
-- **Pending manual test (asked 2026-10-15): routing on real hardware**, with
-  the development build (`.venv/bin/inpmap`), services stopped:
-  (1) `run example --timeout 120`: normal typing in an editor works through
-  "InpMap keyboard", F1 gives `a` + gamepad A, Caps Lock + WASD arrows, Num
-  Lock LED on the physical keyboard follows; `inpmap devices`/KDE show no
-  "InpMap forward: …" for the keyboard. (2) a Raiju profile (pad +
-  keyboard part, F15–F18 → BTN_GRIP*; file given to the maintainer as
-  `raiju-test`): KDE game controller settings and Steam show one
-  controller "InpMap gamepad" with sticks, triggers, D-pad, buttons and
-  L4/R4/L5/R5; the touchpad keeps working. Awaited: pass/fail per point.
-  Result so far: test 1 (keyboard, example) **passed**. Test 2 first run
-  refused the Raiju's keyboard part because of `BTN_0` (a misc button);
-  fixed: buttons that are neither keys nor gamepad/joystick buttons go to
-  the pass-through device (spec §3.4 rule 3 updated); a dry run of
-  `plan_route` with the real Raiju capabilities is now clean. Test 2
-  repeated: **all points passed except the D-pad in Steam's controller
-  test** (it worked in KDE's game controller page). Cause, verified in
-  SDL's Linux joystick code ("Prefer digital D-Pad buttons, but settle for
-  digital or analog hat"): the virtual gamepad had both BTN_DPAD_* and the
-  new ABS_HAT0X/Y, so SDL/Steam read only the (unused) buttons. Fixed: the
-  output has no D-pad axes again; a pad's D-pad axes are turned into
-  BTN_DPAD_* presses by the router (shared ref counts with mappings); spec
-  §3.3 and §3.4 rule 4 updated; unit and hardware tests pass. Re-test:
-  **D-pad works in Steam** (maintainer, 2026-10-15). Routing manual test
-  complete: all points passed.
-
-- **Found (2026-10-15), not an InpMap bug: Razer Raiju V3 Pro stalls when
-  one of its USB interfaces is not read.** The controller has a gamepad
-  interface (xpad), a keyboard/mouse interface and a touchpad interface
-  (hid-multitouch); the kernel polls a HID interface only while some program
-  has one of its event devices open. KDE had the Razer touchpad (and mouse)
-  disabled (`kcminputrc` `Enabled=false`), so nobody read the touchpad.
-  Observed: after touching the touchpad the gamepad interface delivered no
-  events at all (read-only logger on the event device; no kernel, udev or
-  journal messages); opening only the touchpad event device read-only
-  revived the stick at once. Confirmed fix: with the touchpad enabled in
-  KDE again, the stick keeps working after touching the touchpad. This also explains the earlier symptoms with
-  the keyboard interface (stuck Enter released when `inpmap detect` opened
-  all devices) and why `detect` seemed to "repair" things. Documented in
-  usage.md §5 (troubleshooting). Keeping the other interfaces of a
-  configured device open was added to the roadmap backlog (maintainer's
-  decision, 2026-10-15).
+- None pending. Known device quirk (not an InpMap bug, documented in
+  usage.md §5): the Razer Raiju V3 Pro stalls completely when one of its
+  USB interfaces is read by no program (e.g. its touchpad disabled in KDE);
+  enabling the touchpad fixed it (confirmed 2026-10-15).
 
 ## Session log
 
@@ -317,5 +159,10 @@ physical pad via hidraw (unchanged).
   `CONTRIBUTING.md`, repository topics (set by the maintainer); verified on
   GitHub. Razer Raiju V3 Pro stalls traced to an unread interface (touchpad
   disabled in KDE), not an InpMap bug; fix confirmed; troubleshooting entry
-  in usage.md; backlog item to keep sibling interfaces open. All work
+  in usage.md; backlog item to keep sibling interfaces open. Back
+  paddles (`BTN_GRIP*`) on the virtual gamepad. Input/output model
+  redesigned after studying InputPlumber: routing by kind (spec, `to`,
+  route planner, router, LEDs, switch-on, docs), hardware-tested with the
+  Raiju; README "What you can do with it"; release 0.3.0 on PyPI and in
+  the Arch package; hardware tests got their own product IDs. All work
   pushed.
