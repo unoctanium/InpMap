@@ -14,6 +14,7 @@ import pytest
 evdev = pytest.importorskip("evdev")
 from evdev import InputDevice, ecodes  # noqa: E402
 
+from inpmap import codes  # noqa: E402
 from inpmap.backends.linux import (  # noqa: E402
     GAMEPAD_BUTTONS,
     KEYBOARD_KEYS,
@@ -50,6 +51,14 @@ def test_mapped_codes_are_always_declared():
     caps = capabilities(OutputKind.GAMEPAD, frozenset({happy}))
     assert happy in caps[ecodes.EV_KEY]
     assert happy not in GAMEPAD_BUTTONS
+
+
+def test_paddles_declared_only_when_mapped():
+    # By value, not ecodes.BTN_GRIPL: evdev built against older kernel
+    # headers (CI) does not know the paddle names.
+    paddle = codes.code_from_name("BTN_GRIPL")
+    assert paddle not in capabilities(OutputKind.GAMEPAD, frozenset())[ecodes.EV_KEY]
+    assert paddle in capabilities(OutputKind.GAMEPAD, frozenset({paddle}))[ecodes.EV_KEY]
 
 
 # -- real uinput devices --------------------------------------------------

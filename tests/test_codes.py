@@ -23,7 +23,9 @@ def test_unknown_code_name_formatting():
     assert codes.code_name(0xFFFF) == "0xffff"
 
 
-@pytest.mark.parametrize("name", ["BTN_SOUTH", "BTN_THUMBR", "BTN_TRIGGER", "BTN_DPAD_UP"])
+@pytest.mark.parametrize(
+    "name", ["BTN_SOUTH", "BTN_THUMBR", "BTN_TRIGGER", "BTN_DPAD_UP", "BTN_GRIPL", "BTN_GRIPR2"]
+)
 def test_gamepad_buttons(name):
     assert codes.is_gamepad_button(codes.code_from_name(name))
 

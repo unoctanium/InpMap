@@ -103,6 +103,15 @@ map KEY_D { axis ABS_X 1.0 (attack 10ms) }
     assert (d.axes[0].code, d.axes[0].attack_ms) == (GAMEPAD_AXES["ABS_X"][0], 10)
 
 
+def test_back_paddles_go_to_the_gamepad():
+    config = compile_maps("map KEY_F13 { hold BTN_GRIPL }\nmap KEY_F14 { hold BTN_GRIPR2 }\n")
+    f13, f14 = config.mappings[:-1]
+    assert [(o.device, o.code) for o in f13.outputs + f14.outputs] == [
+        ("gamepad", c("BTN_GRIPL")),
+        ("gamepad", c("BTN_GRIPR2")),
+    ]
+
+
 def test_modifiers_on_triggers():
     config = compile_maps(
         """

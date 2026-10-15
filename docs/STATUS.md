@@ -76,6 +76,18 @@ Last updated: 2026-10-15
 
 ## Next steps
 
+0. ✅ (2026-10-15) Back paddles on the virtual gamepad: `BTN_GRIPL`,
+   `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` accepted as gamepad outputs
+   (range 0x220–0x227 in `codes.py`), declared only when mapped;
+   configuration.md §3.3 with example, CHANGELOG "Unreleased". Verified:
+   unit tests, hardware backend tests, a real uinput gamepad declaring the
+   four codes. Not verified: Steam showing them from an InpMap profile.
+   **Proposed next (maintainer to approve the design in configuration.md
+   first):** merge a physical device into a named output (e.g. `input pad
+   { …; forward = gamepad }`), so a controller's sticks and buttons and
+   mapped extras come out of one virtual gamepad instead of a forwarding
+   device plus the InpMap gamepad.
+
 1. ✅ **InpMap 0.2.0 released** (2026-10-14): tag `v0.2.0` pushed with the
    maintainer's OK; release workflow succeeded; pypi.org/project/inpmap
    shows 0.2.0 (wheel + sdist, author, MIT, Python ≥ 3.11, project links). The release workflow tests, checks tag = version,

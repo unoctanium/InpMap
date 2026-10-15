@@ -12,12 +12,12 @@ from dataclasses import dataclass
 from ._linux_codes import CANONICAL_NAMES, CODES
 
 # Inclusive ranges of EV_KEY codes that belong to joysticks/gamepads:
-# BTN_TRIGGER..BTN_DEAD, BTN_SOUTH..BTN_THUMBR, BTN_DPAD_UP..BTN_DPAD_RIGHT,
-# BTN_TRIGGER_HAPPY1..BTN_TRIGGER_HAPPY40.
+# BTN_TRIGGER..BTN_DEAD, BTN_SOUTH..BTN_THUMBR, BTN_DPAD_UP..BTN_DPAD_RIGHT
+# plus the back paddles BTN_GRIPL..BTN_GRIPR2, BTN_TRIGGER_HAPPY1..40.
 GAMEPAD_BUTTON_RANGES: tuple[tuple[int, int], ...] = (
     (0x120, 0x12F),
     (0x130, 0x13E),
-    (0x220, 0x223),
+    (0x220, 0x227),
     (0x2C0, 0x2E7),
 )
 

@@ -164,7 +164,7 @@ outputs of the same type, e.g. two gamepads for two players.
 | Output | Codes |
 |---|---|
 | `keyboard` | every `KEY_*` code |
-| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT` (and other joystick buttons if you map them); axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger) |
+| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger) |
 
 Gamepad buttons are named by **position**, because the printed labels
 differ between controllers:
@@ -178,6 +178,21 @@ differ between controllers:
 
 `BTN_X` and `BTN_Y` are accepted but give a **warning**: in Linux `BTN_X` is
 the top button (labelled Y on Xbox) and `BTN_Y` the left one (labelled X).
+
+Back paddles follow the Linux convention: `BTN_GRIPL` and `BTN_GRIPR` are
+the upper left and right paddle, `BTN_GRIPL2` and `BTN_GRIPR2` the lower
+ones. Steam shows them as L4, R4, L5 and R5. They are added to a virtual
+gamepad only when a mapping uses them, so a gamepad without paddle mappings
+does not pretend to have paddles:
+
+```inpmap
+version 1
+input keys { path = "/dev/input/by-id/usb-Example_Pad-if01-event-kbd" }
+output gamepad { type = gamepad }
+
+map keys.KEY_F13 { hold BTN_GRIPL }  # extra button sending F13: upper left paddle
+map keys.KEY_F14 { hold BTN_GRIPR }
+```
 
 Keyboard codes are **key positions**, not characters: `KEY_Y` is the key
 labelled Y on a US keyboard, which types `z` on a German layout. What a key

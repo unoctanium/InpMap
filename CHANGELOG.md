@@ -4,6 +4,12 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
+## Unreleased
+
+- The virtual gamepad can send the back paddles `BTN_GRIPL`, `BTN_GRIPR`,
+  `BTN_GRIPL2`, `BTN_GRIPR2` (shown by Steam as L4, R4, L5, R5); they are
+  declared only when a mapping uses them.
+
 ## 0.2.0 (first public release)
 
 InpMap is a configuration-driven input remapper for Linux: one key or
