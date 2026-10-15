@@ -138,12 +138,12 @@ README with a "What you can do with it" list and the Raiju back-paddle
 example (both README examples are compiled by the tests), issue template
 placeholder, version-neutral install text. Local build checked: sdist and
 wheel contain `routing.py`, data files and the new tests; the suite passes
-from the unpacked sdist (624 passed, 2 skipped). **Next, with the
-maintainer's OK:** push `main` and tag `v0.3.0` (release workflow →
-PyPI); then update `packaging/aur` (pkgver 0.3.0, pkgrel 1, sha256 of the
-PyPI sdist, `.SRCINFO`), maintainer test build with `makepkg -sri`; then
-the maintainer's `gaming` profile can run as the login service
-(`inpmap@gaming`).
+from the unpacked sdist (624 passed, 2 skipped). **Released (2026-10-15):** `main`
+and tag `v0.3.0` pushed with the maintainer's OK; on PyPI about 80 s later
+(sdist sha256 468de4ad…0d75). `packaging/aur` updated (pkgver 0.3.0,
+pkgrel 1, checksum, `.SRCINFO`); `makepkg --verifysource` passes. **Next:**
+maintainer test build `makepkg -sri` in `packaging/aur`, then switch the
+login service to the maintainer's `gaming` profile (`inpmap@gaming`).
 Risks noted: per-keyboard desktop settings lost (use `to = own`);
 DirectInput pads and flight sticks need `to = own`; Steam may read the
 physical pad via hidraw (unchanged).
