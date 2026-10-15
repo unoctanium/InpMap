@@ -97,7 +97,10 @@ step committed with passing tests):
    target (dropped when the mapping does not fire); touch devices always
    need `to = own`; ABS axes outside the joystick/touch sets (ABS_VOLUME,
    ABS_MISC) go to the pass-through.
-4. Shared holders (engine ref counts + axis base values).
+4. ✅ Shared holders: axis base values (`AxisStacks.set_base/clear_base`;
+   a mapping overrides, afterwards the device value applies again; most
+   recently updated device wins). Buttons share the engine's reference
+   counts through its `press_key`/`release_key` (used by the router).
 5. Router (unmapped input onto outputs; repeat; modifier masking; release
    on loss).
 6. Keyboard LEDs from outputs to routed physical keyboards.
