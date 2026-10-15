@@ -13,6 +13,7 @@ import pytest
 
 evdev = pytest.importorskip("evdev")
 from evdev import InputDevice, ecodes  # noqa: E402
+from hardware import TEST_PRODUCTS, output_backend  # noqa: E402
 
 from inpmap import codes  # noqa: E402
 from inpmap.backends.linux import LinuxOutputBackend, capabilities  # noqa: E402
@@ -122,7 +123,7 @@ def grabbed():
 
 @pytest.mark.hardware
 def test_devices_are_created_with_expected_identity_and_capabilities():
-    with OutputManager(LinuxOutputBackend(), CONFIG) as outputs:
+    with OutputManager(output_backend(), CONFIG) as outputs:
         for device_id, device in outputs.devices.items():
             node = InputDevice(device.node)
             try:
@@ -143,7 +144,7 @@ def test_devices_are_created_with_expected_identity_and_capabilities():
 
 @pytest.mark.hardware
 def test_press_release_reach_virtual_devices(grabbed):
-    with OutputManager(LinuxOutputBackend(), CONFIG) as outputs:
+    with OutputManager(output_backend(), CONFIG) as outputs:
         keyboard = grabbed(outputs.devices["keyboard"].node)
         gamepad = grabbed(outputs.devices["gamepad"].node)
         outputs.press("keyboard", ecodes.KEY_Y)
@@ -159,7 +160,7 @@ def test_release_all_reaches_devices_and_close_removes_them(grabbed):
     # Events still queued when a device is destroyed cannot be read (evdev
     # returns ENODEV), so the releases are checked before closing. That
     # close() calls release_all() first is covered by the fake-backend tests.
-    outputs = OutputManager(LinuxOutputBackend(), CONFIG)
+    outputs = OutputManager(output_backend(), CONFIG)
     outputs.open()
     try:
         keyboard_node = outputs.devices["keyboard"].node
@@ -225,10 +226,11 @@ def read_abs_events(device, count, timeout=2.0):
 
 @pytest.mark.hardware
 def test_axis_values_reach_virtual_gamepad_and_reset_on_close(grabbed):
-    outputs = OutputManager(LinuxOutputBackend(), CONFIG)
+    outputs = OutputManager(output_backend(), CONFIG)
     outputs.open()
     try:
         gamepad = grabbed(outputs.devices["gamepad"].node)
+        assert gamepad.info.product == TEST_PRODUCTS[OutputKind.GAMEPAD]
         outputs.set_axis("gamepad", ecodes.ABS_X, -1.0)
         outputs.set_axis("gamepad", ecodes.ABS_RZ, 1.0)
         assert read_abs_events(gamepad, 2) == [(ecodes.ABS_X, -32768), (ecodes.ABS_RZ, 255)]
@@ -240,7 +242,7 @@ def test_axis_values_reach_virtual_gamepad_and_reset_on_close(grabbed):
 
 @pytest.mark.hardware
 def test_keyboard_output_reports_leds_set_by_the_desktop():
-    outputs = OutputManager(LinuxOutputBackend(), CONFIG)
+    outputs = OutputManager(output_backend(), CONFIG)
     outputs.open()
     try:
         keyboard = InputDevice(outputs.devices["keyboard"].node)
@@ -258,3 +260,9 @@ def test_keyboard_output_reports_leds_set_by_the_desktop():
             keyboard.close()
     finally:
         outputs.close()
+
+
+def test_hardware_tests_use_their_own_product_ids():
+    from inpmap.backends.linux import PRODUCT
+
+    assert set(TEST_PRODUCTS.values()).isdisjoint(PRODUCT.values())

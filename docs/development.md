@@ -33,7 +33,9 @@ Tests marked `hardware` need access to `/dev/uinput` and `/dev/input` and
 are excluded by default; run them with `.venv/bin/python -m pytest -m hardware`.
 They use only synthetic devices they create themselves and grab every device
 they emit on, so no event reaches the desktop and real hardware is not
-touched.
+touched. Their virtual devices use their own product IDs
+(`tests/hardware.py`): Steam remembers a controller's name per vendor and
+product ID, and a test device must not rename the user's "InpMap gamepad".
 
 `tests/test_docs.py` checks that every ```` ```inpmap ```` block in
 `docs/configuration.md` and the README is valid and formatted (`inpmap

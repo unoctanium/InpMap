@@ -16,8 +16,8 @@ import pytest
 
 evdev = pytest.importorskip("evdev")
 from evdev import InputDevice, UInput, ecodes, list_devices  # noqa: E402
+from hardware import output_backend  # noqa: E402
 
-from inpmap.backends.linux import LinuxOutputBackend  # noqa: E402
 from inpmap.backends.linux_input import (  # noqa: E402
     FORWARD_NAME_PREFIX,
     LinuxInputBackend,
@@ -111,7 +111,7 @@ def test_runtime_remaps_suppresses_and_forwards():
 
     def run():
         try:
-            runtime = Runtime(CONFIG, LinuxInputBackend(), LinuxOutputBackend())
+            runtime = Runtime(CONFIG, LinuxInputBackend(), output_backend())
             result["reason"] = runtime.run(stop, timeout=20)
         except BaseException as exc:  # reported by the main thread
             result["error"] = exc
@@ -168,9 +168,7 @@ def test_runtime_survives_unplug_and_reconnects():
 
     def run():
         try:
-            runtime = Runtime(
-                CONFIG, LinuxInputBackend(), LinuxOutputBackend(), reconnect_interval=0.2
-            )
+            runtime = Runtime(CONFIG, LinuxInputBackend(), output_backend(), reconnect_interval=0.2)
             result["reason"] = runtime.run(stop, timeout=20)
         except BaseException as exc:
             result["error"] = exc
@@ -224,7 +222,7 @@ def test_led_state_set_on_forwarder_reaches_physical_keyboard():
 
     def run():
         try:
-            runtime = Runtime(CONFIG, LinuxInputBackend(), LinuxOutputBackend())
+            runtime = Runtime(CONFIG, LinuxInputBackend(), output_backend())
             result["reason"] = runtime.run(stop, timeout=20)
         except BaseException as exc:
             result["error"] = exc
@@ -279,7 +277,7 @@ def test_tap_output_released_while_input_still_held():
 
     def run():
         try:
-            runtime = Runtime(tap_config, LinuxInputBackend(), LinuxOutputBackend())
+            runtime = Runtime(tap_config, LinuxInputBackend(), output_backend())
             result["reason"] = runtime.run(stop, timeout=20)
         except BaseException as exc:
             result["error"] = exc
@@ -360,7 +358,7 @@ def test_macro_and_axis_output_through_runtime():
 
     def run():
         try:
-            result["reason"] = Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
+            result["reason"] = Runtime(config, LinuxInputBackend(), output_backend()).run(
                 stop, timeout=20
             )
         except BaseException as exc:
@@ -432,7 +430,7 @@ map KEY_LEFTBRACE modifiers(ctrl, shift) {{ tap KEY_ENTER }}
 
     def run():
         try:
-            result["reason"] = Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
+            result["reason"] = Runtime(config, LinuxInputBackend(), output_backend()).run(
                 stop, timeout=20
             )
         except BaseException as exc:
@@ -851,7 +849,7 @@ def test_axis_thresholds_through_runtime():
 
     def run():
         try:
-            result["reason"] = Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
+            result["reason"] = Runtime(config, LinuxInputBackend(), output_backend()).run(
                 stop, timeout=20
             )
         except BaseException as exc:  # reported by the main thread
@@ -975,7 +973,7 @@ def running(config, grab_names):
 
     def run():
         try:
-            runtime = Runtime(config, LinuxInputBackend(), LinuxOutputBackend())
+            runtime = Runtime(config, LinuxInputBackend(), output_backend())
             result["reason"] = runtime.run(stop, timeout=20)
         except BaseException as exc:  # reported by the main thread
             result["error"] = exc
@@ -1140,9 +1138,7 @@ def test_refused_device_is_never_grabbed():
     keyboard = UInput({ecodes.EV_KEY: [ecodes.KEY_X, ecodes.KEY_A]}, name=PHYSICAL_NAME)
     try:
         with pytest.raises(InputRefused, match="no keyboard output"):
-            Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
-                threading.Event(), timeout=5
-            )
+            Runtime(config, LinuxInputBackend(), output_backend()).run(threading.Event(), timeout=5)
         device = find_device(PHYSICAL_NAME)
         device.grab()  # would fail with EBUSY if InpMap still held it
         device.ungrab()

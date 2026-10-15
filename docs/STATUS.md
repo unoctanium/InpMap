@@ -142,8 +142,14 @@ from the unpacked sdist (624 passed, 2 skipped). **Released (2026-10-15):** `mai
 and tag `v0.3.0` pushed with the maintainer's OK; on PyPI about 80 s later
 (sdist sha256 468de4ad…0d75). `packaging/aur` updated (pkgver 0.3.0,
 pkgrel 1, checksum, `.SRCINFO`); `makepkg --verifysource` passes. **Next:**
-maintainer test build `makepkg -sri` in `packaging/aur`, then switch the
-login service to the maintainer's `gaming` profile (`inpmap@gaming`).
+maintainer test build `makepkg -sri` in `packaging/aur`: **works**; the
+login service runs the `gaming` profile with the packaged 0.3.0. Steam
+showed the virtual pad as "InpMap Test Gamepad": Steam stores a name per
+vendor/product ID (`Steam Controller Configs/…/preferences_*.vdf`) and had
+first seen a hardware-test device with the same IDs; the device itself is
+named "InpMap gamepad". Fixed for the future: hardware tests use product
+IDs 0x7E01/0x7E02 (`tests/hardware.py`); the maintainer renames the pad in
+Steam's controller settings.
 Risks noted: per-keyboard desktop settings lost (use `to = own`);
 DirectInput pads and flight sticks need `to = own`; Steam may read the
 physical pad via hidraw (unchanged).

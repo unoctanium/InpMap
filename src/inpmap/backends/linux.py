@@ -25,6 +25,7 @@ with max_effects=0, which leaves EV_FF disabled.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 
 from evdev import AbsInfo, UInput, ecodes
 from evdev.uinput import UInputError
@@ -146,10 +147,17 @@ class LinuxOutputDevice:
 
 
 class LinuxOutputBackend:
-    """Creates uinput devices. Implements :class:`inpmap.output.OutputBackend`."""
+    """Creates uinput devices. Implements :class:`inpmap.output.OutputBackend`.
 
-    def __init__(self, devnode: str = "/dev/uinput") -> None:
+    ``products`` overrides the product IDs; the hardware tests use their own,
+    because Steam remembers a controller's name per vendor and product ID.
+    """
+
+    def __init__(
+        self, devnode: str = "/dev/uinput", products: Mapping[OutputKind, int] = PRODUCT
+    ) -> None:
         self.devnode = devnode
+        self.products = dict(products)
 
     def create(self, spec: OutputDeviceSpec, key_codes: frozenset[int]) -> LinuxOutputDevice:
         try:
@@ -157,7 +165,7 @@ class LinuxOutputBackend:
                 events=capabilities(spec.kind, key_codes),
                 name=spec.name,
                 vendor=VENDOR,
-                product=PRODUCT[spec.kind],
+                product=self.products[spec.kind],
                 version=VERSION,
                 bustype=BUSTYPE,
                 devnode=self.devnode,
