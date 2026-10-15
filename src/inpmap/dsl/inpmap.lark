@@ -19,7 +19,7 @@ output_def: "output" NAME props
 
 props: "{" _sep? (prop (_sep prop)*)? _sep? "}"
 prop: prop_name "=" value ("," value)*
-!prop_name: NAME | "release" | "modifiers"
+!prop_name: NAME | "release" | "modifiers" | "to"
 
 map_def: "map" ref threshold? modifiers? as_name? block
 block_def: "block" NAME block

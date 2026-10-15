@@ -20,6 +20,7 @@ from __future__ import annotations
 import difflib
 import re
 from collections.abc import Iterable
+from dataclasses import replace
 
 from . import codes
 from .axis_triggers import VIRTUAL_CODE_BASE
@@ -63,7 +64,8 @@ _TOP_KEYS = {*_REQUIRED_TOP_KEYS, "settings", "variables", "layers"}
 _SETTINGS_KEYS = {"key_pause_ms", "modifiers"}
 _AXIS_OUTPUT_KEYS = {"device", "type", "code", "value", "attack_ms", "release_ms"}
 _VARIABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
-_INPUT_DEVICE_KEYS = {"name", "path"}
+_INPUT_DEVICE_KEYS = {"name", "path", "to"}
+OWN = "own"  # `to = own` (docs/configuration.md §3.4)
 _OUTPUT_DEVICE_KEYS = {"type", "name"}
 _MAPPING_KEYS = {
     "id",
@@ -163,6 +165,7 @@ class _Validator:
 
         inputs = self.input_devices(data.get("inputs", {}))
         outputs = self.output_devices(data.get("outputs", {}))
+        inputs = self.resolve_targets(data.get("inputs", {}), inputs, outputs)
         for device_id in sorted(set(inputs) & set(outputs)):
             self.error(
                 f"outputs.{device_id}",
@@ -275,8 +278,67 @@ class _Validator:
             if selector == "path" and not selected.startswith("/"):
                 self.error(f"{where}.path", f"must be an absolute path, got '{selected}'")
                 continue
+            if "to" in spec and not (
+                isinstance(spec["to"], list)
+                and spec["to"]
+                and all(isinstance(n, str) and n for n in spec["to"])
+            ):
+                self.error(f"{where}.to", "must be a list of output names, or ['own']")
+                continue
             if id_ok:
                 result[device_id] = InputDeviceSpec(id=device_id, **{selector: selected})
+        return result
+
+    def resolve_targets(
+        self,
+        raw_inputs: object,
+        inputs: dict[str, InputDeviceSpec],
+        outputs: dict[str, OutputDeviceSpec],
+    ) -> dict[str, InputDeviceSpec]:
+        """Decide which output receives each input's unmapped input, per kind.
+
+        Without `to`, a kind goes to the only output of that kind; with
+        several outputs of a kind, every input must choose one (§3.4 rule 1).
+        """
+        by_kind: dict[OutputKind, list[str]] = {}
+        for output_id, output in sorted(outputs.items()):
+            by_kind.setdefault(output.kind, []).append(output_id)
+        result: dict[str, InputDeviceSpec] = {}
+        for device_id, spec in inputs.items():
+            # Only well-formed entries became specs, so the raw entry is a dict.
+            names = raw_inputs[device_id].get("to")  # type: ignore[index]
+            where = f"inputs.{device_id}.to" if names else f"inputs.{device_id}"
+            if names and OWN in names:
+                if names != [OWN]:
+                    self.error(where, f"'{OWN}' cannot be combined with outputs")
+                result[device_id] = replace(spec, own=True)
+                continue
+            chosen: dict[OutputKind, str] = {}
+            for name in names or ():
+                output = outputs.get(name)
+                if output is None:
+                    self.error(where, self.unknown_device(name, "output", outputs))
+                elif output.kind in chosen:
+                    self.error(
+                        where,
+                        f"'{chosen[output.kind]}' and '{name}' are both "
+                        f"{output.kind.value} outputs; name one of each kind",
+                    )
+                else:
+                    chosen[output.kind] = name
+            for kind, output_ids in by_kind.items():
+                if kind in chosen:
+                    continue
+                if len(output_ids) == 1:
+                    chosen[kind] = output_ids[0]
+                else:
+                    self.error(
+                        where,
+                        f"there are several {kind.value} outputs ({', '.join(output_ids)}); "
+                        f"choose one, e.g. to = {output_ids[0]}",
+                    )
+            targets = tuple(sorted(chosen.items(), key=lambda item: item[0].value))
+            result[device_id] = replace(spec, targets=targets)
         return result
 
     def output_devices(self, value: object) -> dict[str, OutputDeviceSpec]:
@@ -761,11 +823,15 @@ class _Validator:
             used_outputs |= {axis.device for axis in rule.axes}
             for macro in rule.macros:
                 used_outputs |= macro_devices(macro)
+        # Unmapped input reaching an output uses both (docs/configuration.md §3.2, §3.4).
+        for spec in inputs.values():
+            if spec.targets:
+                used_inputs.add(spec.id)
+                used_outputs |= {output_id for _, output_id in spec.targets}
         for device_id in sorted(set(inputs) - used_inputs):
             self.error(f"inputs.{device_id}", "not used by any mapping")
         for device_id in sorted(set(outputs) - used_outputs):
-            # A virtual device without capabilities cannot be created usefully.
-            self.error(f"outputs.{device_id}", "not used by any mapping")
+            self.error(f"outputs.{device_id}", "not used by any mapping or input")
 
 
 def _mapping_where(index: int, rule_id: object) -> str:

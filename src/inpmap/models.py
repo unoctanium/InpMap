@@ -45,11 +45,23 @@ class InputEvent:
 
 @dataclass(frozen=True)
 class InputDeviceSpec:
-    """How to find a physical input device. Exactly one selector is set."""
+    """How to find a physical input device, and where its unmapped input goes.
+
+    Exactly one selector (``name``, ``path``) is set. ``targets`` names the
+    output that receives unmapped input of each kind (docs/configuration.md
+    §3.4); a kind without a target has nowhere to go. ``own``: the device
+    passes through on a virtual device of its own instead (``to = own``).
+    """
 
     id: str
     name: str | None = None
     path: str | None = None
+    own: bool = False
+    targets: tuple[tuple[OutputKind, str], ...] = ()
+
+    def target(self, kind: OutputKind) -> str | None:
+        """The output that receives this device's unmapped input of ``kind``."""
+        return dict(self.targets).get(kind)
 
 
 @dataclass(frozen=True)

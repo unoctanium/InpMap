@@ -85,8 +85,11 @@ compatibility with the old pass-through model (no users yet). Plan (each
 step committed with passing tests):
 0. ✅ Spec (configuration.md §1, §3.1–3.4, §7.3, §8, §9, §12.3).
 1. ✅ Output capabilities in core (`output.output_capabilities`, `codes.KEYBOARD_OUTPUT_KEYS`/`GAMEPAD_OUTPUT_BUTTONS`, `macros.OUTPUT_AXIS_KINDS` with `AxisKind.HAT`); gamepad output has ABS_HAT0X/HAT0Y (hardware test passes).
-2. Language `to` (`to = OUT[, OUT]`, `to = own`; `own` reserved), validator
-   (several outputs of a kind → `to` required for every input; used-rules).
+2. ✅ Language `to` (`to = OUT[, OUT]`, `to = own`; `own` reserved; grammar,
+   compiler, `InputDeviceSpec.own/targets`, `Validator.resolve_targets`,
+   used-rules, syntax files; tests in `tests/test_routing_config.py`).
+   Until step 7 the runtime still passes every input through on its own
+   device (as if `to = own`).
 3. Route planner (pure core module `routing.py`): per device which code
    goes to which output, what goes to the pass-through (mouse buttons,
    EV_REL, non-gamepad/non-joystick axes like ABS_VOLUME), what is refused.

@@ -44,7 +44,7 @@ RESERVED = {
     random repeat while held toggle parallel branch on double_tap long_press if
     else single not and within after axis move to over cancel restart keep
     modifiers ignore key_pause max_run none true false disable above below layer off
-    block call""".split(),
+    block call own""".split(),
     *LEDS,
     *MODIFIER_NAMES,
 }
@@ -366,6 +366,14 @@ class _Compiler:
         entry: dict = {}
         for prop in props.children:
             key, values = self.prop(prop)
+            if key == "to" and section == "inputs":
+                # `to = keyboard, gamepad2` or `to = own` (§3.4)
+                if any(kind != "name" for kind, _ in values):
+                    self.error(prop, "'to' takes output names or 'own'")
+                    continue
+                entry[key] = [value for _, value in values]
+                self.record(f"{section}.{name}.{key}", prop)
+                continue
             if len(values) != 1:
                 self.error(prop, f"'{key}' takes one value")
                 continue

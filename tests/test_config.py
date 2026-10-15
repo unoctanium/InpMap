@@ -214,14 +214,16 @@ def test_invalid_device_id():
 
 
 def test_unused_output_device_rejected():
+    # With `to = own` no unmapped input reaches the outputs (§3.4).
     data = valid()
+    data["inputs"]["kbd"]["to"] = ["own"]
     data["outputs"]["spare"] = {"type": "keyboard", "name": "Spare"}
-    assert "outputs.spare: not used by any mapping" in problems_of(data)
+    assert "outputs.spare: not used by any mapping or input" in problems_of(data)
 
 
 def test_unused_input_device_rejected():
     data = valid()
-    data["inputs"]["mouse"] = {"name": "Some Mouse"}
+    data["inputs"]["mouse"] = {"name": "Some Mouse", "to": ["own"]}
     assert "inputs.mouse: not used by any mapping" in problems_of(data)
 
 

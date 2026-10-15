@@ -150,3 +150,8 @@ def test_everything_else_is_kept_as_written():
 def test_syntax_errors_are_reported_not_formatted():
     with pytest.raises(DslSyntaxError):
         format_text("version 1\nmap {\n", "t.inpmap")
+
+
+def test_to_lists_keep_their_order():
+    text = 'version 1\ninput kbd { name = "K"; to = keyboard2,gamepad2 }\n'
+    assert "to   = keyboard2, gamepad2" in format_text(text, "t.inpmap")
