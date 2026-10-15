@@ -5,10 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from inpmap import codes
 from inpmap.axis_triggers import AxisEvent, normalize
 from inpmap.input import InputDeviceLost, InputError
 from inpmap.models import InputDeviceSpec, InputEvent, KeyAction, OutputDeviceSpec
 from inpmap.output import OutputError
+from inpmap.routing import DeviceCapabilities, RoutePlan
 
 # Raw fake events: ("key", code, value), ("abs", code, value), ("syn",), ("msc", code, value).
 SYN = ("syn",)
@@ -40,6 +42,29 @@ class FakeInputSource:
     physically_down: set = field(default_factory=set)
     keys: frozenset | None = None  # reported key codes; None: every code
     axes: dict = field(default_factory=dict)  # ABS code -> (min, max)
+    relative: frozenset = frozenset()  # REL codes
+    plan: RoutePlan | None = None  # set by start_passthrough
+    dropped: list[tuple] = field(default_factory=list)  # not carried by the pass-through device
+
+    def capabilities(self) -> DeviceCapabilities:
+        # Without explicit keys the fake is a keyboard (every KEY_* code).
+        keys = codes.KEYBOARD_OUTPUT_KEYS if self.keys is None else self.keys
+        return DeviceCapabilities(keys, dict(self.axes), self.relative)
+
+    def start_passthrough(self, plan: RoutePlan) -> None:
+        self.plan = plan
+
+    def _carried(self, raw: tuple) -> bool:
+        plan = self.plan
+        if plan is None or plan.own:
+            return True
+        if raw[0] == "key":
+            return raw[1] in plan.passthrough_keys
+        if raw[0] == "abs":
+            return raw[1] in plan.passthrough_axes
+        if raw[0] == "rel":
+            return raw[1] in plan.passthrough_relative
+        return False
 
     def axis_ranges(self) -> dict:
         return dict(self.axes)
@@ -95,6 +120,9 @@ class FakeInputSource:
         return result
 
     def forward(self, raw: object) -> None:
+        if not self._carried(raw):
+            self.dropped.append(raw)
+            return
         if raw[0] == "key" and raw[1] in self.masked:
             return
         if raw[0] == "key" and raw[2] != 1 and not self._forwarded_down(raw[1]):

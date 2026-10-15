@@ -1,6 +1,7 @@
 import pytest
 from fakes import FakeOutputBackend
 
+from inpmap import codes
 from inpmap.codes import code_from_name
 from inpmap.config import parse_config
 from inpmap.output import OutputError, OutputManager
@@ -43,8 +44,10 @@ def backend():
 
 def test_open_creates_devices_with_needed_codes(backend):
     with OutputManager(backend, CONFIG):
-        assert backend.created["vkbd"].key_codes == {KEY_Y, KEY_Z}
-        assert backend.created["pad"].key_codes == {BTN_SOUTH}
+        # The fixed set of each output plus what mappings send (configuration.md §3.3).
+        assert {KEY_Y, KEY_Z} <= backend.created["vkbd"].key_codes
+        assert backend.created["vkbd"].key_codes == codes.KEYBOARD_OUTPUT_KEYS
+        assert backend.created["pad"].key_codes == codes.GAMEPAD_OUTPUT_BUTTONS
     assert all(device.closed for device in backend.created.values())
 
 

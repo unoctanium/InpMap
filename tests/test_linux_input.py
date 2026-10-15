@@ -6,6 +6,7 @@ itself before any event is emitted, so nothing reaches the desktop, and it
 never touches real hardware.
 """
 
+import contextlib
 import select
 import threading
 import time
@@ -49,10 +50,12 @@ def test_unknown_name_is_reported():
 # -- end-to-end with a synthetic physical keyboard ------------------------
 
 PHYSICAL_NAME = "InpMap Test Synthetic Physical Keyboard"
+# `to = own`: the device's unmapped input goes to its own pass-through device
+# (the routed default is tested in the "routing" section below).
 CONFIG = parse_config(
     {
         "version": 1,
-        "inputs": {"kbd": {"name": PHYSICAL_NAME}},
+        "inputs": {"kbd": {"name": PHYSICAL_NAME, "to": ["own"]}},
         "outputs": {
             "keyboard": {"type": "keyboard", "name": "InpMap Test E2E Keyboard"},
             "gamepad": {"type": "gamepad", "name": "InpMap Test E2E Gamepad"},
@@ -413,7 +416,7 @@ def test_modifiers_hidden_on_forwarder_before_output_and_restored():
 
     config = compile_text(
         f"""version 1
-input kbd {{ name = "{PHYSICAL_NAME}" }}
+input kbd {{ name = "{PHYSICAL_NAME}"; to = own }}
 output keyboard {{ type = keyboard; name = "InpMap Test E2E Keyboard" }}
 map KEY_LEFTBRACE modifiers(ctrl, shift) {{ tap KEY_ENTER }}
 """,
@@ -835,7 +838,7 @@ def test_axis_thresholds_through_runtime():
     from inpmap.dsl.compiler import compile_text
 
     config = compile_text(
-        f'version 1\ninput pad {{ name = "{PAD_NAME}" }}\n'
+        f'version 1\ninput pad {{ name = "{PAD_NAME}"; to = own }}\n'
         'output keyboard { type = keyboard; name = "InpMap Test Axis Keyboard" }\n'
         "map pad.ABS_RZ above 0.5 { hold KEY_SPACE }\n"
         "map pad.ABS_HAT0Y below -0.5 { hold KEY_UP }\n",
@@ -955,3 +958,193 @@ def test_listen_reports_buttons_and_axes():
     ]
     assert keys == [(PAD_NAME, ecodes.BTN_EAST, True), (PAD_NAME, ecodes.BTN_EAST, False)]
     assert axes == [(ecodes.ABS_RZ, 1.0)]
+
+
+# -- routing: unmapped input goes to the outputs (configuration.md §3.4) ----
+
+ROUTED_KEYBOARD = "InpMap Test Routed Keyboard"
+ROUTED_GAMEPAD = "InpMap Test Routed Gamepad"
+
+
+@contextlib.contextmanager
+def running(config, grab_names):
+    """Run the runtime in a thread; grab the named devices before anything is emitted."""
+    stop = threading.Event()
+    result: dict = {}
+    grabbed: list[InputDevice] = []
+
+    def run():
+        try:
+            runtime = Runtime(config, LinuxInputBackend(), LinuxOutputBackend())
+            result["reason"] = runtime.run(stop, timeout=20)
+        except BaseException as exc:  # reported by the main thread
+            result["error"] = exc
+
+    thread = threading.Thread(target=run, daemon=True)
+    try:
+        thread.start()
+        for name in grab_names:
+            device = find_device(name)
+            device.grab()
+            grabbed.append(device)
+        time.sleep(0.3)  # the runtime grabs the physical devices meanwhile
+        assert "error" not in result, result.get("error")
+        yield grabbed
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        for device in grabbed:
+            with contextlib.suppress(OSError):
+                device.ungrab()
+            device.close()
+    assert result.get("reason") is StopReason.STOPPED, result.get("error")
+
+
+def routed_config(extra=""):
+    from inpmap.dsl.compiler import compile_text
+
+    return compile_text(
+        f'version 1\ninput kbd {{ name = "{PHYSICAL_NAME}" }}\n'
+        f'input pad {{ name = "{PAD_NAME}" }}\n'
+        f'output keyboard {{ type = keyboard; name = "{ROUTED_KEYBOARD}" }}\n'
+        f'output gamepad {{ type = gamepad; name = "{ROUTED_GAMEPAD}" }}\n'
+        "map kbd.KEY_X { hold KEY_Y }\nmap pad.BTN_EAST { hold KEY_ESC }\n" + extra,
+        "routing-test.inpmap",
+    ).config
+
+
+def read_all_events(device: InputDevice, timeout: float = 0.5):
+    events = []
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if select.select([device.fd], [], [], deadline - time.monotonic())[0]:
+            events += list(device.read())
+    return events
+
+
+def device_exists(name: str) -> bool:
+    for path in list_devices():
+        device = InputDevice(path)
+        found = device.name == name
+        device.close()
+        if found:
+            return True
+    return False
+
+
+@pytest.mark.hardware
+def test_routed_keyboard_and_pad_come_out_of_the_outputs_only():
+    keyboard = UInput(
+        {ecodes.EV_KEY: [ecodes.KEY_X, ecodes.KEY_A, ecodes.KEY_ESC]},
+        name=PHYSICAL_NAME,
+        phys="pytest-physical",
+    )
+    pad = synthetic_pad()
+    try:
+        with running(routed_config(), (ROUTED_KEYBOARD, ROUTED_GAMEPAD)) as (vkbd, vpad):
+            # No pass-through devices: everything goes to the two outputs.
+            assert not device_exists(forward_name(PHYSICAL_NAME))
+            assert not device_exists(forward_name(PAD_NAME))
+            emit(keyboard, ecodes.KEY_A, 1)
+            emit(keyboard, ecodes.KEY_A, 0)
+            emit(keyboard, ecodes.KEY_X, 1)
+            emit(keyboard, ecodes.KEY_X, 0)
+            emit(pad, ecodes.BTN_SOUTH, 1)
+            emit(pad, ecodes.BTN_SOUTH, 0)
+            emit_abs(pad, ecodes.ABS_X, 16384)
+            emit_abs(pad, ecodes.ABS_RZ, 255)
+            emit_abs(pad, ecodes.ABS_HAT0Y, -1)
+            assert read_key_events(vkbd, 4) == [
+                (ecodes.KEY_A, 1),
+                (ecodes.KEY_A, 0),
+                (ecodes.KEY_Y, 1),
+                (ecodes.KEY_Y, 0),
+            ]
+            events = read_all_events(vpad)
+            keys = [(e.code, e.value) for e in events if e.type == ecodes.EV_KEY]
+            axes = [(e.code, e.value) for e in events if e.type == ecodes.EV_ABS]
+            assert keys == [(ecodes.BTN_SOUTH, 1), (ecodes.BTN_SOUTH, 0)]
+            assert axes == [(ecodes.ABS_X, 16384), (ecodes.ABS_RZ, 255), (ecodes.ABS_HAT0Y, -1)]
+    finally:
+        keyboard.close()
+        pad.close()
+
+
+@pytest.mark.hardware
+def test_mouse_part_goes_to_a_pass_through_device_with_only_the_mouse():
+    combo = UInput(
+        {
+            ecodes.EV_KEY: [ecodes.KEY_X, ecodes.KEY_A, ecodes.BTN_LEFT],
+            ecodes.EV_REL: [ecodes.REL_X, ecodes.REL_Y],
+        },
+        name=PHYSICAL_NAME,
+        phys="pytest-physical",
+    )
+    pad = synthetic_pad()
+    names = (ROUTED_KEYBOARD, ROUTED_GAMEPAD, forward_name(PHYSICAL_NAME))
+    try:
+        with running(routed_config(), names) as (vkbd, _vpad, passthrough):
+            caps = passthrough.capabilities()
+            assert caps[ecodes.EV_KEY] == [ecodes.BTN_LEFT]
+            assert sorted(caps[ecodes.EV_REL]) == [ecodes.REL_X, ecodes.REL_Y]
+            combo.write(ecodes.EV_REL, ecodes.REL_X, 7)
+            combo.syn()
+            emit(combo, ecodes.BTN_LEFT, 1)
+            emit(combo, ecodes.BTN_LEFT, 0)
+            emit(combo, ecodes.KEY_A, 1)
+            emit(combo, ecodes.KEY_A, 0)
+            assert read_key_events(passthrough, 2) == [(ecodes.BTN_LEFT, 1), (ecodes.BTN_LEFT, 0)]
+            assert read_key_events(vkbd, 2) == [(ecodes.KEY_A, 1), (ecodes.KEY_A, 0)]
+    finally:
+        combo.close()
+        pad.close()
+
+
+@pytest.mark.hardware
+def test_leds_of_the_keyboard_output_reach_the_routed_physical_keyboard():
+    keyboard = UInput(
+        {ecodes.EV_KEY: [ecodes.KEY_X, ecodes.KEY_ESC], ecodes.EV_LED: [ecodes.LED_CAPSL]},
+        name=PHYSICAL_NAME,
+        phys="pytest-physical",
+        max_effects=0,
+    )
+    pad = synthetic_pad()
+    try:
+        with running(routed_config(), (ROUTED_KEYBOARD, ROUTED_GAMEPAD)) as (vkbd, _vpad):
+            while select.select([keyboard.fd], [], [], 0.2)[0]:
+                list(keyboard.read())  # LED writes made before the test
+            vkbd.set_led(ecodes.LED_CAPSL, 1)  # what the desktop does on Caps Lock
+            leds = []
+            deadline = time.monotonic() + 2.0
+            while (ecodes.LED_CAPSL, 1) not in leds and time.monotonic() < deadline:
+                if select.select([keyboard.fd], [], [], 0.2)[0]:
+                    leds += [(e.code, e.value) for e in keyboard.read() if e.type == ecodes.EV_LED]
+            assert (ecodes.LED_CAPSL, 1) in leds
+    finally:
+        keyboard.close()
+        pad.close()
+
+
+@pytest.mark.hardware
+def test_refused_device_is_never_grabbed():
+    from inpmap.dsl.compiler import compile_text
+    from inpmap.routing import InputRefused
+
+    config = compile_text(
+        f'version 1\ninput kbd {{ name = "{PHYSICAL_NAME}" }}\n'
+        f'output gamepad {{ type = gamepad; name = "{ROUTED_GAMEPAD}" }}\n'
+        "map KEY_X { hold BTN_SOUTH }\n",
+        "refused.inpmap",
+    ).config
+    keyboard = UInput({ecodes.EV_KEY: [ecodes.KEY_X, ecodes.KEY_A]}, name=PHYSICAL_NAME)
+    try:
+        with pytest.raises(InputRefused, match="no keyboard output"):
+            Runtime(config, LinuxInputBackend(), LinuxOutputBackend()).run(
+                threading.Event(), timeout=5
+            )
+        device = find_device(PHYSICAL_NAME)
+        device.grab()  # would fail with EBUSY if InpMap still held it
+        device.ungrab()
+        device.close()
+    finally:
+        keyboard.close()

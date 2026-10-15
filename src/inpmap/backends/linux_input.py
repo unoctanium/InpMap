@@ -1,17 +1,19 @@
-"""Linux backend: physical input devices via evdev, EVIOCGRAB and forwarding.
+"""Linux backend: physical input devices via evdev, EVIOCGRAB and pass-through.
 
 Reading an evdev node does not stop other programs from receiving its events.
 Suppression therefore uses ``EVIOCGRAB``: while grabbed, the kernel delivers
-the device's events only to us, so the desktop sees nothing from it. Every
-event the engine does not consume is re-emitted on a *forwarding* uinput
-device that mirrors the physical device's capabilities and identity.
+the device's events only to us, so the desktop sees nothing from it. Unmapped
+keys, buttons and axes go to the outputs (core: :mod:`inpmap.routing`). What
+no output carries — mouse parts, extra axes — is re-emitted on a small
+*pass-through* uinput device with the physical device's identity; with
+``to = own`` that device mirrors the whole physical device.
 
 Notes:
 * ``EV_REP`` is not copied to the forwarding device, otherwise the kernel
   would generate a second, synthetic key repeat on top of forwarded repeats.
 * Keyboard LED state (Caps/Num/Scroll Lock) is set by the desktop on the
-  forwarding device; it is read back from the uinput descriptor and applied
-  to the physical device.
+  keyboard output (or, with ``to = own``, on the pass-through device); it is
+  read back from the uinput descriptor and applied to the physical device.
 * Force feedback (rumble) is not passed through; forwarders have no EV_FF.
 * Our own virtual devices (phys starting with "inpmap") are never opened as
   inputs, which prevents feedback loops.
@@ -37,6 +39,7 @@ from ..config import MAX_DEVICE_NAME_BYTES
 from ..input import InputDeviceLost, InputError
 from ..macros import Led
 from ..models import AxisThreshold, InputDeviceSpec, InputEvent, KeyAction
+from ..routing import DeviceCapabilities, RoutePlan
 from .linux_setup import symlinks_by_target
 
 log = logging.getLogger(__name__)
@@ -333,10 +336,16 @@ class LinuxInputSource:
     Implements :class:`inpmap.input.InputSource`.
     """
 
-    def __init__(self, spec: InputDeviceSpec, device: InputDevice, forwarder: UInput) -> None:
+    def __init__(
+        self, spec: InputDeviceSpec, device: InputDevice, forwarder: UInput | None = None
+    ) -> None:
+        """``forwarder``: an existing full pass-through device (tests); normally
+        :meth:`start_passthrough` creates what the route plan needs."""
         self._spec = spec
         self._device = device
-        self._forwarder = forwarder
+        self._forwarder = forwarder  # the pass-through device
+        # (type, code) the pass-through device carries; None: everything (`to = own`)
+        self._carried: frozenset[tuple[int, int]] | None = None if forwarder else frozenset()
         self._grabbed = False
         self._forwarded_held: set[int] = set()
         # Key state as seen in the event stream we consumed; used to
@@ -347,9 +356,9 @@ class LinuxInputSource:
         self._masked: set[int] = set()
         capabilities = device.capabilities(absinfo=True)
         self._key_codes = frozenset(capabilities.get(ecodes.EV_KEY, []))
-        self._axis_ranges = {
-            code: (info.min, info.max) for code, info in capabilities.get(ecodes.EV_ABS, [])
-        }
+        self._absinfo = dict(capabilities.get(ecodes.EV_ABS, []))
+        self._axis_ranges = {code: (info.min, info.max) for code, info in self._absinfo.items()}
+        self._relative = frozenset(capabilities.get(ecodes.EV_REL, []))
 
     def _query_keys_or_empty(self) -> list[int]:
         try:
@@ -368,9 +377,56 @@ class LinuxInputSource:
     def fileno(self) -> int:
         return self._device.fd
 
-    def feedback_fileno(self) -> int:
-        """Descriptor on which the desktop's writes to the forwarder arrive."""
-        return self._forwarder.fd
+    def capabilities(self) -> DeviceCapabilities:
+        return DeviceCapabilities(self._key_codes, dict(self._axis_ranges), self._relative)
+
+    def start_passthrough(self, plan: RoutePlan) -> None:
+        """Create the pass-through device the route plan needs, if any."""
+        if not plan.needs_passthrough:
+            return
+        info = self._device.info
+        identity = dict(
+            name=forward_name(self._device.name),
+            vendor=info.vendor,
+            product=info.product,
+            version=info.version,
+            bustype=info.bustype,
+            phys=FORWARD_PHYS,
+            # Rumble is not passed through; with effects enabled, games
+            # would block up to 30 s on unanswered uploads (see linux.py).
+            max_effects=0,
+        )
+        try:
+            if plan.own:
+                self._forwarder = UInput.from_device(
+                    self._device,
+                    filtered_types=(ecodes.EV_SYN, ecodes.EV_FF, ecodes.EV_REP),
+                    **identity,
+                )
+                self._carried = None
+                return
+            events: dict[int, list] = {}
+            if plan.passthrough_keys:
+                events[ecodes.EV_KEY] = sorted(plan.passthrough_keys)
+            if plan.passthrough_relative:
+                events[ecodes.EV_REL] = sorted(plan.passthrough_relative)
+            if plan.passthrough_axes:
+                events[ecodes.EV_ABS] = [
+                    (c, self._absinfo[c]) for c in sorted(plan.passthrough_axes)
+                ]
+            self._forwarder = UInput(events, **identity)
+        except (UInputError, OSError) as exc:
+            raise InputError(
+                f"input '{self._spec.id}': cannot create the pass-through device for "
+                f"'{self._device.name}': {exc}"
+            ) from exc
+        self._carried = frozenset(
+            (etype, code) for etype, codes_ in events.items() for code in codes_
+        )
+
+    def feedback_fileno(self) -> int | None:
+        """Descriptor on which the desktop's writes to the pass-through device arrive."""
+        return self._forwarder.fd if self._forwarder is not None else None
 
     def pump_feedback(self) -> None:
         """Apply LED changes the desktop made on the forwarder to the device.
@@ -378,6 +434,8 @@ class LinuxInputSource:
         The desktop sees the forwarder as the keyboard, so Caps/Num/Scroll
         Lock state lands there; without this the physical LEDs would freeze.
         """
+        if self._forwarder is None:
+            return
         try:
             events = list(self._forwarder.read())
         except BlockingIOError:
@@ -503,7 +561,16 @@ class LinuxInputSource:
         return event, _SyntheticEvent(ecodes.EV_KEY, code, value)
 
     def forward(self, raw: object) -> None:
+        """Re-emit an event on the pass-through device; dropped if it does not carry it."""
+        if self._forwarder is None:
+            return
         etype, code, value = raw.type, raw.code, raw.value  # type: ignore[attr-defined]
+        if (
+            self._carried is not None
+            and etype != ecodes.EV_SYN
+            and (etype, code) not in self._carried
+        ):
+            return
         if etype == ecodes.EV_KEY and code in self._masked:
             return  # hidden while a mapping with modifiers runs
         if etype == ecodes.EV_KEY and value != 1 and code not in self._forwarded_held:
@@ -533,6 +600,8 @@ class LinuxInputSource:
             self._write_key(code, 1)
 
     def _write_key(self, code: int, value: int) -> None:
+        if self._forwarder is None:
+            return
         try:
             self._forwarder.write(ecodes.EV_KEY, code, value)
             self._forwarder.syn()
@@ -553,14 +622,17 @@ class LinuxInputSource:
                     errors.append(f"ungrab: {exc}")
             self._grabbed = False
         try:
-            for code in sorted(self._forwarded_held):
-                self._forwarder.write(ecodes.EV_KEY, code, 0)
-            if self._forwarded_held:
+            if self._forwarder is not None and self._forwarded_held:
+                for code in sorted(self._forwarded_held):
+                    self._forwarder.write(ecodes.EV_KEY, code, 0)
                 self._forwarder.syn()
         except OSError as exc:
             errors.append(f"releasing forwarded keys: {exc}")
         self._forwarded_held.clear()
-        for name, closer in (("forwarder", self._forwarder.close), ("device", self._device.close)):
+        closers = [("device", self._device.close)]
+        if self._forwarder is not None:
+            closers.insert(0, ("pass-through device", self._forwarder.close))
+        for name, closer in closers:
             try:
                 closer()
             except OSError as exc:
@@ -620,26 +692,7 @@ class LinuxInputBackend:
             raise InputError(
                 f"input '{spec.id}': '{device.name}' ({device.path}) does not report {names}"
             )
-        info = device.info
-        try:
-            forwarder = UInput.from_device(
-                device,
-                filtered_types=(ecodes.EV_SYN, ecodes.EV_FF, ecodes.EV_REP),
-                name=forward_name(device.name),
-                vendor=info.vendor,
-                product=info.product,
-                version=info.version,
-                bustype=info.bustype,
-                phys=FORWARD_PHYS,
-                # Rumble is not passed through; with effects enabled, games
-                # would block up to 30 s on unanswered uploads (see linux.py).
-                max_effects=0,
-            )
-        except (UInputError, OSError) as exc:
-            raise InputError(
-                f"input '{spec.id}': cannot create forwarding device for '{device.name}': {exc}"
-            ) from exc
-        return LinuxInputSource(spec, device, forwarder)
+        return LinuxInputSource(spec, device)
 
     def resolve_path(self, spec: InputDeviceSpec) -> str:
         """The event node a selector refers to (InputError if missing or ambiguous)."""

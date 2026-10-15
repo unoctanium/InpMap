@@ -20,7 +20,9 @@ from inpmap.runtime import CleanupError, Runtime, StopReason
 CONFIG = parse_config(
     {
         "version": 1,
-        "inputs": {"kbd": {"name": "Kbd"}, "pad": {"name": "Pad"}},
+        # `to = own`: these tests cover the pass-through device of each input;
+        # routing to the outputs is tested further down and in test_routing.py.
+        "inputs": {"kbd": {"name": "Kbd", "to": ["own"]}, "pad": {"name": "Pad", "to": ["own"]}},
         "outputs": {"vkbd": {"type": "keyboard"}, "vpad": {"type": "gamepad"}},
         "mappings": [
             {
@@ -436,7 +438,7 @@ def test_tap_output_is_released_by_the_loop():
 MACRO_CONFIG = parse_config(
     {
         "version": 1,
-        "inputs": {"kbd": {"name": "Kbd"}, "pad": {"name": "Pad"}},
+        "inputs": {"kbd": {"name": "Kbd", "to": ["own"]}, "pad": {"name": "Pad", "to": ["own"]}},
         "outputs": {"vkbd": {"type": "keyboard"}},
         "mappings": [
             {
@@ -546,7 +548,7 @@ def test_modifiers_are_hidden_on_the_forwarding_device_and_restored():
 
     config = compile_text(
         """version 1
-input kbd { name = "Kbd" }
+input kbd { name = "Kbd"; to = own }
 output keyboard { type = keyboard }
 map KEY_LEFTBRACE modifiers(ctrl, shift) { tap KEY_ENTER (pause 0ms) }
 """,
@@ -597,7 +599,7 @@ TO_Y = {"device": "vkbd", "type": "key", "code": "KEY_Y"}
 SHARED = parse_config(
     {
         "version": 1,
-        "inputs": {"kbd": {"name": "Kbd"}, "pad": {"name": "Pad"}},
+        "inputs": {"kbd": {"name": "Kbd", "to": ["own"]}, "pad": {"name": "Pad", "to": ["own"]}},
         "outputs": {"vkbd": {"type": "keyboard"}},
         "mappings": [
             {"id": "x", "input": {"type": "key", "code": "KEY_X"}, "outputs": [TO_Y]},
@@ -643,8 +645,8 @@ def test_key_check_waits_until_every_input_was_opened(caplog):
 
 AXES = compile_text(
     """version 1
-input kbd { name = "Kbd" }
-input pad { name = "Pad" }
+input kbd { name = "Kbd"; to = own }
+input pad { name = "Pad"; to = own }
 output vkbd { type = keyboard }
 map kbd.KEY_X { hold KEY_Y }
 map pad.ABS_RZ above 0.5 { hold KEY_SPACE }

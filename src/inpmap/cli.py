@@ -24,6 +24,7 @@ from .loading import load
 from .macros import AXIS_KINDS, AXIS_NAMES, AxisKind, Led
 from .models import Config, OutputMode
 from .output import OutputError, OutputManager
+from .routing import InputRefused
 from .runtime import CleanupError, Runtime
 from .trace import format_trace, trace
 
@@ -646,6 +647,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
         reason = runtime.run(stop, timeout=args.timeout)
         print(f"stopped ({reason.value}); all devices released", flush=True)
         return EXIT_OK
+    except InputRefused as exc:
+        # The configuration does not fit the device (§3.4 rule 2): retrying
+        # cannot help, so the service must not restart.
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
     except (InputError, OutputError, CleanupError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_DEVICE_ERROR

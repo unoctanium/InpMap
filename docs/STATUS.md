@@ -109,8 +109,21 @@ step committed with passing tests):
    `OutputDevice.fileno/poll_leds`, `OutputManager.feedback_filenos/poll_leds`
    (hardware test passes); `InputSource.set_leds`; `InputBackend.wait(…,
    feedback)`. Applying them to routed keyboards is wired in step 7.
-7. Switch on in backend/runtime (refusal at start = error exit 1; later =
-   log only).
+7. ✅ Switched on (2026-10-15): backend opens without a forwarder;
+   `InputSource.capabilities/start_passthrough` (full copy for `to = own`,
+   partial device for mouse buttons/EV_REL/extra axes, none otherwise);
+   runtime plans each device at open (`plan_route`), routes unmapped
+   keys/axes through `Router`, applies keyboard-output LEDs to routed
+   keyboards (also at grab), detaches on loss/shutdown. Refusal: error at
+   start (also with --wait-for-devices; CLI exit 1 = no service restart),
+   later only logged and retried. Existing pass-through tests now use
+   `to = own`; new tests: `tests/test_runtime_routing.py` (fakes) and
+   routed hardware tests in `tests/test_linux_input.py` (keyboard + pad
+   into the outputs with no pass-through devices, axes scaled incl. D-pad,
+   mouse part on a pass-through device with only BTN_LEFT/REL, LEDs to the
+   physical keyboard, refused device never grabbed). Unit tests 626, all
+   19 hardware tests pass. Docs (step 9) not yet updated: usage.md and
+   README still describe the old pass-through model.
 8. Optional: axis events framed per SYN_REPORT.
 9. Docs, example, manual tests, CHANGELOG; remove the §3.4 note.
 Risks noted: per-keyboard desktop settings lost (use `to = own`);

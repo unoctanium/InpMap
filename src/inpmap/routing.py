@@ -62,18 +62,17 @@ class AxisRoute:
     minimum: int
     maximum: int
 
-    def value(self, raw: int) -> float:
-        """The device's raw value as a fraction of the output axis' range."""
-        low, high = self.minimum, self.maximum
-        if high <= low:
+    def value(self, normalized: float) -> float:
+        """The output axis value for a device value normalized by
+        :func:`inpmap.axis_triggers.normalize` (-1..1 for a range around 0,
+        else 0..1)."""
+        if self.maximum <= self.minimum:
             return 0.0
-        if self.kind is AxisKind.TRIGGER:
-            return _clamp((raw - low) / (high - low), 0.0, 1.0)
-        if low < 0 < high:  # centred: 0 stays 0, each side scaled on its own
-            value = raw / high if raw >= 0 else raw / -low
-        else:  # e.g. 0 .. 255 with the centre at 128
-            value = 2.0 * (raw - low) / (high - low) - 1.0
-        value = _clamp(value, -1.0, 1.0)
+        centred = self.minimum < 0 < self.maximum
+        if self.kind is AxisKind.TRIGGER:  # never centred (plan_route refuses that)
+            return _clamp(normalized, 0.0, 1.0)
+        # e.g. a stick reporting 0 .. 255 with the centre at 128
+        value = _clamp(normalized if centred else 2.0 * normalized - 1.0, -1.0, 1.0)
         if self.kind is AxisKind.HAT:
             return -1.0 if value < -0.5 else 1.0 if value > 0.5 else 0.0
         return value
@@ -280,13 +279,16 @@ class Router:
             self._let_go(event.device, event.code)
         return True
 
-    def axis(self, input_id: str, code: int, raw: int) -> bool:
-        """Route an axis value. False: it belongs on the pass-through device."""
+    def axis(self, input_id: str, code: int, normalized: float) -> bool:
+        """Route an axis value (normalized, see :meth:`AxisRoute.value`).
+
+        False: it belongs on the pass-through device.
+        """
         plan = self._plans[input_id]
         route = plan.axes.get(code)
         if route is None:
             return code not in plan.passthrough_axes
-        self._host.axes.set_base((route.output, code), input_id, route.value(raw))
+        self._host.axes.set_base((route.output, code), input_id, route.value(normalized))
         return True
 
     def mask(self, input_id: str, code: int) -> None:

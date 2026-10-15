@@ -103,7 +103,8 @@ class OutputManager:
             raise RuntimeError("output devices are already open")
         for device_id, spec in self._config.outputs.items():
             try:
-                device = self._backend.create(spec, self._config.output_codes(device_id))
+                carried = output_capabilities(spec.kind, self._config.output_codes(device_id))
+                device = self._backend.create(spec, carried.keys)
             except BaseException:
                 # Cleanup boundary: also covers KeyboardInterrupt and
                 # unexpected backend errors; always re-raised.

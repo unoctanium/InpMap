@@ -8,7 +8,9 @@ tests share it. Each configured input device moves through these states:
 * opened: not grabbed yet. Its events still reach the desktop, so they are
   read and discarded. Grabbing waits until no key is held, otherwise the
   desktop would never see the release of a key held at grab time.
-* grabbed: events go to the engine; everything not consumed is forwarded.
+* grabbed: events go to the engine; what no mapping consumes goes to the
+  outputs (:mod:`inpmap.routing`), or to the device's pass-through device
+  if no output carries it.
 * absent: the device disappeared. Outputs it held are released, its
   resources closed, and opening is retried periodically.
 
@@ -16,7 +18,10 @@ Startup creates the virtual outputs first, then opens all inputs. By default
 an input that cannot be opened at startup is a hard error (likely a
 configuration mistake). With ``wait_for_inputs`` (used by the service) it
 starts in the absent state instead, so a gamepad that is switched off at
-login does not stop the remapper; why it is absent is logged. Cleanup
+login does not stop the remapper; why it is absent is logged. A device
+whose unmapped input would have nowhere to go is never grabbed
+(configuration.md §3.4 rule 2): an error at startup in both modes, only
+logged when it appears later. Cleanup
 on every exit path: release engine outputs, ungrab and close inputs
 (releasing forwarded keys), destroy the virtual devices.
 
@@ -41,8 +46,9 @@ from .config import Config
 from .engine import MappingEngine
 from .input import InputBackend, InputDeviceLost, InputError, InputSource
 from .macros import Led
-from .models import AxisThreshold, InputDeviceSpec, KeyAction
+from .models import AxisThreshold, InputDeviceSpec, KeyAction, OutputKind
 from .output import OutputBackend, OutputError, OutputManager
+from .routing import InputRefused, Router, plan_route
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +112,8 @@ class Runtime:
         self._sleep = sleep
         self._slots: list[_Slot] = []
         self._engine: MappingEngine | None = None
+        self._router: Router | None = None
+        self._output_leds: dict[str, frozenset[Led]] = {}  # last LEDs per keyboard output
         self._all_grabbed_announced = False
         # (device id, code) of emergency keys currently held on grabbed inputs
         self._emergency_held: set[tuple[str, int]] = set()
@@ -149,6 +157,7 @@ class Runtime:
         self._engine = MappingEngine(
             self._config, self._outputs, clock=self._clock, leds=self._leds_of, inputs=self
         )
+        self._router = Router(self._engine)
         for device_id, spec in self._config.inputs.items():
             slot = _Slot(
                 spec=spec,
@@ -157,7 +166,7 @@ class Runtime:
             )
             self._slots.append(slot)
             if self._wait_for_inputs:
-                self._try_open(slot)
+                self._try_open(slot, starting=True)
             else:
                 slot.source = self._open(slot)
                 log.info("opened input '%s': %s", device_id, slot.source.description)
@@ -196,20 +205,41 @@ class Runtime:
         slot.grabbed = True
         slot.waiting_announced = False
         log.info("grabbed %s", source.description)
+        target = self._keyboard_target(slot)
+        if target in self._output_leds:
+            source.set_leds(self._output_leds[target])
         if not self._all_grabbed_announced and all(s.grabbed for s in self._slots):
             self._all_grabbed_announced = True
             log.info("remapping active")
 
     # InputControl for the engine: hide/restore passed-through modifiers.
     def mask(self, device_id: str, code: int) -> None:
+        if self._router is not None and self._router.routes(device_id):
+            self._router.mask(device_id, code)
+            return
         source = self._source_of(device_id)
         if source is not None:
             source.mask(code)
 
     def unmask(self, device_id: str, code: int) -> None:
+        if self._router is not None and self._router.routes(device_id):
+            self._router.unmask(device_id, code)
+            return
         source = self._source_of(device_id)
         if source is not None:
             source.unmask(code)
+
+    def _keyboard_target(self, slot: _Slot) -> str | None:
+        """The keyboard output whose LEDs this input shows (none with `to = own`)."""
+        return None if slot.spec.own else slot.spec.target(OutputKind.KEYBOARD)
+
+    def _apply_leds(self, changed: dict[str, frozenset[Led]]) -> None:
+        """Show LEDs the desktop set on a keyboard output on its physical keyboards."""
+        for output_id, leds in changed.items():
+            self._output_leds[output_id] = leds
+            for slot in self._slots:
+                if slot.grabbed and slot.source and self._keyboard_target(slot) == output_id:
+                    slot.source.set_leds(leds)
 
     def _source_of(self, device_id: str) -> InputSource | None:
         for slot in self._slots:
@@ -236,14 +266,30 @@ class Runtime:
         if problems:
             source.close()
             raise InputError(f"input '{slot.spec.id}': {source.description} " + "; ".join(problems))
+        assert self._router is not None
+        try:
+            plan = plan_route(slot.spec, self._config, source.capabilities())
+            source.start_passthrough(plan)
+        except InputError as exc:
+            try:
+                source.close()
+            except InputError as close_exc:
+                log.warning("closing %s: %s", source.description, close_exc)
+            if isinstance(exc, InputRefused):
+                raise InputRefused(f"{exc} ({source.description})") from None
+            raise
+        self._router.attach(slot.spec.id, plan)
         return source
 
-    def _try_open(self, slot: _Slot) -> None:
+    def _try_open(self, slot: _Slot, starting: bool = False) -> None:
         try:
             slot.source = self._open(slot)
         except InputError as exc:
+            if starting and isinstance(exc, InputRefused):
+                raise  # present at start but unusable: a configuration problem
             # Log each distinct reason once: the device being away is normal,
             # but a lasting permission or selector problem must be visible.
+            # A refused device is left alone (§3.4 rule 2) and checked again.
             if str(exc) != slot.open_error:
                 log.warning("waiting for input '%s': %s", slot.spec.id, exc)
             else:
@@ -289,13 +335,15 @@ class Runtime:
                 wait = max(0.0, min(wait, limit - now))
         by_source = {id(s.source): s for s in self._slots if s.source is not None}
         sources = [s.source for s in self._slots if s.source is not None]
-        for source in self._inputs.wait(sources, wait):
+        ready = self._inputs.wait(sources, wait, self._outputs.feedback_filenos())
+        self._apply_leds(self._outputs.poll_leds())
+        for source in ready:
             slot = by_source.get(id(source))
             if slot is not None and slot.source is source:
                 self._process(slot)
 
     def _process(self, slot: _Slot) -> None:
-        assert self._engine is not None and slot.source is not None
+        assert self._engine is not None and self._router is not None and slot.source is not None
         try:
             events = slot.source.read()
         except InputDeviceLost:
@@ -304,17 +352,20 @@ class Runtime:
         if not slot.grabbed:
             return  # the desktop received these events already
         watched = self._watched[slot.spec.id]
+        routed = self._router.routes(slot.spec.id)
         for event, raw in events:
             if isinstance(event, AxisEvent):
                 if event.code in watched:
                     # The axis drives thresholds and is suppressed (§5.5 rule 5).
                     for key_event in self._axis_triggers.update(event):
                         self._engine.handle(key_event)
-                else:
+                elif not (routed and self._router.axis(event.device, event.code, event.value)):
                     slot.source.forward(raw)
                 continue
             consumed = event is not None and self._engine.handle(event)
-            if not consumed:
+            # Unmapped input goes to the outputs (§3.4); what no output
+            # carries goes to the pass-through device.
+            if not consumed and not (routed and event is not None and self._router.key(event)):
                 slot.source.forward(raw)
             if event is not None and event.code in EMERGENCY_KEYS:
                 self._track_emergency_key(slot.spec.id, event.code, event.action)
@@ -337,7 +388,9 @@ class Runtime:
             "input device lost: %s; releasing its outputs and waiting for it to reconnect",
             slot.source.description,
         )
+        assert self._router is not None
         self._engine.release_device(slot.spec.id)
+        self._router.detach(slot.spec.id)
         self._axis_triggers.forget_device(slot.spec.id)
         self._emergency_held = {k for k in self._emergency_held if k[0] != slot.spec.id}
         try:
@@ -369,6 +422,13 @@ class Runtime:
                 errors.append(str(exc))
                 log.error("releasing outputs failed: %s", exc)
             self._engine = None
+        if self._router is not None:
+            try:
+                self._router.detach_all()
+            except OutputError as exc:
+                errors.append(str(exc))
+                log.error("releasing routed input failed: %s", exc)
+            self._router = None
         for slot in self._slots:
             if slot.source is None:
                 continue

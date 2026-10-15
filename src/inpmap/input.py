@@ -2,19 +2,23 @@
 
 A backend opens the configured physical devices as :class:`InputSource`
 objects. Each source yields pairs of (normalized key event or None, raw
-event). The engine only sees the normalized event; anything it does not
-consume is handed back to the source unchanged via :meth:`InputSource.forward`
-(passthrough). Raw events are opaque to the core.
+event). The engine only sees the normalized event; what no mapping consumes
+goes to the outputs (:mod:`inpmap.routing`), and what no output carries is
+handed back to the source unchanged via :meth:`InputSource.forward`, for its
+pass-through device. Raw events are opaque to the core.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from .axis_triggers import AxisEvent
 from .macros import Led
 from .models import InputDeviceSpec, InputEvent
+
+if TYPE_CHECKING:  # routing imports this module
+    from .routing import DeviceCapabilities, RoutePlan
 
 
 class InputError(Exception):
@@ -26,7 +30,7 @@ class InputDeviceLost(InputError):
 
 
 class InputSource(Protocol):
-    """One opened physical input device and its passthrough path."""
+    """One opened physical input device and its pass-through device."""
 
     @property
     def spec(self) -> InputDeviceSpec: ...
@@ -46,6 +50,14 @@ class InputSource(Protocol):
 
     def axis_ranges(self) -> dict[int, tuple[int, int]]:
         """(minimum, maximum) of each absolute axis the device reports."""
+        ...
+
+    def capabilities(self) -> DeviceCapabilities:
+        """Everything the device reports, for :func:`inpmap.routing.plan_route`."""
+        ...
+
+    def start_passthrough(self, plan: RoutePlan) -> None:
+        """Create the pass-through device the plan needs (none, partial, or a full copy)."""
         ...
 
     def leds(self) -> frozenset[Led]:
@@ -70,7 +82,10 @@ class InputSource(Protocol):
         ...
 
     def forward(self, raw: object) -> None:
-        """Pass a raw event through to the desktop unchanged."""
+        """Pass a raw event to the desktop on the pass-through device.
+
+        Events the pass-through device does not carry are dropped.
+        """
         ...
 
     def mask(self, code: int) -> None:

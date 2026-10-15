@@ -2,6 +2,7 @@
 
 import pytest
 
+from inpmap.axis_triggers import normalize
 from inpmap.codes import TRIGGER_AXES as ABS
 from inpmap.codes import code_from_name
 from inpmap.dsl.compiler import compile_text
@@ -237,7 +238,8 @@ def test_misc_axis_passes_through():
     ],
 )
 def test_axis_values(kind, low, high, raw, value):
-    assert AxisRoute("gamepad", kind, low, high).value(raw) == pytest.approx(value)
+    normalized = normalize(raw, low, high)
+    assert AxisRoute("gamepad", kind, low, high).value(normalized) == pytest.approx(value)
 
 
 # -- the router -------------------------------------------------------------
@@ -332,19 +334,19 @@ def test_modifier_is_hidden_while_a_mapping_with_modifiers_runs():
 def test_axes_go_to_the_gamepad_and_a_mapping_overrides_them():
     engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { axis ABS_X 1.0 }", XBOX_PAD)
     x = ABS["ABS_X"]
-    assert router.axis("dev", x, -16384)
+    assert router.axis("dev", x, -0.5)
     feed(engine, router, "dev", c("BTN_TL"), PRESS)
-    assert router.axis("dev", x, 32767)  # moved while overridden: not visible
+    assert router.axis("dev", x, 1.0)  # moved while overridden: not visible
     feed(engine, router, "dev", c("BTN_TL"), RELEASE)
     assert sink.events == [("gamepad", x, -0.5), ("gamepad", x, 1.0)]
-    assert router.axis("dev", ABS["ABS_HAT0Y"], -1)
+    assert router.axis("dev", ABS["ABS_HAT0Y"], -1.0)
     assert sink.events[-1] == ("gamepad", ABS["ABS_HAT0Y"], -1.0)
 
 
 def test_detach_releases_held_keys_and_returns_axes_to_rest():
     engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { hold KEY_A }", XBOX_PAD)
     feed(engine, router, "dev", c("BTN_SOUTH"), PRESS)
-    router.axis("dev", ABS["ABS_RZ"], 255)
+    router.axis("dev", ABS["ABS_RZ"], 1.0)
     router.detach("dev")
     assert sink.events[-2:] == [("gamepad", c("BTN_SOUTH"), 0), ("gamepad", ABS["ABS_RZ"], 0.0)]
     assert not router.routes("dev")
@@ -353,7 +355,7 @@ def test_detach_releases_held_keys_and_returns_axes_to_rest():
 def test_mouse_parts_belong_on_the_pass_through_device():
     engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_SIDE { tap KEY_F5 }", GAMING_MOUSE)
     assert not router.key(InputEvent("dev", c("BTN_LEFT"), PRESS))
-    assert not router.axis("dev", ABS_VOLUME, 3)
+    assert not router.axis("dev", ABS_VOLUME, 0.5)
     assert sink.events == []
 
 

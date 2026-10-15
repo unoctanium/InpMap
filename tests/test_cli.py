@@ -219,6 +219,18 @@ def test_run_input_error_exit_code(fake_run_backends, simple, capsys):
     assert all(device.closed for device in outputs.created.values())
 
 
+def test_run_refused_device_is_a_configuration_error(fake_run_backends, simple, capsys):
+    # A pad with buttons the virtual gamepad does not have: never grabbed,
+    # and the service must not restart (exit 1, see linux_service.py).
+    inputs, outputs = fake_run_backends
+    inputs.sources["kbd"].keys = frozenset({0x2C0})  # BTN_TRIGGER_HAPPY1
+    assert main(["run", simple, "--timeout", "1"]) == EXIT_CONFIG_ERROR
+    err = capsys.readouterr().err
+    assert "is not taken over" in err and "BTN_TRIGGER_HAPPY1" in err
+    assert not inputs.sources["kbd"].grabbed
+    assert all(device.closed for device in outputs.created.values())
+
+
 def test_run_wait_for_devices_starts_without_the_device(fake_run_backends, simple, capsys):
     from inpmap.input import InputError
 
