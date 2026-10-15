@@ -132,8 +132,7 @@ step committed with passing tests):
    troubleshooting; development.md architecture and modules; README
    features; CHANGELOG "Unreleased"; manual-tests.md §2a. The example
    profile needed no change. `docs/roadmap.md` edit (requirement text +
-   milestone "Routing by kind") awaits the maintainer's approval,
-   uncommitted.
+   milestone "Routing by kind") approved and committed.
 **Next:** release 0.3.0 (maintainer's OK needed), then the `gaming`
 profile can run as the login service.
 Risks noted: per-keyboard desktop settings lost (use `to = own`);
@@ -236,8 +235,7 @@ physical pad via hidraw (unchanged).
 
 ## Uncommitted work
 
-- `docs/roadmap.md`: routing requirement text and milestone row, awaiting the
-  maintainer's approval.
+- None.
 
 ## Open questions
 

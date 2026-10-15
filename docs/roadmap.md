@@ -47,9 +47,11 @@ code (Input Remapper is GPL-3.0, InpMap is MIT).
   (e.g. `evtest`) recognise. One rule may act on several virtual devices.
 - **Suppression:** an input replaced by a mapping must not also reach the
   application. Linux needs an exclusive grab (`EVIOCGRAB`) for this; reading
-  alone does not suppress. Unmapped input passes through unchanged. Which
-  devices are grabbed, and how they are released on exit and on errors, is
-  documented.
+  alone does not suppress. Unmapped input goes unchanged to the virtual
+  device of its kind, so applications see the configured devices instead
+  of the physical ones; what no virtual device carries (e.g. a mouse part)
+  passes through on a device of its own. Which devices are grabbed, and how
+  they are released on exit and on errors, is documented.
 
 ### State
 
@@ -100,6 +102,7 @@ button (A) pressed. Releasing `X` releases both, and nothing stays stuck.
 | **V1** – Linux, no GUI | keyboard and gamepad buttons in, virtual keyboard and gamepad out, several outputs per rule, press/release, suppression and passthrough, validation, logging, CLI | done |
 | **V1.1** – mappings and macros | sequences, waits, loops, parallel branches, conditions, variables, modifiers, gestures (tap, double tap, long press), clean cancellation; based on a study of Input Remapper | done |
 | Configuration language | `.inpmap` replaces JSON; layers, reusable blocks, `disable`, mappings for one device or every input, sticks/triggers/D-pad as triggers | done |
+| Routing by kind | unmapped input goes to the outputs of its kind (one controller per pad incl. extra buttons, `to`, refusal of devices that do not fit, mouse parts pass through), inspired by InputPlumber's composite devices | done |
 | Background operation | systemd user service with profiles (`inpmap@NAME`), emergency stop | done |
 | Tools | `input-config`, `detect`, `axes`, `codes`, `check`, `macro-trace`, `fmt`, `udev-rules`, `service-unit`, `syntax-file` | done |
 | **Publishing** | installable without the source code (profiles in `~/.config/inpmap`, example and editor files in the package); CI; release 0.2.0 on PyPI; AUR package; demo and announcement | in progress |
