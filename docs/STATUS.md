@@ -170,9 +170,9 @@ Last updated: 2026-10-15
   KDE again, the stick keeps working after touching the touchpad. This also explains the earlier symptoms with
   the keyboard interface (stuck Enter released when `inpmap detect` opened
   all devices) and why `detect` seemed to "repair" things. Documented in
-  usage.md §5 (troubleshooting). Open: whether InpMap should help (e.g.
-  keep the other interfaces of a configured device open) — proposed for the
-  backlog, maintainer to decide.
+  usage.md §5 (troubleshooting). Keeping the other interfaces of a
+  configured device open was added to the roadmap backlog (maintainer's
+  decision, 2026-10-15).
 
 ## Session log
 

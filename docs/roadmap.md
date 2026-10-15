@@ -126,6 +126,10 @@ Not scheduled; candidates for future versions:
   notice a device without access and print the exact command that grants
   it (the udev rule for that one device, or the `input` group with its
   risk stated), instead of leaving the user to find installation.md;
+- keep the other interfaces of a configured device open (read and ignored,
+  not grabbed) while InpMap runs: some devices (e.g. Razer Raiju V3 Pro)
+  stall completely when one of their interfaces, such as a touchpad
+  switched off in the desktop, is read by no program;
 - a system-wide service (without a logged-in user).
 
 Not planned: grabbing all keyboards automatically, and typing text by
