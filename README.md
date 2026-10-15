@@ -93,6 +93,7 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 | [docs/development.md](https://github.com/unoctanium/InpMap/blob/main/docs/development.md) | for contributors: tests, architecture, releases |
 | [docs/roadmap.md](https://github.com/unoctanium/InpMap/blob/main/docs/roadmap.md) | goals, requirements, milestones and what comes next |
 | [CHANGELOG.md](https://github.com/unoctanium/InpMap/blob/main/CHANGELOG.md) | changes per version |
+| [CONTRIBUTING.md](https://github.com/unoctanium/InpMap/blob/main/CONTRIBUTING.md) | reporting problems, test reports, changing the code |
 
 ## Quick start
 

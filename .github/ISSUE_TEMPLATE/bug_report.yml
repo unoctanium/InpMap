@@ -1,0 +1,58 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If a key is stuck or the keyboard is unusable,
+        hold **Backspace + Escape + Enter** to stop InpMap.
+        Please remove anything private (user names, home paths) from logs.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: The steps that lead to the problem, as exactly as possible.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: The smallest `.inpmap` file that shows the problem.
+      render: text
+  - type: textarea
+    id: output
+    attributes:
+      label: Output and log
+      description: |
+        The output of `inpmap -v run PROFILE` (or of the command that failed),
+        or for the service: `journalctl --user -u inpmap@PROFILE -e`.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: InpMap version
+      description: Output of `inpmap --version`.
+      placeholder: inpmap 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: Installed from
+      placeholder: Arch package (makepkg), PyPI with pipx, source
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Distribution, desktop, session
+      placeholder: CachyOS, KDE Plasma 6, Wayland
+    validations:
+      required: true
+  - type: textarea
+    id: devices
+    attributes:
+      label: Devices involved
+      description: Name and model of the keyboard or gamepad; `inpmap devices` lists them.

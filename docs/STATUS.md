@@ -5,7 +5,7 @@ the project stands, what was decided and why, and what comes next. A new
 session continues from this file plus the repository. Goals and milestones:
 [roadmap.md](roadmap.md).
 
-Last updated: 2026-10-14
+Last updated: 2026-10-15
 
 ## Current position
 
@@ -56,9 +56,23 @@ Last updated: 2026-10-14
     while we deal with a wave of automated account creation"; watch
     aur-general / Arch news), following packaging/aur/README.md; then
     document `paru -S inpmap` in installation.md and the README.
-  - d. Demo (GIF or asciinema), a few external testers, then announcements
+  - d. 🔧 Demo, a few external testers, then announcements
     (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum, Show HN),
-    respecting each community's self-promotion rules.
+    respecting each community's self-promotion rules. Plan:
+    - d1. ✅ (2026-10-15) Issue forms `.github/ISSUE_TEMPLATE/`
+      (`bug_report.yml`, `test_report.yml`, `config.yml` linking the
+      troubleshooting table), `CONTRIBUTING.md` (linked from the README and
+      development.md, in the sdist). No YAML parser on the machine: the
+      forms were checked by reading only; check the "New issue" page after
+      the push. Repository topics proposed to the maintainer (set in the
+      GitHub UI or with `gh repo edit --add-topic`).
+    - d2. Demo GIF: the maintainer records with Spectacle following the
+      storyboard (`input-config example` with `i`; `run example` beside an
+      editor and a gamepad tester; F1 → `a` + gamepad A; Caps Lock + WASD;
+      `detect`); Claude converts it with ffmpeg to `docs/media/demo.gif`.
+    - d3. "Call for testers" issue text.
+    - d4. Announcement drafts per venue after checking each venue's rules,
+      as a private page, not in the repository.
 
 ## Next steps
 
@@ -75,8 +89,8 @@ Last updated: 2026-10-14
    always use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
 3. Step c: done except the AUR upload, which waits until AUR registration
    reopens.
-4. **Next: waiting for the maintainer's instructions.** Proposed: step d
-   (see "Open questions"). Two backlog items were added on 2026-10-14
+4. **Next: step d2** (demo recording by the maintainer), after d1 is
+   pushed and the topics are set. Two backlog items were added on 2026-10-14
    (udev device notifications; guided device permissions) — not scheduled.
 
 ## Decisions (and why)
@@ -163,10 +177,6 @@ Last updated: 2026-10-14
   `evtest --grab` test is still open. Not concluded whether InpMap is at
   fault.
 
-- What to do while the AUR step is blocked (maintainer's choice). Step d
-  was proposed (d1 issue templates, `CONTRIBUTING.md`, topics; d2 demo
-  GIF; d3 call for testers; d4 announcement drafts); waiting for the
-  maintainer's instructions.
 
 ## Session log
 

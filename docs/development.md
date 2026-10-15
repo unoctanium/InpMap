@@ -6,7 +6,9 @@ For contributors. Users need only [installation.md](installation.md),
 Governing documents: [roadmap.md](roadmap.md) (goals, requirements,
 milestones), `CLAUDE.md` (engineering rules), `docs/STATUS.md` (current
 state and next steps), [manual-tests.md](manual-tests.md) (tests on real
-hardware).
+hardware). How to report problems and propose changes:
+[CONTRIBUTING.md](../CONTRIBUTING.md); the issue forms are in
+`.github/ISSUE_TEMPLATE/`.
 
 [configuration.md](configuration.md) is both the user reference and the
 specification of the configuration language: a language change is made

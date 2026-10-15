@@ -1,0 +1,49 @@
+name: Test report
+description: InpMap works (or partly works) on your system — tell us where
+labels: [test report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports from distributions, desktops, devices and games we have not
+        tried are very welcome, also when everything worked. The checks are
+        described in [docs/manual-tests.md](https://github.com/unoctanium/InpMap/blob/main/docs/manual-tests.md);
+        a few of them are enough.
+  - type: input
+    id: version
+    attributes:
+      label: InpMap version
+      description: Output of `inpmap --version`.
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: Installed from
+      placeholder: Arch package (makepkg), PyPI with pipx, source
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Distribution, desktop, session
+      placeholder: Fedora 43, GNOME, Wayland
+    validations:
+      required: true
+  - type: textarea
+    id: devices
+    attributes:
+      label: Devices
+      description: Keyboards and gamepads you used (name and model).
+  - type: textarea
+    id: results
+    attributes:
+      label: What you tested and the results
+      description: For example "example profile F1–F8 OK; Steam recognises the virtual gamepad in game X".
+    validations:
+      required: true
+  - type: textarea
+    id: problems
+    attributes:
+      label: Problems or surprises
+      description: Anything unexpected, also in the installation or the documentation.
