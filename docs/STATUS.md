@@ -101,8 +101,10 @@ step committed with passing tests):
    a mapping overrides, afterwards the device value applies again; most
    recently updated device wins). Buttons share the engine's reference
    counts through its `press_key`/`release_key` (used by the router).
-5. Router (unmapped input onto outputs; repeat; modifier masking; release
-   on loss).
+5. ✅ Router (`routing.Router`): unmapped keys/buttons as engine holders
+   (shared ref counts), axes as base values, key repeat dropped (desktops
+   repeat the virtual keyboard themselves), mask/unmask for modifiers,
+   detach releases everything; tests in `tests/test_routing.py`.
 6. Keyboard LEDs from outputs to routed physical keyboards.
 7. Switch on in backend/runtime (refusal at start = error exit 1; later =
    log only).

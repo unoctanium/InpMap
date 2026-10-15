@@ -5,8 +5,10 @@ import pytest
 from inpmap.codes import TRIGGER_AXES as ABS
 from inpmap.codes import code_from_name
 from inpmap.dsl.compiler import compile_text
+from inpmap.engine import MappingEngine
 from inpmap.macros import AxisKind
-from inpmap.routing import AxisRoute, DeviceCapabilities, InputRefused, plan_route
+from inpmap.models import InputEvent, KeyAction
+from inpmap.routing import AxisRoute, DeviceCapabilities, InputRefused, Router, plan_route
 
 
 def c(name):
@@ -236,3 +238,129 @@ def test_misc_axis_passes_through():
 )
 def test_axis_values(kind, low, high, raw, value):
     assert AxisRoute("gamepad", kind, low, high).value(raw) == pytest.approx(value)
+
+
+# -- the router -------------------------------------------------------------
+
+
+PRESS, RELEASE, REPEAT = KeyAction.PRESS, KeyAction.RELEASE, KeyAction.REPEAT
+
+
+class Sink:
+    def __init__(self):
+        self.events = []
+
+    def press(self, device, code):
+        self.events.append((device, code, 1))
+
+    def release(self, device, code):
+        self.events.append((device, code, 0))
+
+    def set_axis(self, device, code, value):
+        self.events.append((device, code, value))
+
+
+def routed(text, caps, device="dev"):
+    """Engine + router as the runtime wires them: the router hides modifiers."""
+    config = compile_text(f'version 1\ninput {device} {{ name = "D" }}\n' + text, "t.inpmap").config
+    sink = Sink()
+    router_box = []
+    engine = MappingEngine(config, sink, clock=lambda: 0.0, inputs=_Control(router_box))
+    router = Router(engine)
+    router_box.append(router)
+    router.attach(device, plan_route(config.inputs[device], config, caps))
+    return engine, router, sink
+
+
+class _Control:
+    def __init__(self, box):
+        self.box = box
+
+    def mask(self, device, code):
+        self.box[0].mask(device, code)
+
+    def unmask(self, device, code):
+        self.box[0].unmask(device, code)
+
+
+def feed(engine, router, device, code, action):
+    """What the runtime does with a key event: engine first, then the router."""
+    event = InputEvent(device, code, action)
+    if not engine.handle(event):
+        assert router.key(event)
+
+
+def test_unmapped_keys_go_to_the_keyboard_output_and_repeats_are_dropped():
+    engine, router, sink = routed(BOTH_OUTPUTS + "map KEY_ESC { hold BTN_SOUTH }", KEYBOARD)
+    a = c("KEY_A")
+    for action in (PRESS, REPEAT, REPEAT, RELEASE):
+        feed(engine, router, "dev", a, action)
+    assert sink.events == [("keyboard", a, 1), ("keyboard", a, 0)]
+
+
+def test_button_held_on_the_pad_and_by_a_mapping_stays_down_until_both_let_go():
+    engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { hold BTN_SOUTH }", XBOX_PAD)
+    south, tl = c("BTN_SOUTH"), c("BTN_TL")
+    feed(engine, router, "dev", south, PRESS)
+    feed(engine, router, "dev", tl, PRESS)
+    feed(engine, router, "dev", south, RELEASE)
+    assert sink.events == [("gamepad", south, 1)]  # still held by the mapping
+    feed(engine, router, "dev", tl, RELEASE)
+    assert sink.events == [("gamepad", south, 1), ("gamepad", south, 0)]
+
+
+def test_modifier_is_hidden_while_a_mapping_with_modifiers_runs():
+    engine, router, sink = routed(
+        "output keyboard { type = keyboard }\nmap KEY_F7 modifiers(ctrl) { hold KEY_C }",
+        DeviceCapabilities(keys=keys("KEY_LEFTCTRL", "KEY_F7", "KEY_C")),
+    )
+    ctrl, f7, key_c = c("KEY_LEFTCTRL"), c("KEY_F7"), c("KEY_C")
+    feed(engine, router, "dev", ctrl, PRESS)
+    feed(engine, router, "dev", f7, PRESS)
+    feed(engine, router, "dev", f7, RELEASE)
+    feed(engine, router, "dev", ctrl, RELEASE)
+    assert sink.events == [
+        ("keyboard", ctrl, 1),
+        ("keyboard", ctrl, 0),  # hidden: the mapping's output is a plain C
+        ("keyboard", key_c, 1),
+        ("keyboard", key_c, 0),
+        ("keyboard", ctrl, 1),  # given back while still held
+        ("keyboard", ctrl, 0),
+    ]
+
+
+def test_axes_go_to_the_gamepad_and_a_mapping_overrides_them():
+    engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { axis ABS_X 1.0 }", XBOX_PAD)
+    x = ABS["ABS_X"]
+    assert router.axis("dev", x, -16384)
+    feed(engine, router, "dev", c("BTN_TL"), PRESS)
+    assert router.axis("dev", x, 32767)  # moved while overridden: not visible
+    feed(engine, router, "dev", c("BTN_TL"), RELEASE)
+    assert sink.events == [("gamepad", x, -0.5), ("gamepad", x, 1.0)]
+    assert router.axis("dev", ABS["ABS_HAT0Y"], -1)
+    assert sink.events[-1] == ("gamepad", ABS["ABS_HAT0Y"], -1.0)
+
+
+def test_detach_releases_held_keys_and_returns_axes_to_rest():
+    engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { hold KEY_A }", XBOX_PAD)
+    feed(engine, router, "dev", c("BTN_SOUTH"), PRESS)
+    router.axis("dev", ABS["ABS_RZ"], 255)
+    router.detach("dev")
+    assert sink.events[-2:] == [("gamepad", c("BTN_SOUTH"), 0), ("gamepad", ABS["ABS_RZ"], 0.0)]
+    assert not router.routes("dev")
+
+
+def test_mouse_parts_belong_on_the_pass_through_device():
+    engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_SIDE { tap KEY_F5 }", GAMING_MOUSE)
+    assert not router.key(InputEvent("dev", c("BTN_LEFT"), PRESS))
+    assert not router.axis("dev", ABS_VOLUME, 3)
+    assert sink.events == []
+
+
+def test_unmapped_press_of_a_key_without_target_is_dropped():
+    caps = DeviceCapabilities(keys=keys("KEY_W"))
+    engine, router, sink = routed(
+        "output gamepad { type = gamepad }\nmap KEY_W modifiers(ctrl) { hold BTN_DPAD_UP }", caps
+    )
+    assert router.key(InputEvent("dev", c("KEY_W"), PRESS))  # handled: dropped
+    assert sink.events == []

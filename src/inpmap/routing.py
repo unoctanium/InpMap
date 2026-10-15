@@ -1,5 +1,7 @@
 """Where an input's unmapped input goes (docs/configuration.md §3.4).
 
+:func:`plan_route` decides it per device; :class:`Router` carries it out.
+
 When InpMap opens a physical device, :func:`plan_route` decides for every
 key, button and axis the device reports where it goes when no mapping uses
 it: to an output (keys to the keyboard output, gamepad buttons and axes to
@@ -13,14 +15,19 @@ This module is pure: it sees capability sets, not evdev objects.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from . import codes
+from .axes import AxisStacks
 from .input import InputError
-from .macros import OUTPUT_AXIS_KINDS, AxisKind
-from .models import Config, InputDeviceSpec, OutputKind
-from .output import output_capabilities
+from .macros import OUTPUT_AXIS_KINDS, AxisKind, KeyRef
+from .models import Config, InputDeviceSpec, InputEvent, KeyAction, OutputKind
+from .output import OutputError, output_capabilities
+
+log = logging.getLogger(__name__)
 
 # Mouse buttons BTN_LEFT .. BTN_TASK.
 MOUSE_BUTTONS = range(0x110, 0x118)
@@ -211,3 +218,130 @@ def _names(names: list[str]) -> str:
 
 def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
+
+
+class RouterHost(Protocol):
+    """What the router needs from the engine: shared holders on the outputs."""
+
+    axes: AxisStacks
+
+    def press_key(self, key: KeyRef) -> None: ...
+
+    def release_key(self, key: KeyRef) -> None: ...
+
+
+class Router:
+    """Sends the unmapped input of grabbed devices to the outputs (§3.4).
+
+    Keys and buttons become holders in the engine's reference counts, so a
+    button held on a pad and by a mapping stays down until both let go
+    (§7.3). Axes set the base value of the output axis, which mappings
+    override while they hold it. Key repeat is not sent: desktops repeat
+    held keys of the virtual keyboard themselves.
+    """
+
+    def __init__(self, host: RouterHost) -> None:
+        self._host = host
+        self._plans: dict[str, RoutePlan] = {}
+        self._down: dict[str, set[int]] = {}  # physically held routed keys
+        self._held: dict[str, set[int]] = {}  # keys this input holds on an output
+        self._masked: dict[str, set[int]] = {}  # hidden while a mapping runs (§5.2)
+
+    def attach(self, input_id: str, plan: RoutePlan) -> None:
+        self._plans[input_id] = plan
+        self._down[input_id] = set()
+        self._held[input_id] = set()
+        self._masked[input_id] = set()
+
+    def routes(self, input_id: str) -> bool:
+        """Whether this input's unmapped input goes to the outputs."""
+        plan = self._plans.get(input_id)
+        return plan is not None and not plan.own
+
+    def key(self, event: InputEvent) -> bool:
+        """Route an unmapped key event. False: it belongs on the pass-through device.
+
+        Keys without a target (a mapping uses them, but did not fire) are
+        dropped and count as handled.
+        """
+        plan = self._plans[event.device]
+        if event.code in plan.passthrough_keys:
+            return False
+        if event.code not in plan.keys:
+            log.debug("dropping unmapped %s of '%s'", codes.code_name(event.code), event.device)
+            return True
+        down = self._down[event.device]
+        if event.action is KeyAction.PRESS:
+            down.add(event.code)
+            if event.code not in self._masked[event.device]:
+                self._hold(event.device, event.code)
+        elif event.action is KeyAction.RELEASE:
+            down.discard(event.code)
+            self._let_go(event.device, event.code)
+        return True
+
+    def axis(self, input_id: str, code: int, raw: int) -> bool:
+        """Route an axis value. False: it belongs on the pass-through device."""
+        plan = self._plans[input_id]
+        route = plan.axes.get(code)
+        if route is None:
+            return code not in plan.passthrough_axes
+        self._host.axes.set_base((route.output, code), input_id, route.value(raw))
+        return True
+
+    def mask(self, input_id: str, code: int) -> None:
+        """Hide a held key from the output while a mapping with modifiers runs."""
+        self._masked[input_id].add(code)
+        self._let_go(input_id, code)
+
+    def unmask(self, input_id: str, code: int) -> None:
+        self._masked[input_id].discard(code)
+        if code in self._down[input_id]:
+            self._hold(input_id, code)
+
+    def detach(self, input_id: str) -> None:
+        """Release everything the input holds and forget its axis values.
+
+        Raises OutputError after trying everything if a write failed.
+        """
+        plan = self._plans.pop(input_id, None)
+        if plan is None:
+            return
+        failures: list[str] = []
+        for code in sorted(self._held.pop(input_id)):
+            try:
+                self._host.release_key(KeyRef(plan.keys[code], code))
+            except OutputError as exc:
+                failures.append(str(exc))
+        for code, route in plan.axes.items():
+            try:
+                self._host.axes.clear_base((route.output, code), input_id)
+            except OutputError as exc:
+                failures.append(str(exc))
+        del self._down[input_id], self._masked[input_id]
+        if failures:
+            raise OutputError("; ".join(failures))
+
+    def detach_all(self) -> None:
+        failures: list[str] = []
+        for input_id in list(self._plans):
+            try:
+                self.detach(input_id)
+            except OutputError as exc:
+                failures.append(str(exc))
+        if failures:
+            raise OutputError("; ".join(failures))
+
+    def _hold(self, input_id: str, code: int) -> None:
+        held = self._held[input_id]
+        if code in held:
+            return
+        held.add(code)  # before writing: a failed press is still released later
+        self._host.press_key(KeyRef(self._plans[input_id].keys[code], code))
+
+    def _let_go(self, input_id: str, code: int) -> None:
+        held = self._held[input_id]
+        if code not in held:
+            return
+        held.discard(code)
+        self._host.release_key(KeyRef(self._plans[input_id].keys[code], code))
