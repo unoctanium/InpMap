@@ -89,8 +89,15 @@ Last updated: 2026-10-15
    always use the source tree's `.venv/bin/inpmap` / `.venv/bin/python`.
 3. Step c: done except the AUR upload, which waits until AUR registration
    reopens.
-4. **Next: step d2** (demo recording by the maintainer). Two backlog items were added on 2026-10-14
-   (udev device notifications; guided device permissions) — not scheduled.
+4. **Next: step d2** — the maintainer records the demo with Spectacle
+   following the storyboard (under "Current position", d2) and gives the
+   video's path; Claude converts it to `docs/media/demo.gif` (target under
+   5 MB) for the maintainer to review before it goes into the README.
+   Preparation asked of the maintainer: add the new keyboard to the
+   `example` profile (`inpmap input-config example`), since the old
+   keyboard was replaced. Three backlog items were added on 2026-10-14/15
+   (udev device notifications; guided device permissions; keeping the
+   other interfaces of configured devices open) — not scheduled.
 
 ## Decisions (and why)
 
@@ -190,3 +197,9 @@ Last updated: 2026-10-15
   closed AUR registration); interim Arch instructions; Input Remapper's
   autoload and root-service design compared with InpMap's user service
   (kept), two backlog items added. All work pushed.
+- **2026-10-15** — Step d1: issue forms (bug report, test report),
+  `CONTRIBUTING.md`, repository topics (set by the maintainer); verified on
+  GitHub. Razer Raiju V3 Pro stalls traced to an unread interface (touchpad
+  disabled in KDE), not an InpMap bug; fix confirmed; troubleshooting entry
+  in usage.md; backlog item to keep sibling interfaces open. All work
+  pushed.
