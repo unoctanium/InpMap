@@ -5,7 +5,7 @@ the project stands, what was decided and why, and what comes next. A new
 session continues from this file plus the repository. Goals and milestones:
 [roadmap.md](roadmap.md).
 
-Last updated: 2026-10-15
+Last updated: 2026-10-19
 
 ## Current position
 
@@ -25,15 +25,18 @@ Last updated: 2026-10-15
   - c. 🔧 AUR package ready (`packaging/aur/`, README there: test build,
     first upload, updates). User service + packaged uaccess rule for
     /dev/uinput + post-install hint for per-device rules. ⏳ **Upload waits
-    until AUR account registration reopens** (closed since 2026-10-14,
-    HTTP 503); then document `paru -S inpmap`. Interim: installation.md §2a
+    until AUR account registration reopens** (HTTP 503 since 2026-10-14; on
+    2026-10-19 the page answered behind a bot check, so it may be open
+    again: the maintainer checks in a browser); then document `paru -S inpmap`. Interim: installation.md §2a
     (clone, `makepkg -sri`).
   - d. 🔧 Demo, testers, announcements. d1 ✅ (issue forms,
     `CONTRIBUTING.md`, topics). d2 demo GIF: the maintainer records with
     Spectacle (storyboard: `run example` beside an editor and a gamepad
     tester; F1 → `a` + gamepad A; F4 autofire; F8; Caps Lock + WASD;
     `detect`), Claude converts with ffmpeg to `docs/media/demo.gif` (< 5 MB)
-    for review. d3 "call for testers" issue text. d4 announcement drafts
+    for review. d3 "call for testers" issue text: drafted 2026-10-19 and
+    shown to the maintainer for review (not stored in the repository; the
+    maintainer posts it). d4 announcement drafts
     per venue (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum,
     Show HN) after checking each venue's rules, as a private page.
 
@@ -166,3 +169,6 @@ the hardware tests now use product IDs 0x7E01/0x7E02 (`tests/hardware.py`).
   Raiju; README "What you can do with it"; release 0.3.0 on PyPI and in
   the Arch package; hardware tests got their own product IDs. All work
   pushed.
+- **2026-10-19** — Session start: state consistent, 627 unit tests passed,
+  ruff clean. AUR registration page no longer 503 (bot check). Step d3
+  "call for testers" text drafted for the maintainer's review.
