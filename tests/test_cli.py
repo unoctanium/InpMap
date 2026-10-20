@@ -13,7 +13,7 @@ output keyboard { type = keyboard }
 output gamepad { type = gamepad }
 map KEY_X {
     hold KEY_Y
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 """
 
@@ -32,7 +32,7 @@ def test_check_example(capsys):
     assert main(["check", str(EXAMPLE)]) == EXIT_OK
     out = capsys.readouterr().out
     assert "OK (version 1)" in out
-    assert "KEY_X: every input KEY_X -> keyboard KEY_Y, gamepad BTN_SOUTH" in out
+    assert "KEY_X: every input KEY_X -> keyboard KEY_Y, gamepad BTN_FACE_DOWN" in out
     assert "combo: every input KEY_F9 -> macro (4 steps)" in out
 
 
@@ -46,11 +46,11 @@ def test_check_reports_positions_and_warnings(tmp_path, capsys):
     assert f"{path}:4:17: unknown key code 'KEY_QQ'" in capsys.readouterr().err
     ok = tmp_path / "warn.inpmap"
     ok.write_text(
-        'version 1\ninput kbd { name = "K" }\noutput pad { type = gamepad }\n'
-        "map KEY_X { tap BTN_NORTH }\n"
+        'version 1\ninput kbd { name = "K" }\noutput keyboard { type = keyboard }\n'
+        "map KEY_X { tap KEY_A }\nblock unused { tap KEY_B }\n"
     )
     assert main(["check", str(ok)]) == EXIT_OK
-    assert f"{ok}:4:17: warning: BTN_NORTH is the left button" in capsys.readouterr().err
+    assert f"{ok}:5:7: warning: block 'unused' is never called" in capsys.readouterr().err
 
 
 def test_check_unsupported_version(tmp_path, capsys):
@@ -145,7 +145,7 @@ def test_test_outputs_pulses_every_mapped_output(fake_linux_backend, simple, cap
     assert [pressed for _, pressed in keyboard.events] == [True, False]
     assert [pressed for _, pressed in gamepad.events] == [True, False]
     assert keyboard.closed and gamepad.closed
-    assert "gamepad: BTN_SOUTH released" in capsys.readouterr().out
+    assert "gamepad: BTN_FACE_DOWN released" in capsys.readouterr().out
 
 
 def test_test_outputs_only_selected_device(fake_linux_backend, simple):
@@ -263,8 +263,10 @@ def test_codes_filter(capsys):
 
 
 def test_codes_aliases_axes_and_no_match(capsys):
-    main(["codes", "btn_a"])
-    assert "BTN_SOUTH                     304  gamepad  (also BTN_A)" in capsys.readouterr().out
+    main(["codes", "screenlock"])
+    assert "KEY_COFFEE                    152  keyboard  (also KEY_SCREENLOCK)" in (
+        capsys.readouterr().out
+    )
     main(["codes", "ABS_RZ"])
     assert "gamepad axis (trigger)" in capsys.readouterr().out
     assert main(["codes", "nothing_like_this"]) == EXIT_OK

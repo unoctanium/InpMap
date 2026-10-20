@@ -32,13 +32,23 @@ EXCLUDED = {
     "BTN_DIGI",
     "BTN_WHEEL",
     "BTN_TRIGGER_HAPPY",
+    # Face button aliases; the buttons get InpMap's own names (FACE_BUTTONS).
+    "BTN_A",
+    "BTN_B",
+    "BTN_X",
+    "BTN_Y",
 }
 
-# Canonical names that differ from the header's first definition. Xbox
-# controllers (Linux xpad driver), SDL and Steam treat 0x133 as the left face
-# button "X" and 0x134 as the top one "Y", although the header names them
-# BTN_NORTH and BTN_WEST first (docs/configuration.md §3.3).
-CANONICAL_OVERRIDES = {0x133: "BTN_X", 0x134: "BTN_Y"}
+# The four face buttons get position names of InpMap's own instead of the
+# kernel's (docs/configuration.md §3.3): Xbox controllers (Linux xpad), SDL
+# and Steam use 0x133 for the left button, which the header calls BTN_NORTH
+# (and BTN_X), so no Linux name is unambiguous.
+FACE_BUTTONS = {
+    "BTN_SOUTH": "BTN_FACE_DOWN",  # 0x130
+    "BTN_EAST": "BTN_FACE_RIGHT",  # 0x131
+    "BTN_NORTH": "BTN_FACE_LEFT",  # 0x133
+    "BTN_WEST": "BTN_FACE_UP",  # 0x134
+}
 
 DEFINE = re.compile(r"^#define\s+((?:KEY|BTN)_\w+)\s+(\w+)")
 
@@ -58,6 +68,7 @@ def parse(header: str) -> tuple[dict[str, int], dict[int, str]]:
         name, value = match.groups()
         if name in EXCLUDED:
             continue
+        name = FACE_BUTTONS.get(name, name)
         if value in codes:
             codes[name] = codes[value]
             continue
@@ -69,7 +80,6 @@ def parse(header: str) -> tuple[dict[str, int], dict[int, str]]:
             raise SystemExit(f"cannot resolve {name} = {value}") from None
         codes[name] = code
         canonical.setdefault(code, name)
-    canonical.update(CANONICAL_OVERRIDES)
     return codes, canonical
 
 

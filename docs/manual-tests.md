@@ -23,7 +23,7 @@ using the input name of your keyboard:
 ```text
 map kbd.KEY_X {
     hold KEY_Y
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 ```
 
@@ -47,7 +47,7 @@ inpmap run mtest --timeout 60
 
 In a text editor, press X briefly, then type other letters; meanwhile
 `evtest` on the virtual gamepad. **Expected:** X types `y` (the key at the Y
-position of your layout), never `x`; the gamepad reports `BTN_SOUTH` 1 and 0;
+position of your layout), never `x`; the gamepad reports `BTN_FACE_DOWN` 1 and 0;
 other keys type normally; holding X gives the desktop's key repeat; nothing
 stays pressed after release.
 
@@ -83,7 +83,8 @@ buttons mapped to `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2`),
    and buttons work; `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2`
    arrive as `BTN_TRIGGER_HAPPY1` … `4` (the Edge's left Fn, right Fn,
    left paddle, right paddle; Linux 7.2 or later). The pad's X button is
-   `BTN_WEST` there (Square; the PlayStation driver's naming, §3.3).
+   code 0x134 there (evtest: `BTN_WEST`; the PlayStation driver numbers
+   by position, §3.3).
    Steam's controller settings show `BTN_GRIPL`/`BTN_GRIPR` in the upper
    row and `BTN_GRIPL2`/`BTN_GRIPR2` in the lower row, each on its side;
    X shows as Square, Y as Triangle.

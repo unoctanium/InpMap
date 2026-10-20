@@ -81,7 +81,7 @@ output gamepad { type = gamepad }
 
 map KEY_X {  # X = keyboard Y + gamepad A
     hold KEY_Y
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 
 map KEY_F10 {  # tap, double tap, long press
@@ -120,7 +120,7 @@ InpMap was started for needs it covers less well:
 - Keyboard keys and gamepad buttons as triggers, optionally with modifiers
   (`modifiers(ctrl, shift)`), from any number of physical devices. A
   mapping applies to every configured device that has the key, or to one
-  device only (`pad.BTN_EAST`). Keys can be disabled.
+  device only (`pad.BTN_FACE_RIGHT`). Keys can be disabled.
 - Sticks, analog triggers and the D-pad as buttons (`map pad.ABS_RZ above
   0.5`), also two-stage triggers; `inpmap axes` shows their live values.
 - Virtual keyboards and gamepads (buttons, D-pad, sticks, triggers).

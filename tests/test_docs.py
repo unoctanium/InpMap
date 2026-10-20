@@ -74,7 +74,7 @@ def test_json_era_example_matches_reference_timelines(mapping, scenario_index):
 
 def test_more_examples_names():
     config = compile_text(section("A keyboard and a gamepad as inputs"), "more.inpmap").config
-    assert "pad.BTN_SOUTH+ctrl" in [m.id for m in config.mappings]
+    assert "pad.BTN_FACE_DOWN+ctrl" in [m.id for m in config.mappings]
     config = compile_text(section("A key combination replaced"), "more.inpmap").config
     assert [m.id for m in config.mappings] == ["bracket_combo", "alternate"]
 

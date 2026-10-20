@@ -24,7 +24,7 @@ from inpmap.input_config import (
 )
 
 KEYBOARD_KEYS = frozenset({c("KEY_A"), c("KEY_B"), c("KEY_ENTER")})
-PAD_KEYS = frozenset({c("BTN_SOUTH"), c("BTN_EAST")})
+PAD_KEYS = frozenset({c("BTN_FACE_DOWN"), c("BTN_FACE_RIGHT")})
 ABS_X, ABS_Y, ABS_MT_POSITION_X, REL_X = 0, 1, 0x35, 0
 
 
@@ -186,7 +186,7 @@ def test_new_file_gets_a_starter_configuration(tmp_path):
     assert file.text is None
     text = file.with_inputs(['input kbd {\n    name = "K"\n}'])
     assert text.startswith("# InpMap configuration")
-    compile_text(text + "map KEY_A { tap KEY_B; tap BTN_SOUTH }\n", "new.inpmap")
+    compile_text(text + "map KEY_A { tap KEY_B; tap BTN_FACE_DOWN }\n", "new.inpmap")
 
 
 def test_unparsable_or_versionless_files_are_refused(tmp_path):

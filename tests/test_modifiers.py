@@ -140,7 +140,7 @@ def test_exact_side_requires_only_that_side():
 
 
 def test_modifiers_from_another_device_and_release_updates_state():
-    candidates = rules("map pad.BTN_SOUTH modifiers(ctrl) { tap KEY_1 }")
+    candidates = rules("map pad.BTN_FACE_DOWN modifiers(ctrl) { tap KEY_1 }")
     state = state_with(("kbd", "KEY_RIGHTCTRL"))
     assert choose(candidates, state) is not None
     state.update("kbd", c("KEY_RIGHTCTRL"), RELEASE)
@@ -233,10 +233,10 @@ def test_keep_modifiers_does_not_mask():
 
 
 def test_plain_output_with_modifiers_unmasks_on_release():
-    rig = Rig("map pad.BTN_SOUTH modifiers(ctrl) { hold KEY_C }")
+    rig = Rig("map pad.BTN_FACE_DOWN modifiers(ctrl) { hold KEY_C }")
     rig.press("KEY_RIGHTCTRL")
-    rig.press("BTN_SOUTH", device="pad")
-    rig.release("BTN_SOUTH", device="pad")
+    rig.press("BTN_FACE_DOWN", device="pad")
+    rig.release("BTN_FACE_DOWN", device="pad")
     assert rig.log() == [
         ("mask", "KEY_RIGHTCTRL"),
         ("down", "KEY_C"),
@@ -272,16 +272,16 @@ def test_modifier_change_while_held_does_not_affect_running_mapping():
 
 
 def test_device_loss_drops_modifier_state_and_masks():
-    rig = Rig("map pad.BTN_SOUTH modifiers(ctrl) { hold KEY_C }")
+    rig = Rig("map pad.BTN_FACE_DOWN modifiers(ctrl) { hold KEY_C }")
     rig.press("KEY_LEFTCTRL")
     rig.engine.release_device("kbd")
-    assert rig.press("BTN_SOUTH", device="pad") is False  # Ctrl is gone with the keyboard
-    rig.release("BTN_SOUTH", device="pad")
-    rig = Rig("map pad.BTN_SOUTH modifiers(ctrl) { hold KEY_C }")
+    assert rig.press("BTN_FACE_DOWN", device="pad") is False  # Ctrl is gone with the keyboard
+    rig.release("BTN_FACE_DOWN", device="pad")
+    rig = Rig("map pad.BTN_FACE_DOWN modifiers(ctrl) { hold KEY_C }")
     rig.press("KEY_LEFTCTRL")
-    rig.press("BTN_SOUTH", device="pad")
+    rig.press("BTN_FACE_DOWN", device="pad")
     rig.engine.release_device("kbd")
-    rig.release("BTN_SOUTH", device="pad")
+    rig.release("BTN_FACE_DOWN", device="pad")
     assert ("unmask", "KEY_LEFTCTRL") not in rig.log()  # never re-pressed on a lost device
 
 

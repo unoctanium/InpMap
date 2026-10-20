@@ -29,10 +29,10 @@ REL_X, REL_Y, REL_WHEEL = 0x00, 0x01, 0x08
 KEYBOARD = DeviceCapabilities(keys=keys("KEY_ESC", "KEY_A", "KEY_F13", "KEY_LEFTCTRL"))
 XBOX_PAD = DeviceCapabilities(
     keys=keys(
-        "BTN_SOUTH",
-        "BTN_EAST",
-        "BTN_NORTH",
-        "BTN_WEST",
+        "BTN_FACE_DOWN",
+        "BTN_FACE_RIGHT",
+        "BTN_FACE_LEFT",
+        "BTN_FACE_UP",
         "BTN_TL",
         "BTN_TR",
         "BTN_SELECT",
@@ -77,7 +77,7 @@ DINPUT_PAD = DeviceCapabilities(
     },  # fmt: skip
 )
 FLIGHT_STICK = DeviceCapabilities(
-    keys=keys("BTN_SOUTH"),
+    keys=keys("BTN_FACE_DOWN"),
     axes={ABS["ABS_X"]: STICK, ABS["ABS_THROTTLE"]: (0, 255)},
 )
 
@@ -99,13 +99,13 @@ def refusal(caps, text):
 
 
 def test_keyboard_keys_go_to_the_keyboard_output():
-    p = plan(KEYBOARD, BOTH_OUTPUTS + "map KEY_A { hold BTN_SOUTH }")
+    p = plan(KEYBOARD, BOTH_OUTPUTS + "map KEY_A { hold BTN_FACE_DOWN }")
     assert p.keys == {code: "keyboard" for code in KEYBOARD.keys}
     assert not p.axes and not p.needs_passthrough
 
 
 def test_xbox_pad_goes_completely_to_the_gamepad_output():
-    p = plan(XBOX_PAD, BOTH_OUTPUTS + "map BTN_SOUTH { hold KEY_SPACE }")
+    p = plan(XBOX_PAD, BOTH_OUTPUTS + "map BTN_FACE_DOWN { hold KEY_SPACE }")
     assert p.keys == {code: "gamepad" for code in XBOX_PAD.keys}
     assert {code: (r.output, r.kind) for code, r in p.axes.items()} == {
         ABS["ABS_X"]: ("gamepad", AxisKind.STICK),
@@ -137,7 +137,9 @@ def test_mouse_parts_pass_through_and_its_keys_go_to_the_keyboard():
 
 
 def test_keys_without_keyboard_output_refuse_the_device():
-    message = refusal(KEYBOARD, "output gamepad { type = gamepad }\nmap KEY_A { hold BTN_SOUTH }")
+    message = refusal(
+        KEYBOARD, "output gamepad { type = gamepad }\nmap KEY_A { hold BTN_FACE_DOWN }"
+    )
     assert message.startswith("input 'dev' is not taken over")
     assert "it has keys (KEY_ESC, KEY_LEFTCTRL, KEY_F13)" in message
     assert "add: output keyboard { type = keyboard }" in message
@@ -151,30 +153,35 @@ def test_keys_that_mappings_use_need_no_target():
 
 
 def test_pad_without_gamepad_output_is_refused():
-    message = refusal(XBOX_PAD, "output keyboard { type = keyboard }\nmap BTN_SOUTH { tap KEY_A }")
-    assert "gamepad or joystick parts (BTN_EAST, BTN_X, BTN_Y, BTN_TL, BTN_TR, … " in message
+    message = refusal(
+        XBOX_PAD, "output keyboard { type = keyboard }\nmap BTN_FACE_DOWN { tap KEY_A }"
+    )
+    assert (
+        "gamepad or joystick parts (BTN_FACE_RIGHT, BTN_FACE_LEFT, BTN_FACE_UP, BTN_TL, BTN_TR, … "
+        in message
+    )
     assert "add: output gamepad { type = gamepad }, or use `to = own`" in message
 
 
 def test_directinput_pad_is_refused_with_a_hint_to_own():
-    message = refusal(DINPUT_PAD, BOTH_OUTPUTS + "map KEY_A { hold BTN_SOUTH }")
+    message = refusal(DINPUT_PAD, BOTH_OUTPUTS + "map KEY_A { hold BTN_FACE_DOWN }")
     assert "BTN_TRIGGER, BTN_THUMB, BTN_THUMB2, BTN_TOP" in message
     assert "use `to = own`" in message
 
 
 def test_centred_axis_on_a_trigger_is_refused():
-    caps = DeviceCapabilities(keys=keys("BTN_SOUTH"), axes={ABS["ABS_RZ"]: STICK})
-    message = refusal(caps, BOTH_OUTPUTS + "map KEY_A { hold BTN_SOUTH }")
+    caps = DeviceCapabilities(keys=keys("BTN_FACE_DOWN"), axes={ABS["ABS_RZ"]: STICK})
+    message = refusal(caps, BOTH_OUTPUTS + "map KEY_A { hold BTN_FACE_DOWN }")
     assert "ABS_RZ is centred like a stick but is a trigger" in message
 
 
 def test_flight_stick_axes_are_refused():
-    message = refusal(FLIGHT_STICK, BOTH_OUTPUTS + "map KEY_A { hold BTN_SOUTH }")
+    message = refusal(FLIGHT_STICK, BOTH_OUTPUTS + "map KEY_A { hold BTN_FACE_DOWN }")
     assert "gamepad or joystick parts (ABS_THROTTLE)" in message
 
 
 def test_touchpad_is_refused():
-    message = refusal(TOUCHPAD, BOTH_OUTPUTS + "map KEY_A { hold BTN_SOUTH }")
+    message = refusal(TOUCHPAD, BOTH_OUTPUTS + "map KEY_A { hold BTN_FACE_DOWN }")
     assert "is a touchpad, touchscreen or tablet" in message and "`to = own`" in message
 
 
@@ -189,11 +196,11 @@ def test_own_passes_everything_through():
 
 
 def test_mapped_extra_button_needs_no_target_and_mapped_paddle_is_routed():
-    caps = DeviceCapabilities(keys=keys("BTN_SOUTH", "BTN_TRIGGER_HAPPY1"))
+    caps = DeviceCapabilities(keys=keys("BTN_FACE_DOWN", "BTN_TRIGGER_HAPPY1"))
     p = plan(caps, BOTH_OUTPUTS + "map BTN_TRIGGER_HAPPY1 { hold BTN_GRIPL }")
-    assert p.keys == {c("BTN_SOUTH"): "gamepad"}
+    assert p.keys == {c("BTN_FACE_DOWN"): "gamepad"}
     # A paddle on the physical pad goes to the gamepad once a mapping adds it there.
-    caps = DeviceCapabilities(keys=keys("BTN_SOUTH", "BTN_GRIPL"))
+    caps = DeviceCapabilities(keys=keys("BTN_FACE_DOWN", "BTN_GRIPL"))
     p = plan(caps, BOTH_OUTPUTS + "map KEY_F13 { hold BTN_GRIPL }")
     assert p.keys[c("BTN_GRIPL")] == "gamepad"
 
@@ -208,7 +215,7 @@ def test_explicit_target():
         'version 1\ninput dev { name = "D"; to = gamepad2 }\n'
         "output keyboard { type = keyboard }\noutput gamepad1 { type = gamepad }\n"
         "output gamepad2 { type = gamepad }\n"
-        "map KEY_A { hold gamepad1.BTN_SOUTH; hold gamepad2.BTN_SOUTH }"
+        "map KEY_A { hold gamepad1.BTN_FACE_DOWN; hold gamepad2.BTN_FACE_DOWN }"
     )
     config = compile_text(text, "t.inpmap").config
     p = plan_route(config.inputs["dev"], config, XBOX_PAD)
@@ -218,7 +225,9 @@ def test_explicit_target():
 
 def test_misc_axis_passes_through():
     caps = DeviceCapabilities(keys=keys("KEY_A"), axes={ABS_MISC: (0, 255)})
-    assert plan(caps, BOTH_OUTPUTS + "map KEY_A { hold BTN_SOUTH }").passthrough_axes == {ABS_MISC}
+    assert plan(caps, BOTH_OUTPUTS + "map KEY_A { hold BTN_FACE_DOWN }").passthrough_axes == {
+        ABS_MISC
+    }
 
 
 @pytest.mark.parametrize(
@@ -294,7 +303,7 @@ def feed(engine, router, device, code, action):
 
 
 def test_unmapped_keys_go_to_the_keyboard_output_and_repeats_are_dropped():
-    engine, router, sink = routed(BOTH_OUTPUTS + "map KEY_ESC { hold BTN_SOUTH }", KEYBOARD)
+    engine, router, sink = routed(BOTH_OUTPUTS + "map KEY_ESC { hold BTN_FACE_DOWN }", KEYBOARD)
     a = c("KEY_A")
     for action in (PRESS, REPEAT, REPEAT, RELEASE):
         feed(engine, router, "dev", a, action)
@@ -302,8 +311,8 @@ def test_unmapped_keys_go_to_the_keyboard_output_and_repeats_are_dropped():
 
 
 def test_button_held_on_the_pad_and_by_a_mapping_stays_down_until_both_let_go():
-    engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { hold BTN_SOUTH }", XBOX_PAD)
-    south, tl = c("BTN_SOUTH"), c("BTN_TL")
+    engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { hold BTN_FACE_DOWN }", XBOX_PAD)
+    south, tl = c("BTN_FACE_DOWN"), c("BTN_TL")
     feed(engine, router, "dev", south, PRESS)
     feed(engine, router, "dev", tl, PRESS)
     feed(engine, router, "dev", south, RELEASE)
@@ -365,10 +374,10 @@ def test_dpad_axes_become_dpad_buttons_shared_with_mappings():
 
 def test_detach_releases_held_keys_and_returns_axes_to_rest():
     engine, router, sink = routed(BOTH_OUTPUTS + "map BTN_TL { hold KEY_A }", XBOX_PAD)
-    feed(engine, router, "dev", c("BTN_SOUTH"), PRESS)
+    feed(engine, router, "dev", c("BTN_FACE_DOWN"), PRESS)
     router.axis("dev", ABS["ABS_RZ"], 1.0)
     router.detach("dev")
-    assert sink.events[-2:] == [("gamepad", c("BTN_SOUTH"), 0), ("gamepad", ABS["ABS_RZ"], 0.0)]
+    assert sink.events[-2:] == [("gamepad", c("BTN_FACE_DOWN"), 0), ("gamepad", ABS["ABS_RZ"], 0.0)]
     assert not router.routes("dev")
 
 

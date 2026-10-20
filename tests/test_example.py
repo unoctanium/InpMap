@@ -25,10 +25,10 @@ def test_valid_without_and_with_a_keyboard():
 @pytest.mark.parametrize(
     "mapping, scenario, expected",
     [
-        ("KEY_F1", {}, ["keyboard KEY_A", "gamepad BTN_SOUTH"]),
+        ("KEY_F1", {}, ["keyboard KEY_A", "gamepad BTN_FACE_DOWN"]),
         ("KEY_F2", {"press_at": [0, 150], "hold_ms": 50}, ["keyboard KEY_2"]),
         ("KEY_F2", {"hold_ms": 500}, ["keyboard KEY_3"]),
-        ("KEY_F3", {}, ["keyboard KEY_Q", "gamepad BTN_EAST"]),
+        ("KEY_F3", {}, ["keyboard KEY_Q", "gamepad BTN_FACE_RIGHT"]),
         ("KEY_F7+ctrl", {}, ["keyboard KEY_LEFTCTRL", "keyboard KEY_C"]),
         (
             "KEY_F8",

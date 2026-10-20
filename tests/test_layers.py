@@ -102,8 +102,8 @@ layer b { map kbd.KEY_X { hold KEY_B } }
 
 
 def test_layers_are_global_across_devices():
-    rig = Rig("map pad.BTN_WEST { hold layer nav }\nlayer nav { map kbd.KEY_W { hold KEY_UP } }")
-    rig.press("BTN_WEST", "pad")
+    rig = Rig("map pad.BTN_FACE_UP { hold layer nav }\nlayer nav { map kbd.KEY_W { hold KEY_UP } }")
+    rig.press("BTN_FACE_UP", "pad")
     rig.press("KEY_W")
     rig.release("KEY_W")
     assert names(rig) == ["KEY_UP", "KEY_UP"]

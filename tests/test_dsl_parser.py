@@ -30,7 +30,7 @@ map KEY_X {
     keep modifiers
     key_pause 5ms
     max_run none
-    hold KEY_A + gamepad.BTN_SOUTH
+    hold KEY_A + gamepad.BTN_FACE_DOWN
     tap ctrl + KEY_C (pause 30ms)
     press KEY_B
     release KEY_B (pause 0ms)

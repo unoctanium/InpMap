@@ -8,7 +8,7 @@ from inpmap.output import OutputError, OutputManager
 
 KEY_Y = code_from_name("KEY_Y")
 KEY_Z = code_from_name("KEY_Z")
-BTN_SOUTH = code_from_name("BTN_SOUTH")
+BTN_FACE_DOWN = code_from_name("BTN_FACE_DOWN")
 
 CONFIG = parse_config(
     {
@@ -24,7 +24,7 @@ CONFIG = parse_config(
                 "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
                 "outputs": [
                     {"device": "vkbd", "type": "key", "code": "KEY_Y"},
-                    {"device": "pad", "type": "button", "code": "BTN_SOUTH"},
+                    {"device": "pad", "type": "button", "code": "BTN_FACE_DOWN"},
                 ],
             },
             {
@@ -54,13 +54,13 @@ def test_open_creates_devices_with_needed_codes(backend):
 def test_press_and_release_route_to_device(backend):
     with OutputManager(backend, CONFIG) as outputs:
         outputs.press("vkbd", KEY_Y)
-        outputs.press("pad", BTN_SOUTH)
+        outputs.press("pad", BTN_FACE_DOWN)
         assert outputs.held("vkbd") == {KEY_Y}
         outputs.release("vkbd", KEY_Y)
-        outputs.release("pad", BTN_SOUTH)
+        outputs.release("pad", BTN_FACE_DOWN)
         assert outputs.held("vkbd") == set()
     assert backend.created["vkbd"].events == [(KEY_Y, True), (KEY_Y, False)]
-    assert backend.created["pad"].events == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+    assert backend.created["pad"].events == [(BTN_FACE_DOWN, True), (BTN_FACE_DOWN, False)]
 
 
 def test_redundant_transitions_are_ignored(backend):
@@ -78,18 +78,18 @@ def test_close_releases_held_codes_before_destroying(backend):
     outputs.open()
     outputs.press("vkbd", KEY_Y)
     outputs.press("vkbd", KEY_Z)
-    outputs.press("pad", BTN_SOUTH)
+    outputs.press("pad", BTN_FACE_DOWN)
     outputs.close()
     assert backend.created["vkbd"].events[-2:] == [(KEY_Y, False), (KEY_Z, False)]
-    assert backend.created["pad"].events[-1] == (BTN_SOUTH, False)
+    assert backend.created["pad"].events[-1] == (BTN_FACE_DOWN, False)
     assert all(device.closed for device in backend.created.values())
 
 
 def test_exception_inside_context_still_releases(backend):
     with pytest.raises(RuntimeError, match="boom"), OutputManager(backend, CONFIG) as outputs:
-        outputs.press("pad", BTN_SOUTH)
+        outputs.press("pad", BTN_FACE_DOWN)
         raise RuntimeError("boom")
-    assert backend.created["pad"].events[-1] == (BTN_SOUTH, False)
+    assert backend.created["pad"].events[-1] == (BTN_FACE_DOWN, False)
     assert backend.created["pad"].closed
 
 
@@ -127,11 +127,11 @@ def test_release_failure_on_one_device_does_not_block_others(backend):
     outputs = OutputManager(backend, CONFIG)
     outputs.open()
     outputs.press("vkbd", KEY_Y)
-    outputs.press("pad", BTN_SOUTH)
+    outputs.press("pad", BTN_FACE_DOWN)
     backend.created["vkbd"].fail_writes = True
     with pytest.raises(OutputError, match="vkbd KEY_Y"):
         outputs.close()
-    assert backend.created["pad"].events[-1] == (BTN_SOUTH, False)
+    assert backend.created["pad"].events[-1] == (BTN_FACE_DOWN, False)
     assert all(device.closed for device in backend.created.values())
 
 

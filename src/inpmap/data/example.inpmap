@@ -14,7 +14,7 @@ output gamepad { type = gamepad }
 # F1: one key, two devices - keyboard A and gamepad A while F1 is held
 map KEY_F1 {
     hold KEY_A
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 
 # F2: tap types 1, double tap types 2, long press types 3
@@ -28,18 +28,18 @@ map KEY_F2 {
 map KEY_F3 {
     tap KEY_Q
     wait random(40ms, 60ms)
-    tap BTN_EAST
+    tap BTN_FACE_RIGHT
 }
 
 # F4: autofire gamepad A while F4 is held
 map KEY_F4 {
     cancel on release
-    while held { tap BTN_SOUTH (pause 30ms) }
+    while held { tap BTN_FACE_DOWN (pause 30ms) }
 }
 
 # F5: autofire switched on by one press and off by the next
 map KEY_F5 {
-    toggle { tap BTN_SOUTH (pause 50ms) }
+    toggle { tap BTN_FACE_DOWN (pause 50ms) }
 }
 
 # F6: push the left stick up within 150 ms; it returns within 50 ms on release

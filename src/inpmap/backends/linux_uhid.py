@@ -230,12 +230,12 @@ HAT_NEUTRAL = 8
 
 # EV_KEY code -> (byte, bit) in report 0x01 (hid-playstation DS_BUTTONS*).
 BUTTON_BITS: dict[int, tuple[int, int]] = {
-    # 0x133 is the left button for Xbox pads, SDL and Steam (BTN_X), although
-    # the kernel also calls it BTN_NORTH (configuration.md §3.3).
-    codes.CODES["BTN_X"]: (8, 0x10),  # Square
-    codes.CODES["BTN_SOUTH"]: (8, 0x20),  # Cross
-    codes.CODES["BTN_EAST"]: (8, 0x40),  # Circle
-    codes.CODES["BTN_Y"]: (8, 0x80),  # Triangle
+    # 0x133 is the left button for Xbox pads, SDL and Steam (BTN_FACE_LEFT), although
+    # the kernel also calls it BTN_FACE_LEFT (configuration.md §3.3).
+    codes.CODES["BTN_FACE_LEFT"]: (8, 0x10),  # Square
+    codes.CODES["BTN_FACE_DOWN"]: (8, 0x20),  # Cross
+    codes.CODES["BTN_FACE_RIGHT"]: (8, 0x40),  # Circle
+    codes.CODES["BTN_FACE_UP"]: (8, 0x80),  # Triangle
     codes.CODES["BTN_TL"]: (9, 0x01),  # L1
     codes.CODES["BTN_TR"]: (9, 0x02),  # R1
     codes.CODES["BTN_SELECT"]: (9, 0x10),  # Create

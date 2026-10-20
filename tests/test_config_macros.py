@@ -38,7 +38,7 @@ BASE = {
             "input": {"device": "kbd", "type": "key", "code": "KEY_Z"},
             "outputs": [
                 {"device": "keyboard", "type": "key", "code": "KEY_Y"},
-                {"device": "gamepad", "type": "button", "code": "BTN_SOUTH"},
+                {"device": "gamepad", "type": "button", "code": "BTN_FACE_DOWN"},
             ],
         }
     ],
@@ -212,9 +212,9 @@ def test_keys_devices_and_chords():
     m = parse_macro(
         [
             {"tap": ["KEY_LEFTCTRL", "KEY_C"]},
-            {"tap": {"code": "BTN_EAST", "device": "gamepad"}},
-            {"press": "BTN_NORTH", "device": "gamepad"},
-            {"release": "BTN_NORTH", "device": "gamepad"},
+            {"tap": {"code": "BTN_FACE_RIGHT", "device": "gamepad"}},
+            {"press": "BTN_FACE_LEFT", "device": "gamepad"},
+            {"release": "BTN_FACE_LEFT", "device": "gamepad"},
             {"hold_keys": ["KEY_LEFTSHIFT", {"code": "BTN_TL", "device": "gamepad"}]},
             {"with_keys": "KEY_LEFTALT", "steps": [{"tap": "KEY_TAB"}]},
         ]
@@ -223,8 +223,8 @@ def test_keys_devices_and_chords():
         KeyRef("keyboard", c("KEY_LEFTCTRL")),
         KeyRef("keyboard", c("KEY_C")),
     )
-    assert m.steps[1].keys == (KeyRef("gamepad", c("BTN_EAST")),)
-    assert m.steps[2].keys == (KeyRef("gamepad", c("BTN_NORTH")),)
+    assert m.steps[1].keys == (KeyRef("gamepad", c("BTN_FACE_RIGHT")),)
+    assert m.steps[2].keys == (KeyRef("gamepad", c("BTN_FACE_LEFT")),)
     assert isinstance(m.steps[4], HoldKeys) and m.steps[4].keys[1].device == "gamepad"
     assert m.steps[5].steps == (Tap((KeyRef("keyboard", c("KEY_TAB")),)),)
 
@@ -238,7 +238,7 @@ def test_key_must_suit_device():
     assert "is not a gamepad/joystick button" in macro_problems(
         [{"tap": "BTN_LEFT", "device": "gamepad"}]
     )
-    assert "'BTN_SOUTH' is not a key code" in macro_problems([{"tap": "BTN_SOUTH"}])
+    assert "'BTN_FACE_DOWN' is not a key code" in macro_problems([{"tap": "BTN_FACE_DOWN"}])
     assert "unknown key code 'KEY_NOPE'" in macro_problems([{"tap": "KEY_NOPE"}])
 
 

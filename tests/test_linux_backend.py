@@ -79,7 +79,7 @@ CONFIG = parse_config(
                 "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
                 "outputs": [
                     {"device": "keyboard", "type": "key", "code": "KEY_Y"},
-                    {"device": "gamepad", "type": "button", "code": "BTN_SOUTH"},
+                    {"device": "gamepad", "type": "button", "code": "BTN_FACE_DOWN"},
                 ],
             }
         ],

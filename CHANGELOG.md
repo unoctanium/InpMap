@@ -4,21 +4,28 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
-## Unreleased
+## 0.4.2 (2026-10-20)
 
-- **Changed: X and Y.** `BTN_X` (code 0x133) is the left face button (Xbox
-  X, PlayStation Square) and `BTN_Y` (0x134) the top one, as Xbox
-  controllers, SDL and Steam use them; InpMap's outputs always behaved that
-  way in games, but configuration.md §3.3 described the opposite. Their
-  other Linux names `BTN_NORTH`/`BTN_WEST` now give the warning (instead
-  of `BTN_X`/`BTN_Y`), and InpMap shows 0x133/0x134 as `BTN_X`/`BTN_Y`.
-- **Fixed:** on an emulated DualSense Edge, the X and Y buttons were
-  Triangle and Square.
+- **Changed, incompatible: face buttons are named by position.**
+  `BTN_FACE_DOWN`, `BTN_FACE_RIGHT`, `BTN_FACE_LEFT`, `BTN_FACE_UP`
+  replace the Linux names (configuration.md §3.3). **`BTN_A`, `BTN_B`,
+  `BTN_X`, `BTN_Y`, `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH` and `BTN_WEST`
+  are no longer accepted**; the error message names the replacement.
+  Update your configuration files, including copies of the example: the
+  Linux names were ambiguous (Xbox controllers send the left button with
+  the code Linux calls `BTN_X` and `BTN_NORTH`, PlayStation and Nintendo
+  controllers send the top button with it).
+- Inputs with the Linux drivers `hid-playstation`, `hid-sony` and
+  `hid-nintendo` get their left and top face buttons swapped on the way in,
+  so `BTN_FACE_LEFT` is the left button on every controller (as in SDL).
+  Their own pass-through device (`to = own`) keeps the device's codes.
+- **Fixed:** on an emulated DualSense Edge, X and Y arrived as Triangle and
+  Square.
 - **Changed:** on an emulated DualSense Edge, the paddle codes follow the
   layout Steam shows: `BTN_GRIPL`/`BTN_GRIPR` are the Fn buttons (upper
-  row), `BTN_GRIPL2`/`BTN_GRIPR2` the back paddles (lower row). In games
-  (SDL) that makes `BTN_GRIPR2`, `BTN_GRIPL2`, `BTN_GRIPR`, `BTN_GRIPL`
-  paddles 1 to 4.
+  row), `BTN_GRIPL2`/`BTN_GRIPR2` the back paddles (lower row). Games (SDL)
+  number them from the back: `BTN_GRIPR2`, `BTN_GRIPL2`, `BTN_GRIPR`,
+  `BTN_GRIPL` are paddles 1 to 4.
 - New guide [docs/wow-dualsense.md](docs/wow-dualsense.md): what to set by
   hand in World of Warcraft (Steam Input, the active controller, a WoW
   controller file that makes View `PADBACK`).

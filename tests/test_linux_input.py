@@ -66,7 +66,7 @@ CONFIG = parse_config(
                 "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
                 "outputs": [
                     {"device": "keyboard", "type": "key", "code": "KEY_Y"},
-                    {"device": "gamepad", "type": "button", "code": "BTN_SOUTH"},
+                    {"device": "gamepad", "type": "button", "code": "BTN_FACE_DOWN"},
                 ],
             }
         ],
@@ -326,7 +326,7 @@ def test_macro_and_axis_output_through_runtime():
                             "macro": {
                                 "steps": [
                                     {"tap": {"code": "KEY_A", "device": "keyboard"}},
-                                    {"tap": {"code": "BTN_EAST", "device": "gamepad"}},
+                                    {"tap": {"code": "BTN_FACE_RIGHT", "device": "gamepad"}},
                                 ]
                             }
                         }
@@ -1006,7 +1006,7 @@ def routed_config(extra=""):
         f'input pad {{ name = "{PAD_NAME}" }}\n'
         f'output keyboard {{ type = keyboard; name = "{ROUTED_KEYBOARD}" }}\n'
         f'output gamepad {{ type = gamepad; name = "{ROUTED_GAMEPAD}" }}\n'
-        "map kbd.KEY_X { hold KEY_Y }\nmap pad.BTN_EAST { hold KEY_ESC }\n" + extra,
+        "map kbd.KEY_X { hold KEY_Y }\nmap pad.BTN_FACE_RIGHT { hold KEY_ESC }\n" + extra,
         "routing-test.inpmap",
     ).config
 
@@ -1132,7 +1132,7 @@ def test_refused_device_is_never_grabbed():
     config = compile_text(
         f'version 1\ninput kbd {{ name = "{PHYSICAL_NAME}" }}\n'
         f'output gamepad {{ type = gamepad; name = "{ROUTED_GAMEPAD}" }}\n'
-        "map KEY_X { hold BTN_SOUTH }\n",
+        "map KEY_X { hold BTN_FACE_DOWN }\n",
         "refused.inpmap",
     ).config
     keyboard = UInput({ecodes.EV_KEY: [ecodes.KEY_X, ecodes.KEY_A]}, name=PHYSICAL_NAME)
@@ -1145,3 +1145,54 @@ def test_refused_device_is_never_grabbed():
         device.close()
     finally:
         keyboard.close()
+
+
+# -- face buttons of PlayStation and Nintendo controllers (configuration.md §3.3) --
+
+
+def fake_sysfs(tmp_path, node, driver):
+    target = tmp_path / "drivers" / driver
+    target.mkdir(parents=True)
+    parent = tmp_path / "input" / node / "device" / "device"
+    parent.mkdir(parents=True)
+    (parent / "driver").symlink_to(target)
+    return str(tmp_path / "input")
+
+
+@pytest.mark.parametrize(
+    ("driver", "swapped"),
+    [("playstation", True), ("sony", True), ("nintendo", True), ("xpad", False)],
+)
+def test_face_buttons_are_swapped_only_for_positional_drivers(tmp_path, driver, swapped):
+    from inpmap.backends.linux_input import FACE_SWAP, face_swap, input_driver
+
+    sysfs = fake_sysfs(tmp_path, "event5", driver)
+    assert input_driver("/dev/input/event5", sysfs) == driver
+    assert face_swap("/dev/input/event5", sysfs) == (FACE_SWAP if swapped else {})
+    assert face_swap("/dev/input/event6", sysfs) == {}  # unknown driver: no swap
+
+
+class PlayStationStub(StubDevice):
+    def capabilities(self, absinfo=False):
+        return {ecodes.EV_KEY: [ecodes.BTN_SOUTH, ecodes.BTN_NORTH]}
+
+
+def test_playstation_face_buttons_reach_inpmap_swapped_and_its_pass_through_raw():
+    from inpmap.backends.linux_input import FACE_SWAP, LinuxInputSource
+    from inpmap.codes import CODES
+
+    left, up = CODES["BTN_FACE_LEFT"], CODES["BTN_FACE_UP"]
+    device, forwarder = PlayStationStub(), StubForwarder()
+    device.active = [ecodes.BTN_NORTH]  # Triangle held at open
+    source = LinuxInputSource(CONFIG.inputs["kbd"], device, forwarder, swap=FACE_SWAP)
+    assert source.capabilities().keys == {CODES["BTN_FACE_DOWN"], up}
+    assert source.held_codes() == {up}
+    # hid-playstation reports Triangle (top) as 0x133, which InpMap calls left.
+    device.feed(StubEvent(ecodes.EV_KEY, ecodes.BTN_NORTH, 0), StubEvent(ecodes.EV_KEY, 0x134, 1))
+    result = source.read()
+    assert key_events(result) == [(up, 0), (left, 1)]
+    for _, raw in result:
+        source.forward(raw)  # `to = own`: the device's own codes
+    assert forwarder.calls == [("write", ecodes.EV_KEY, 0x134, 1)]
+    source.mask(left)  # hides Square (0x134) on the pass-through device
+    assert forwarder.calls[-2:] == [("write", ecodes.EV_KEY, 0x134, 0), ("syn",)]

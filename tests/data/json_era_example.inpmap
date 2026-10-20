@@ -24,14 +24,14 @@ output gamepad {
 # X holds KEY_Y and the gamepad's south button (A) at the same time
 map KEY_X {
     hold KEY_Y
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 
 # F9: tap Q, wait 40-60 ms, tap the gamepad's east button (B)
 map KEY_F9 as combo {
     tap KEY_Q
     wait random(40ms, 60ms)
-    tap BTN_EAST
+    tap BTN_FACE_RIGHT
     presses += 1
 }
 
@@ -46,7 +46,7 @@ map KEY_F10 {
 map KEY_F11 as autofire {
     cancel on release
     while held {
-        tap BTN_SOUTH (pause 30ms)
+        tap BTN_FACE_DOWN (pause 30ms)
     }
 }
 

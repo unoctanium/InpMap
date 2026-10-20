@@ -88,7 +88,7 @@ map KEY_A { tap KEY_B }
 def test_plain_outputs_and_default_ids():
     config = compile_maps(
         """
-map KEY_X { hold KEY_Y; hold BTN_SOUTH }
+map KEY_X { hold KEY_Y; hold BTN_FACE_DOWN }
 map KEY_W { axis ABS_Y { target = -1.0; attack = 150ms; release = 50ms } }
 map KEY_D { axis ABS_X 1.0 (attack 10ms) }
 """
@@ -97,7 +97,7 @@ map KEY_D { axis ABS_X 1.0 (attack 10ms) }
     assert x.id == "KEY_X" and not x.macros
     assert [(o.device, o.code) for o in x.outputs] == [
         ("keyboard", c("KEY_Y")),
-        ("gamepad", c("BTN_SOUTH")),
+        ("gamepad", c("BTN_FACE_DOWN")),
     ]
     assert (w.axes[0].value, w.axes[0].attack_ms, w.axes[0].release_ms) == (-1.0, 150, 50)
     assert (d.axes[0].code, d.axes[0].attack_ms) == (GAMEPAD_AXES["ABS_X"][0], 10)
@@ -132,10 +132,10 @@ map KEY_B modifiers(ctrl) { keep modifiers; tap KEY_F }
 
 
 def test_device_inference_and_aliases():
-    m = macro_of("map KEY_X { tap ctrl + KEY_C; tap BTN_EAST; tap keyboard.KEY_Q }")
+    m = macro_of("map KEY_X { tap ctrl + KEY_C; tap BTN_FACE_RIGHT; tap keyboard.KEY_Q }")
     assert m.steps == (
         Tap((K("KEY_LEFTCTRL"), K("KEY_C"))),
-        Tap((K("BTN_EAST", "gamepad"),)),
+        Tap((K("BTN_FACE_RIGHT", "gamepad"),)),
         Tap((K("KEY_Q"),)),
     )
 
@@ -263,10 +263,23 @@ def test_gestures():
     assert only_tap == IfTap((Tap((K("KEY_1"),)),), (), 300.0)
 
 
-def test_warning_for_btn_x():
-    result = compile_text(HEADER + "map KEY_X { tap BTN_NORTH }" + ANCHOR, "t.inpmap")
-    assert len(result.warnings) == 1
-    assert result.warnings[0].startswith("t.inpmap:5:17: warning: BTN_NORTH is the left button")
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("BTN_A", "BTN_FACE_DOWN"),
+        ("BTN_EAST", "BTN_FACE_RIGHT"),
+        ("BTN_NORTH", "BTN_FACE_LEFT"),
+        ("BTN_Y", "BTN_FACE_UP"),
+    ],
+)
+def test_linux_face_button_names_are_errors_naming_the_replacement(old, new):
+    for body in (f"map KEY_X {{ tap {old} }}", f"map {old} {{ tap KEY_A }}"):
+        found = problems(HEADER + body + ANCHOR)
+        assert len(found) == 1
+        assert (
+            f"unknown button code '{old}' (face buttons are named by position: use '{new}'"
+            in (found[0])
+        )
 
 
 # -- errors with positions -------------------------------------------------------------------

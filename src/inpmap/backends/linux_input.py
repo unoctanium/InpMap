@@ -15,6 +15,13 @@ Notes:
   keyboard output (or, with ``to = own``, on the pass-through device); it is
   read back from the uinput descriptor and applied to the physical device.
 * Force feedback (rumble) is not passed through; forwarders have no EV_FF.
+* Face buttons: InpMap's names follow Xbox controllers (``xpad``), SDL and
+  Steam, where 0x133 is the left button (BTN_FACE_LEFT) and 0x134 the top one
+  (configuration.md §3.3). The kernel drivers of PlayStation and Nintendo
+  controllers send them the other way round (the kernel's positional names
+  BTN_NORTH/BTN_WEST),
+  so for those devices the two codes are swapped on the way in and back on
+  the way to their own pass-through device. SDL makes the same distinction.
 * Our own virtual devices (phys starting with "inpmap", or the MAC prefix of
   an emulated DualSense Edge as uniq) are never opened as inputs, which
   prevents feedback loops.
@@ -28,7 +35,7 @@ import os
 import re
 import select
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from evdev import InputDevice, UInput, ecodes, list_devices
@@ -55,6 +62,28 @@ _LEDS = {
     ecodes.LED_CAPSL: Led.CAPSLOCK,
     ecodes.LED_SCROLLL: Led.SCROLLLOCK,
 }
+
+
+# Kernel drivers that report the left/top face buttons positionally.
+POSITIONAL_FACE_DRIVERS = frozenset({"playstation", "sony", "nintendo"})
+_FACE_LEFT = codes.CODES["BTN_FACE_LEFT"]
+_FACE_UP = codes.CODES["BTN_FACE_UP"]
+FACE_SWAP = {_FACE_LEFT: _FACE_UP, _FACE_UP: _FACE_LEFT}
+
+
+def input_driver(path: str, sysfs: str = "/sys/class/input") -> str:
+    """Name of the kernel driver behind an event node ("" if unknown)."""
+    link = os.path.join(sysfs, os.path.basename(path), "device", "device", "driver")
+    target = os.path.realpath(link)
+    return os.path.basename(target) if os.path.exists(target) else ""
+
+
+def face_swap(path: str, sysfs: str = "/sys/class/input") -> Mapping[int, int]:
+    """Code translation for a device's face buttons (empty for most devices).
+
+    Its own inverse, so the same mapping translates back.
+    """
+    return FACE_SWAP if input_driver(path, sysfs) in POSITIONAL_FACE_DRIVERS else {}
 
 
 def is_own_device(device: InputDevice) -> bool:
@@ -262,6 +291,7 @@ def listen(
     """
     notes: list[str] = []
     devices: dict[int, InputDevice] = {}
+    swaps: dict[int, Mapping[int, int]] = {}
     ranges: dict[tuple[str, int], tuple[int, int]] = {}
     try:
         for path in paths:
@@ -278,6 +308,7 @@ def listen(
                 device.close()
                 continue
             devices[device.fd] = device
+            swaps[device.fd] = face_swap(path)
             for code, info in device.capabilities(absinfo=True).get(ecodes.EV_ABS, []):
                 ranges[(path, code)] = (info.min, info.max)
         deadline = None if timeout is None else time.monotonic() + timeout
@@ -293,9 +324,11 @@ def listen(
                 except OSError:  # unplugged
                     del devices[fd]
                     continue
+                swap = swaps[fd]
                 for event in events:
                     if event.type == ecodes.EV_KEY and event.value in (0, 1):
-                        on_key(device.path, device.name, event.code, event.value == 1)
+                        code = swap.get(event.code, event.code)
+                        on_key(device.path, device.name, code, event.value == 1)
                     elif event.type == ecodes.EV_ABS and (device.path, event.code) in ranges:
                         value = normalize(event.value, *ranges[(device.path, event.code)])
                         on_axis(device.path, device.name, event.code, value)
@@ -337,12 +370,20 @@ class LinuxInputSource:
     """
 
     def __init__(
-        self, spec: InputDeviceSpec, device: InputDevice, forwarder: UInput | None = None
+        self,
+        spec: InputDeviceSpec,
+        device: InputDevice,
+        forwarder: UInput | None = None,
+        swap: Mapping[int, int] | None = None,
     ) -> None:
         """``forwarder``: an existing full pass-through device (tests); normally
-        :meth:`start_passthrough` creates what the route plan needs."""
+        :meth:`start_passthrough` creates what the route plan needs. ``swap``:
+        face button translation (default: from the device's driver)."""
         self._spec = spec
         self._device = device
+        # Device code <-> InpMap code; codes InpMap sees are translated, the
+        # pass-through device gets the device's own codes.
+        self._swap = face_swap(device.path) if swap is None else swap
         self._forwarder = forwarder  # the pass-through device
         # (type, code) the pass-through device carries; None: everything (`to = own`)
         self._carried: frozenset[tuple[int, int]] | None = None if forwarder else frozenset()
@@ -350,15 +391,19 @@ class LinuxInputSource:
         self._forwarded_held: set[int] = set()
         # Key state as seen in the event stream we consumed; used to
         # resynchronize after SYN_DROPPED.
-        self._down: set[int] = set(self._query_keys_or_empty())
+        self._down: set[int] = set(map(self._code, self._query_keys_or_empty()))
         self._dropping = False
         self._led_warning_logged = False
         self._masked: set[int] = set()
         capabilities = device.capabilities(absinfo=True)
-        self._key_codes = frozenset(capabilities.get(ecodes.EV_KEY, []))
+        self._key_codes = frozenset(map(self._code, capabilities.get(ecodes.EV_KEY, [])))
         self._absinfo = dict(capabilities.get(ecodes.EV_ABS, []))
         self._axis_ranges = {code: (info.min, info.max) for code, info in self._absinfo.items()}
         self._relative = frozenset(capabilities.get(ecodes.EV_REL, []))
+
+    def _code(self, code: int) -> int:
+        """Translate a key code between the device and InpMap (both ways)."""
+        return self._swap.get(code, code)
 
     def _query_keys_or_empty(self) -> list[int]:
         try:
@@ -407,7 +452,7 @@ class LinuxInputSource:
                 return
             events: dict[int, list] = {}
             if plan.passthrough_keys:
-                events[ecodes.EV_KEY] = sorted(plan.passthrough_keys)
+                events[ecodes.EV_KEY] = sorted(map(self._code, plan.passthrough_keys))
             if plan.passthrough_relative:
                 events[ecodes.EV_REL] = sorted(plan.passthrough_relative)
             if plan.passthrough_axes:
@@ -479,7 +524,7 @@ class LinuxInputSource:
 
     def held_codes(self) -> frozenset[int]:
         try:
-            return frozenset(self._device.active_keys())
+            return frozenset(map(self._code, self._device.active_keys()))
         except OSError as exc:
             raise _io_error(exc, self.description, "querying") from exc
 
@@ -519,8 +564,9 @@ class LinuxInputSource:
                     self._dropping = False
                     result += self._resync()
             elif raw.type == ecodes.EV_KEY and raw.value in _KEY_ACTIONS:
-                self._track(raw.code, raw.value)
-                event = InputEvent(self._spec.id, raw.code, _KEY_ACTIONS[raw.value])
+                code = self._code(raw.code)
+                self._track(code, raw.value)
+                event = InputEvent(self._spec.id, code, _KEY_ACTIONS[raw.value])
                 result.append((event, raw))
             elif raw.type == ecodes.EV_ABS and raw.code in self._axis_ranges:
                 value = normalize(raw.value, *self._axis_ranges[raw.code])
@@ -542,7 +588,7 @@ class LinuxInputSource:
         are not (they are refreshed by the next movement).
         """
         try:
-            current = set(self._device.active_keys())
+            current = set(map(self._code, self._device.active_keys()))
         except OSError as exc:
             raise _io_error(exc, self.description, "resynchronizing") from exc
         result: list[tuple[InputEvent | None, object]] = []
@@ -558,7 +604,7 @@ class LinuxInputSource:
     def _synthetic_key(self, code: int, value: int) -> tuple[InputEvent, object]:
         self._track(code, value)
         event = InputEvent(self._spec.id, code, _KEY_ACTIONS[value])
-        return event, _SyntheticEvent(ecodes.EV_KEY, code, value)
+        return event, _SyntheticEvent(ecodes.EV_KEY, self._code(code), value)
 
     def forward(self, raw: object) -> None:
         """Re-emit an event on the pass-through device; dropped if it does not carry it."""
@@ -571,7 +617,7 @@ class LinuxInputSource:
             and (etype, code) not in self._carried
         ):
             return
-        if etype == ecodes.EV_KEY and code in self._masked:
+        if etype == ecodes.EV_KEY and self._code(code) in self._masked:
             return  # hidden while a mapping with modifiers runs
         if etype == ecodes.EV_KEY and value != 1 and code not in self._forwarded_held:
             return  # release/repeat of a key the desktop does not have down
@@ -589,15 +635,15 @@ class LinuxInputSource:
         if code in self._masked:
             return
         self._masked.add(code)
-        if code in self._forwarded_held:
-            self._write_key(code, 0)
+        if self._code(code) in self._forwarded_held:
+            self._write_key(self._code(code), 0)
 
     def unmask(self, code: int) -> None:
         if code not in self._masked:
             return
         self._masked.discard(code)
-        if code in self._down and code not in self._forwarded_held:
-            self._write_key(code, 1)
+        if code in self._down and self._code(code) not in self._forwarded_held:
+            self._write_key(self._code(code), 1)
 
     def _write_key(self, code: int, value: int) -> None:
         if self._forwarder is None:
@@ -685,14 +731,15 @@ class LinuxInputBackend:
             raise InputError(
                 f"input '{spec.id}': {device.path} is one of InpMap's own virtual devices"
             )
-        keys = set(device.capabilities().get(ecodes.EV_KEY, []))
+        swap = face_swap(device.path)
+        keys = {swap.get(code, code) for code in device.capabilities().get(ecodes.EV_KEY, [])}
         missing = sorted(mapped_codes - keys)
         if missing:
             names = ", ".join(codes.code_name(code) for code in missing)
             raise InputError(
                 f"input '{spec.id}': '{device.name}' ({device.path}) does not report {names}"
             )
-        return LinuxInputSource(spec, device)
+        return LinuxInputSource(spec, device, swap=swap)
 
     def resolve_path(self, spec: InputDeviceSpec) -> str:
         """The event node a selector refers to (InputError if missing or ambiguous)."""

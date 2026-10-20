@@ -179,7 +179,16 @@ row); WoW then shows GRIPR2, GRIPL2, GRIPR, GRIPL as PADPADDLE1–4.
 `docs/wow-dualsense.md` (Steam Input off, GamePadSingleActiveID 0, a
 `WTF/GamePadConfig_InpMap.json` with raw 4 → PADBACK, made from WoW's own
 entry; whether WoW applies it is not yet verified).
-⏳ Maintainer's test of the source version, then release 0.4.2.
+Follow-up decision (maintainer, same day): no Linux names for face
+buttons at all — `BTN_FACE_DOWN/RIGHT/LEFT/UP` (gen_codes renames, old
+names rejected with an error naming the replacement, only a CHANGELOG
+note since nobody else uses InpMap yet), and inputs with the drivers
+playstation/sony/nintendo get 0x133/0x134 swapped on the way in (driver
+read from sysfs; raw codes kept for their own pass-through device).
+Released as 0.4.2 together with the X/Y fix, the Steam-picture paddle
+layout and the WoW guide; ⏳ the maintainer's WoW/Steam test follows with
+the package. The maintainer's `~/.config/inpmap/example.inpmap` copy
+still uses old names (left for the maintainer).
 Also open: with emulation off (uinput gamepad), KDE's controller page
 showed "Paddle Button 2" stuck after holding M3, pressing M4, releasing
 both; not yet reproduced with a recording (InpMap, Raiju or KDE display?).

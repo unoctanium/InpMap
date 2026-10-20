@@ -33,7 +33,7 @@ def problems(text):
 
 
 def test_emulate_is_recorded_on_the_output():
-    spec = config(EDGE + "map pad.BTN_EAST { hold BTN_GRIPR }").outputs["gamepad"]
+    spec = config(EDGE + "map pad.BTN_FACE_RIGHT { hold BTN_GRIPR }").outputs["gamepad"]
     assert (spec.kind, spec.emulate, spec.name) == (
         OutputKind.GAMEPAD,
         "dualsense-edge",
@@ -43,7 +43,10 @@ def test_emulate_is_recorded_on_the_output():
 
 def test_plain_gamepad_has_no_emulation():
     text = 'version 1\ninput pad { name = "Pad" }\noutput gamepad { type = gamepad }\n'
-    assert config(text + "map pad.BTN_EAST { hold BTN_SOUTH }").outputs["gamepad"].emulate is None
+    assert (
+        config(text + "map pad.BTN_FACE_RIGHT { hold BTN_FACE_DOWN }").outputs["gamepad"].emulate
+        is None
+    )
 
 
 def test_paddles_and_fn_buttons_are_accepted():
@@ -60,20 +63,21 @@ def test_paddles_and_fn_buttons_are_accepted():
 
 
 def test_buttons_the_edge_does_not_have_are_errors_with_position():
-    found = problems(EDGE + "map pad.BTN_EAST { hold BTN_TRIGGER_HAPPY5 }")
+    found = problems(EDGE + "map pad.BTN_FACE_RIGHT { hold BTN_TRIGGER_HAPPY5 }")
     assert len(found) == 1
     assert found[0].startswith("t.inpmap:7:")
     assert "emulates a DualSense Edge, which has no BTN_TRIGGER_HAPPY5" in found[0]
 
 
 def test_buttons_in_macros_are_checked_too():
-    found = problems(EDGE + "map pad.BTN_EAST { tap BTN_TRIGGER_HAPPY5 }")
+    found = problems(EDGE + "map pad.BTN_FACE_RIGHT { tap BTN_TRIGGER_HAPPY5 }")
     assert any("has no BTN_TRIGGER_HAPPY5" in p for p in found)
 
 
 def test_unknown_emulation_is_an_error():
     found = problems(
-        EDGE.replace('"dualsense-edge"', '"dualshock"') + "map pad.BTN_EAST { hold BTN_SOUTH }"
+        EDGE.replace('"dualsense-edge"', '"dualshock"')
+        + "map pad.BTN_FACE_RIGHT { hold BTN_FACE_DOWN }"
     )
     assert len(found) == 1
     assert found[0].startswith("t.inpmap:5:")
@@ -99,14 +103,16 @@ def test_fixed_capabilities():
 
 
 def test_physical_paddles_route_to_the_emulated_pad():
-    cfg = config(EDGE + "map pad.BTN_EAST { hold BTN_SOUTH }")
-    caps = DeviceCapabilities(keys=frozenset({c("BTN_SOUTH"), c("BTN_EAST"), c("BTN_GRIPL")}))
+    cfg = config(EDGE + "map pad.BTN_FACE_RIGHT { hold BTN_FACE_DOWN }")
+    caps = DeviceCapabilities(
+        keys=frozenset({c("BTN_FACE_DOWN"), c("BTN_FACE_RIGHT"), c("BTN_GRIPL")})
+    )
     plan = plan_route(cfg.inputs["pad"], cfg, caps)
     assert plan.keys[c("BTN_GRIPL")] == "gamepad"  # without a mapping that sends it
 
 
 def test_unmapped_buttons_the_edge_lacks_refuse_the_device():
-    cfg = config(EDGE + "map pad.BTN_EAST { hold BTN_SOUTH }")
-    caps = DeviceCapabilities(keys=frozenset({c("BTN_SOUTH"), c("BTN_TRIGGER_HAPPY1")}))
+    cfg = config(EDGE + "map pad.BTN_FACE_RIGHT { hold BTN_FACE_DOWN }")
+    caps = DeviceCapabilities(keys=frozenset({c("BTN_FACE_DOWN"), c("BTN_TRIGGER_HAPPY1")}))
     with pytest.raises(InputRefused, match="BTN_TRIGGER_HAPPY1"):
         plan_route(cfg.inputs["pad"], cfg, caps)

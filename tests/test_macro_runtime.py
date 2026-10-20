@@ -173,7 +173,14 @@ def test_chord_tap_releases_in_reverse_order():
 
 def test_multi_device_steps():
     rig = Rig(
-        [mapping([{"tap": "KEY_Q"}, {"tap": {"code": "BTN_EAST", "device": "gp"}, "pause_ms": 0}])]
+        [
+            mapping(
+                [
+                    {"tap": "KEY_Q"},
+                    {"tap": {"code": "BTN_FACE_RIGHT", "device": "gp"}, "pause_ms": 0},
+                ]
+            )
+        ]
     )
     rig.press()
     rig.at(100)
@@ -181,8 +188,8 @@ def test_multi_device_steps():
     assert devices == [
         ("kb", "KEY_Q", "down"),
         ("kb", "KEY_Q", "up"),
-        ("gp", "BTN_EAST", "down"),
-        ("gp", "BTN_EAST", "up"),
+        ("gp", "BTN_FACE_RIGHT", "down"),
+        ("gp", "BTN_FACE_RIGHT", "up"),
     ]
 
 
@@ -641,11 +648,11 @@ def test_device_loss_cancels_runs_of_that_device_only():
     rig = Rig(
         [
             mapping([{"press": "KEY_A"}, {"wait_ms": 10000}], code="KEY_X"),
-            mapping([{"press": "KEY_B"}, {"wait_ms": 10000}], code="BTN_EAST", device="pad"),
+            mapping([{"press": "KEY_B"}, {"wait_ms": 10000}], code="BTN_FACE_RIGHT", device="pad"),
         ]
     )
     rig.press("KEY_X")
-    rig.press("BTN_EAST", device="pad")
+    rig.press("BTN_FACE_RIGHT", device="pad")
     rig.at(50)
     rig.engine.release_device("kbd")
     assert rig.engine.held_outputs() == {("kb", c("KEY_B"))}

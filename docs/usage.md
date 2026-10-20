@@ -141,9 +141,9 @@ in any case:
 $ inpmap codes kp1
 NAME                         CODE  SENT BY
 KEY_KP1                        79  keyboard
-$ inpmap codes btn_a
+$ inpmap codes face_d
 NAME                         CODE  SENT BY
-BTN_SOUTH                     304  gamepad  (also BTN_A)
+BTN_FACE_DOWN                 304  gamepad
 ```
 
 "only as input" marks codes that no InpMap output can send (e.g. mouse
@@ -184,7 +184,7 @@ mapping, with the input names of the profile and the modifiers you hold:
 ```text
 kbd.KEY_F7                       2.4G Dongle
 kbd.KEY_F7 modifiers(ctrl)       2.4G Dongle
-pad.BTN_SOUTH                    Generic X-Box pad
+pad.BTN_FACE_DOWN                Generic X-Box pad
 pad.ABS_RZ above 0.5             Generic X-Box pad
 pad.ABS_HAT0Y below -0.5         Generic X-Box pad   (D-pad up)
 KEY_VOLUMEUP                     2.4G Dongle Keyboard   (not in default; add it with: inpmap input-config default)
@@ -367,7 +367,7 @@ time. No devices are opened or created, so this is a safe way to try out
 timing, gestures and conditions.
 
 `MAPPING` is the mapping's name: its `as` name, or the trigger as written
-(`KEY_F9`, `pad.BTN_EAST`, `KEY_LEFTBRACE+ctrl+shift`; `inpmap check` lists
+(`KEY_F9`, `pad.BTN_FACE_RIGHT`, `KEY_LEFTBRACE+ctrl+shift`; `inpmap check` lists
 them).
 
 | Option | Meaning |

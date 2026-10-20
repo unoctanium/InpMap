@@ -27,11 +27,11 @@ CONFIG = parse_config(
             {
                 "id": "x",
                 "input": key("KEY_X", "kbd"),
-                "outputs": [key("KEY_Y"), button("BTN_SOUTH")],
+                "outputs": [key("KEY_Y"), button("BTN_FACE_DOWN")],
             },
             {"id": "c", "input": key("KEY_C", "kbd"), "outputs": [key("KEY_Y")]},
             {"id": "z", "input": key("KEY_Z", "kbd"), "outputs": [button("BTN_START")]},
-            {"id": "pad-east", "input": button("BTN_EAST", "pad"), "outputs": [key("KEY_Y")]},
+            {"id": "pad-east", "input": button("BTN_FACE_RIGHT", "pad"), "outputs": [key("KEY_Y")]},
         ],
     }
 )
@@ -83,14 +83,14 @@ def test_same_code_on_other_device_is_not_mapped(engine, sink):
 
 def test_press_activates_all_outputs_and_is_consumed(engine, sink):
     assert engine.handle(ev("kbd", "KEY_X", PRESS)) is True
-    assert sink.events == [("vkbd", c("KEY_Y"), True), ("vpad", c("BTN_SOUTH"), True)]
+    assert sink.events == [("vkbd", c("KEY_Y"), True), ("vpad", c("BTN_FACE_DOWN"), True)]
     assert engine.active_rules() == ["x"]
 
 
 def test_release_releases_all_outputs(engine, sink):
     engine.handle(ev("kbd", "KEY_X", PRESS))
     assert engine.handle(ev("kbd", "KEY_X", RELEASE)) is True
-    assert sink.events[2:] == [("vkbd", c("KEY_Y"), False), ("vpad", c("BTN_SOUTH"), False)]
+    assert sink.events[2:] == [("vkbd", c("KEY_Y"), False), ("vpad", c("BTN_FACE_DOWN"), False)]
     assert engine.active_rules() == []
     assert engine.held_outputs() == set()
 
@@ -136,42 +136,42 @@ def test_independent_rules_interleave(engine, sink):
 
 
 def test_shared_output_stays_held_until_last_input_released(engine, sink):
-    engine.handle(ev("kbd", "KEY_X", PRESS))  # KEY_Y + BTN_SOUTH
+    engine.handle(ev("kbd", "KEY_X", PRESS))  # KEY_Y + BTN_FACE_DOWN
     engine.handle(ev("kbd", "KEY_C", PRESS))  # KEY_Y again
     engine.handle(ev("kbd", "KEY_X", RELEASE))
-    # BTN_SOUTH released, KEY_Y still held by "c"
+    # BTN_FACE_DOWN released, KEY_Y still held by "c"
     assert sink.events == [
         ("vkbd", c("KEY_Y"), True),
-        ("vpad", c("BTN_SOUTH"), True),
-        ("vpad", c("BTN_SOUTH"), False),
+        ("vpad", c("BTN_FACE_DOWN"), True),
+        ("vpad", c("BTN_FACE_DOWN"), False),
     ]
     engine.handle(ev("kbd", "KEY_C", RELEASE))
     assert sink.events[-1] == ("vkbd", c("KEY_Y"), False)
 
 
 def test_shared_output_across_input_devices(engine, sink):
-    engine.handle(ev("pad", "BTN_EAST", PRESS))
+    engine.handle(ev("pad", "BTN_FACE_RIGHT", PRESS))
     engine.handle(ev("kbd", "KEY_C", PRESS))
-    engine.handle(ev("pad", "BTN_EAST", RELEASE))
+    engine.handle(ev("pad", "BTN_FACE_RIGHT", RELEASE))
     assert sink.events == [("vkbd", c("KEY_Y"), True)]
     engine.handle(ev("kbd", "KEY_C", RELEASE))
     assert sink.events[-1] == ("vkbd", c("KEY_Y"), False)
 
 
 def test_alias_codes_refer_to_the_same_input(sink):
-    # BTN_A and BTN_SOUTH are one code; an event for either matches.
+    # BTN_FACE_DOWN and BTN_FACE_DOWN are one code; an event for either matches.
     config = parse_config(
         {
             "version": 1,
             "inputs": {"pad": {"name": "Pad"}},
             "outputs": {"vkbd": {"type": "keyboard"}},
             "mappings": [
-                {"id": "a", "input": button("BTN_A", "pad"), "outputs": [key("KEY_ENTER")]}
+                {"id": "a", "input": button("BTN_FACE_DOWN", "pad"), "outputs": [key("KEY_ENTER")]}
             ],
         }
     )
     engine = MappingEngine(config, sink)
-    assert engine.handle(ev("pad", "BTN_SOUTH", PRESS)) is True
+    assert engine.handle(ev("pad", "BTN_FACE_DOWN", PRESS)) is True
     assert sink.events == [("vkbd", c("KEY_ENTER"), True)]
 
 
@@ -180,9 +180,9 @@ def test_alias_codes_refer_to_the_same_input(sink):
 
 def test_release_device_releases_only_its_inputs(engine, sink):
     engine.handle(ev("kbd", "KEY_X", PRESS))
-    engine.handle(ev("pad", "BTN_EAST", PRESS))
+    engine.handle(ev("pad", "BTN_FACE_RIGHT", PRESS))
     engine.release_device("kbd")
-    # BTN_SOUTH released; KEY_Y still held by the pad's rule
+    # BTN_FACE_DOWN released; KEY_Y still held by the pad's rule
     assert engine.held_outputs() == {("vkbd", c("KEY_Y"))}
     assert engine.active_rules() == ["pad-east"]
     engine.release_device("pad")
@@ -234,7 +234,7 @@ def test_output_error_on_press_keeps_state_consistent(backend):
     with OutputManager(backend, CONFIG) as outputs:
         engine = MappingEngine(CONFIG, outputs)
         backend.created["vpad"].fail_writes = True
-        with pytest.raises(OutputError, match="mapping 'x'.*BTN_SOUTH"):
+        with pytest.raises(OutputError, match="mapping 'x'.*BTN_FACE_DOWN"):
             engine.handle(ev("kbd", "KEY_X", PRESS))
         # KEY_Y was still pressed; the rule counts as active
         assert outputs.held("vkbd") == {c("KEY_Y")}
@@ -252,7 +252,7 @@ def test_output_error_on_release_does_not_block_other_outputs(backend):
         backend.created["vkbd"].fail_writes = True
         with pytest.raises(OutputError, match="release vkbd KEY_Y"):
             engine.handle(ev("kbd", "KEY_X", RELEASE))
-        assert outputs.held("vpad") == set()  # BTN_SOUTH still released
+        assert outputs.held("vpad") == set()  # BTN_FACE_DOWN still released
         assert engine.active_rules() == []
         backend.created["vkbd"].fail_writes = False
     # OutputManager.close() released the KEY_Y it still considered held
@@ -283,7 +283,7 @@ TAP_CONFIG = parse_config(
             {
                 "id": "x",
                 "input": key("KEY_X", "kbd"),
-                "outputs": [{**key("KEY_Y"), "mode": "tap"}, button("BTN_SOUTH")],
+                "outputs": [{**key("KEY_Y"), "mode": "tap"}, button("BTN_FACE_DOWN")],
             },
             {"id": "c", "input": key("KEY_C", "kbd"), "outputs": [key("KEY_Y")]},
         ],
@@ -313,7 +313,7 @@ def test_tap_releases_after_duration_independent_of_input(tap_engine, sink, cloc
     from inpmap.engine import TAP_DURATION
 
     tap_engine.handle(ev("kbd", "KEY_X", PRESS))
-    assert sink.events == [("vkbd", c("KEY_Y"), True), ("vpad", c("BTN_SOUTH"), True)]
+    assert sink.events == [("vkbd", c("KEY_Y"), True), ("vpad", c("BTN_FACE_DOWN"), True)]
     assert tap_engine.next_deadline() == pytest.approx(100.0 + TAP_DURATION)
     tap_engine.tick()  # not due yet
     assert len(sink.events) == 2
@@ -322,9 +322,9 @@ def test_tap_releases_after_duration_independent_of_input(tap_engine, sink, cloc
     assert sink.events[-1] == ("vkbd", c("KEY_Y"), False)
     assert tap_engine.next_deadline() is None
     # the hold output still follows the input
-    assert tap_engine.held_outputs() == {("vpad", c("BTN_SOUTH"))}
+    assert tap_engine.held_outputs() == {("vpad", c("BTN_FACE_DOWN"))}
     tap_engine.handle(ev("kbd", "KEY_X", RELEASE))
-    assert sink.events[-1] == ("vpad", c("BTN_SOUTH"), False)
+    assert sink.events[-1] == ("vpad", c("BTN_FACE_DOWN"), False)
 
 
 def test_tap_with_quick_release_still_lasts_full_duration(tap_engine, sink, clock):
@@ -368,7 +368,7 @@ def test_release_all_finishes_pending_taps(tap_engine, sink):
 def test_device_loss_lets_pending_tap_finish(tap_engine, sink, clock):
     tap_engine.handle(ev("kbd", "KEY_X", PRESS))
     tap_engine.release_device("kbd")
-    assert sink.events[-1] == ("vpad", c("BTN_SOUTH"), False)  # hold output released
+    assert sink.events[-1] == ("vpad", c("BTN_FACE_DOWN"), False)  # hold output released
     assert tap_engine.held_outputs() == {("vkbd", c("KEY_Y"))}
     clock.now += 1
     tap_engine.tick()

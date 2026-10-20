@@ -15,10 +15,10 @@ from inpmap.runtime import Runtime
 
 KEY_A, KEY_X, KEY_Y = c("KEY_A"), c("KEY_X"), c("KEY_Y")
 CTRL, KEY_F7, KEY_C = c("KEY_LEFTCTRL"), c("KEY_F7"), c("KEY_C")
-BTN_SOUTH, BTN_EAST, BTN_LEFT = c("BTN_SOUTH"), c("BTN_EAST"), c("BTN_LEFT")
+BTN_FACE_DOWN, BTN_FACE_RIGHT, BTN_LEFT = c("BTN_FACE_DOWN"), c("BTN_FACE_RIGHT"), c("BTN_LEFT")
 ABS_X, ABS_HAT0Y = 0x00, 0x11
 REL_X = 0x00
-PAD_KEYS = frozenset({BTN_SOUTH, BTN_EAST})
+PAD_KEYS = frozenset({BTN_FACE_DOWN, BTN_FACE_RIGHT})
 PAD_AXES = {ABS_X: (-32768, 32767), ABS_HAT0Y: (-1, 1)}
 
 TEXT = """version 1
@@ -27,7 +27,7 @@ input pad { name = "Pad" }
 output keyboard { type = keyboard }
 output gamepad { type = gamepad }
 map kbd.KEY_X { hold KEY_Y }
-map pad.BTN_EAST { hold KEY_Y }
+map pad.BTN_FACE_RIGHT { hold KEY_Y }
 map kbd.KEY_F7 modifiers(ctrl) { hold KEY_C }
 """
 
@@ -70,21 +70,28 @@ def test_unmapped_keys_reach_the_keyboard_output_and_nothing_is_passed_through()
 
 def test_pad_buttons_and_axes_reach_the_gamepad_output():
     s = Setup()
-    s.step(lambda: s.pad.queue.extend([key_raw(BTN_SOUTH, 1), abs_raw(ABS_X, -16384), SYN]))
-    s.step(lambda: s.pad.queue.extend([abs_raw(ABS_HAT0Y, -1), key_raw(BTN_SOUTH, 0), SYN]))
-    s.step(lambda: s.pad.queue.extend([key_raw(BTN_EAST, 1), key_raw(BTN_EAST, 0), SYN]))
+    s.step(lambda: s.pad.queue.extend([key_raw(BTN_FACE_DOWN, 1), abs_raw(ABS_X, -16384), SYN]))
+    s.step(lambda: s.pad.queue.extend([abs_raw(ABS_HAT0Y, -1), key_raw(BTN_FACE_DOWN, 0), SYN]))
+    s.step(
+        lambda: s.pad.queue.extend([key_raw(BTN_FACE_RIGHT, 1), key_raw(BTN_FACE_RIGHT, 0), SYN])
+    )
     s.run()
     gamepad = s.outputs.created["gamepad"]
     up = c("BTN_DPAD_UP")
     # The D-pad axis arrives as the D-pad button; everything is released at stop.
-    assert gamepad.events == [(BTN_SOUTH, True), (up, True), (BTN_SOUTH, False), (up, False)]
+    assert gamepad.events == [
+        (BTN_FACE_DOWN, True),
+        (up, True),
+        (BTN_FACE_DOWN, False),
+        (up, False),
+    ]
     assert gamepad.axis_events == [(ABS_X, -0.5), (ABS_X, 0.0)]
-    assert s.events("keyboard") == [(KEY_Y, True), (KEY_Y, False)]  # BTN_EAST is mapped
+    assert s.events("keyboard") == [(KEY_Y, True), (KEY_Y, False)]  # BTN_FACE_RIGHT is mapped
 
 
 def test_device_loss_releases_routed_keys_and_axes():
     s = Setup()
-    s.step(lambda: s.pad.queue.extend([key_raw(BTN_SOUTH, 1), abs_raw(ABS_X, 32767), SYN]))
+    s.step(lambda: s.pad.queue.extend([key_raw(BTN_FACE_DOWN, 1), abs_raw(ABS_X, 32767), SYN]))
 
     def unplug():
         s.pad.lost = True
@@ -93,7 +100,7 @@ def test_device_loss_releases_routed_keys_and_axes():
     s.step(unplug)
     s.run()
     gamepad = s.outputs.created["gamepad"]
-    assert gamepad.events == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+    assert gamepad.events == [(BTN_FACE_DOWN, True), (BTN_FACE_DOWN, False)]
     assert gamepad.axis_events == [(ABS_X, 1.0), (ABS_X, 0.0)]
 
 
@@ -127,7 +134,7 @@ map KEY_W { hold BTN_DPAD_UP }
 
 
 def test_refused_at_start_is_an_error_also_when_waiting_for_devices():
-    s = Setup(TEXT, pad_keys=frozenset({c("BTN_TRIGGER_HAPPY1"), BTN_EAST}))
+    s = Setup(TEXT, pad_keys=frozenset({c("BTN_TRIGGER_HAPPY1"), BTN_FACE_RIGHT}))
     with pytest.raises(InputRefused, match="BTN_TRIGGER_HAPPY1"):
         s.run(wait_for_inputs=True)
 

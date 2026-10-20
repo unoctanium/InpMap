@@ -2,7 +2,7 @@
 
 Instances are produced by :mod:`inpmap.config` and never built from raw JSON
 elsewhere. Codes are stored as integers (see :mod:`inpmap.codes`), so aliases
-such as ``BTN_A``/``BTN_SOUTH`` compare equal.
+such as ``BTN_FACE_DOWN``/``BTN_FACE_DOWN`` compare equal.
 """
 
 from __future__ import annotations

@@ -114,10 +114,10 @@ def test_neutral_report():
 @pytest.mark.parametrize(
     ("name", "byte", "bit"),
     [
-        ("BTN_X", 8, 0x10),  # Square
-        ("BTN_SOUTH", 8, 0x20),
-        ("BTN_EAST", 8, 0x40),
-        ("BTN_Y", 8, 0x80),  # Triangle
+        ("BTN_FACE_LEFT", 8, 0x10),  # Square
+        ("BTN_FACE_DOWN", 8, 0x20),
+        ("BTN_FACE_RIGHT", 8, 0x40),
+        ("BTN_FACE_UP", 8, 0x80),  # Triangle
         ("BTN_TL", 9, 0x01),
         ("BTN_TR", 9, 0x02),
         ("BTN_SELECT", 9, 0x10),
@@ -321,8 +321,8 @@ def test_lost_device_is_reported_on_the_next_write():
         kernel.sock.close()
         with pytest.raises(OutputError):
             for _ in range(100):
-                device.set_key(c("BTN_SOUTH"), True)
-                device.set_key(c("BTN_SOUTH"), False)
+                device.set_key(c("BTN_FACE_DOWN"), True)
+                device.set_key(c("BTN_FACE_DOWN"), False)
                 time.sleep(0.01)
     finally:
         with pytest.raises(OutputError):

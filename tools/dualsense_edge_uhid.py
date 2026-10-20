@@ -37,7 +37,7 @@ log = logging.getLogger("dualsense-edge-uhid")
 
 # name -> (code, description); SDL paddle numbers as WoW shows them.
 BUTTONS = {
-    "cross": ("BTN_SOUTH", "cross (SDL A, WoW PAD1)"),
+    "cross": ("BTN_FACE_DOWN", "cross (SDL A, WoW PAD1)"),
     "gripl": ("BTN_GRIPL", "Edge left Fn (SDL PADDLE4, WoW PADPADDLE4)"),
     "gripr": ("BTN_GRIPR", "Edge right Fn (SDL PADDLE3, WoW PADPADDLE3)"),
     "gripl2": ("BTN_GRIPL2", "Edge left paddle (SDL PADDLE2, WoW PADPADDLE2)"),

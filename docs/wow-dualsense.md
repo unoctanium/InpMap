@@ -126,7 +126,7 @@ To undo: close WoW and delete `GamePadConfig_InpMap.json`.
 
 | InpMap code | DualSense Edge | WoW |
 |---|---|---|
-| `BTN_SOUTH`, `BTN_EAST`, `BTN_X`, `BTN_Y` | Cross, Circle, Square, Triangle | `PAD1`, `PAD2`, `PAD3`, `PAD4` |
+| `BTN_FACE_DOWN`, `BTN_FACE_RIGHT`, `BTN_FACE_LEFT`, `BTN_FACE_UP` | Cross, Circle, Square, Triangle | `PAD1`, `PAD2`, `PAD3`, `PAD4` |
 | `BTN_SELECT` | Create | `PADBACK` with the file of section 3, otherwise `PADSOCIAL` |
 | `BTN_START` | Options | `PADFORWARD` |
 | `BTN_MODE` | PS button | `PADSYSTEM` |

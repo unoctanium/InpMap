@@ -30,12 +30,12 @@ CONFIG = parse_config(
                 "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
                 "outputs": [
                     {"device": "vkbd", "type": "key", "code": "KEY_Y"},
-                    {"device": "vpad", "type": "button", "code": "BTN_SOUTH"},
+                    {"device": "vpad", "type": "button", "code": "BTN_FACE_DOWN"},
                 ],
             },
             {
                 "id": "east",
-                "input": {"device": "pad", "type": "button", "code": "BTN_EAST"},
+                "input": {"device": "pad", "type": "button", "code": "BTN_FACE_RIGHT"},
                 "outputs": [{"device": "vkbd", "type": "key", "code": "KEY_Y"}],
             },
         ],
@@ -43,7 +43,7 @@ CONFIG = parse_config(
 )
 
 KEY_X, KEY_A, KEY_Y = c("KEY_X"), c("KEY_A"), c("KEY_Y")
-BTN_SOUTH, BTN_EAST = c("BTN_SOUTH"), c("BTN_EAST")
+BTN_FACE_DOWN, BTN_FACE_RIGHT = c("BTN_FACE_DOWN"), c("BTN_FACE_RIGHT")
 
 
 class Harness:
@@ -100,7 +100,7 @@ def test_mapped_key_is_remapped_and_suppressed(h):
     h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 2), SYN, key_raw(KEY_X, 0), SYN]))
     assert h.run() is StopReason.STOPPED
     assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]
-    assert h.vpad_events() == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+    assert h.vpad_events() == [(BTN_FACE_DOWN, True), (BTN_FACE_DOWN, False)]
     # the original X never reaches the desktop; SYN frames are passed through
     assert all(raw[0] != "key" for raw in h.kbd.forwarded)
     assert h.kbd.forwarded == [SYN, SYN, SYN]
@@ -126,7 +126,7 @@ def test_unmapped_events_are_forwarded_unchanged(h):
 
 def test_mapped_codes_are_passed_to_backend(h):
     h.run()
-    assert h.inputs.opened_codes == {"kbd": {KEY_X}, "pad": {BTN_EAST}}
+    assert h.inputs.opened_codes == {"kbd": {KEY_X}, "pad": {BTN_FACE_RIGHT}}
 
 
 def test_outputs_created_before_any_grab_and_cleanup_order(h):
@@ -156,7 +156,11 @@ def test_waits_for_held_keys_before_grabbing_and_discards_seen_events(h):
 
 def test_other_device_works_while_one_waits_for_release(h):
     h.kbd.held = {KEY_A}
-    h.step(lambda: h.pad.queue.extend([key_raw(BTN_EAST, 1), SYN, key_raw(BTN_EAST, 0), SYN]))
+    h.step(
+        lambda: h.pad.queue.extend(
+            [key_raw(BTN_FACE_RIGHT, 1), SYN, key_raw(BTN_FACE_RIGHT, 0), SYN]
+        )
+    )
     h.run()
     assert "grab kbd" not in h.journal
     assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]
@@ -178,20 +182,20 @@ def test_timeout(h):
 
 def test_shared_output_across_devices(h):
     h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 1), SYN]))
-    h.step(lambda: h.pad.queue.extend([key_raw(BTN_EAST, 1), SYN]))
+    h.step(lambda: h.pad.queue.extend([key_raw(BTN_FACE_RIGHT, 1), SYN]))
     h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 0), SYN]))
     h.step(lambda: None)
-    h.step(lambda: h.pad.queue.extend([key_raw(BTN_EAST, 0), SYN]))
+    h.step(lambda: h.pad.queue.extend([key_raw(BTN_FACE_RIGHT, 0), SYN]))
     h.run()
     assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]
-    assert h.vpad_events() == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+    assert h.vpad_events() == [(BTN_FACE_DOWN, True), (BTN_FACE_DOWN, False)]
 
 
 def test_stop_while_key_held_releases_outputs(h):
     h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 1), SYN]))
     h.run()
     assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]
-    assert h.vpad_events() == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+    assert h.vpad_events() == [(BTN_FACE_DOWN, True), (BTN_FACE_DOWN, False)]
     h.assert_all_cleaned_up()
 
 
@@ -208,7 +212,7 @@ def test_device_loss_releases_outputs_and_reconnects(h):
 
     def check_released_while_absent():
         assert h.vkbd_events() == [(KEY_Y, True), (KEY_Y, False)]
-        assert h.vpad_events() == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+        assert h.vpad_events() == [(BTN_FACE_DOWN, True), (BTN_FACE_DOWN, False)]
         assert h.kbd.closed
         assert h.pad.grabbed  # the other device keeps working
 
@@ -235,7 +239,7 @@ def test_device_loss_releases_outputs_and_reconnects(h):
 def test_shared_output_survives_loss_of_one_holder(h):
     h.inputs.replacements["kbd"] = []
     h.step(lambda: h.kbd.queue.extend([key_raw(KEY_X, 1), SYN]))
-    h.step(lambda: h.pad.queue.extend([key_raw(BTN_EAST, 1), SYN]))
+    h.step(lambda: h.pad.queue.extend([key_raw(BTN_FACE_RIGHT, 1), SYN]))
 
     def unplug():
         h.kbd.lost = True
@@ -244,9 +248,9 @@ def test_shared_output_survives_loss_of_one_holder(h):
     h.step(unplug)
 
     def check():
-        # KEY_Y is still held by the pad's mapping; BTN_SOUTH was released.
+        # KEY_Y is still held by the pad's mapping; BTN_FACE_DOWN was released.
         assert h.vkbd_events() == [(KEY_Y, True)]
-        assert h.vpad_events() == [(BTN_SOUTH, True), (BTN_SOUTH, False)]
+        assert h.vpad_events() == [(BTN_FACE_DOWN, True), (BTN_FACE_DOWN, False)]
 
     h.step(check)
     h.run()
@@ -289,7 +293,7 @@ def test_wait_for_inputs_starts_without_a_missing_device(h, caplog):
 
     def press_on_pad():
         assert h.pad.grabbed
-        h.pad.queue.extend([key_raw(BTN_EAST, 1), SYN, key_raw(BTN_EAST, 0), SYN])
+        h.pad.queue.extend([key_raw(BTN_FACE_RIGHT, 1), SYN, key_raw(BTN_FACE_RIGHT, 0), SYN])
 
     h.step(press_on_pad)
     with caplog.at_level("INFO", logger="inpmap.runtime"):
@@ -464,7 +468,7 @@ MACRO_CONFIG = parse_config(
             },
             {
                 "id": "single",
-                "input": {"device": "pad", "type": "button", "code": "BTN_EAST"},
+                "input": {"device": "pad", "type": "button", "code": "BTN_FACE_RIGHT"},
                 "outputs": [
                     {
                         "macro": {
@@ -524,7 +528,7 @@ def test_if_single_reacts_to_key_on_another_device_before_forwarding_it():
         original_forward(raw)
 
     kbd.forward = forward
-    inputs.script.append(lambda: pad.queue.extend([key_raw(BTN_EAST, 1), SYN]))
+    inputs.script.append(lambda: pad.queue.extend([key_raw(BTN_FACE_RIGHT, 1), SYN]))
 
     def press_a():
         kbd.queue.extend([key_raw(KEY_A, 1), SYN])
@@ -627,7 +631,7 @@ def run_shared(kbd_keys, pad_keys, caplog, wait_for_inputs=False, pad_error=None
 
 
 def test_warns_about_keys_no_input_has(caplog):
-    assert run_shared({KEY_X}, {BTN_EAST}, caplog) == [
+    assert run_shared({KEY_X}, {BTN_FACE_RIGHT}, caplog) == [
         "no input device has KEY_Q, so its mappings can never fire"
     ]
 

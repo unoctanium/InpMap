@@ -6,12 +6,25 @@ from inpmap import codes
 def test_known_codes_match_linux_values():
     assert codes.code_from_name("KEY_X") == 45
     assert codes.code_from_name("KEY_Y") == 21
-    assert codes.code_from_name("BTN_SOUTH") == 0x130
+    assert codes.code_from_name("BTN_FACE_DOWN") == 0x130
 
 
 def test_alias_has_canonical_name():
-    assert codes.code_from_name("BTN_A") == codes.code_from_name("BTN_SOUTH")
-    assert codes.code_name(0x130) == "BTN_SOUTH"
+    assert codes.code_from_name("KEY_SCREENLOCK") == codes.code_from_name("KEY_COFFEE")
+    assert codes.code_name(codes.code_from_name("KEY_SCREENLOCK")) == "KEY_COFFEE"
+
+
+def test_face_buttons_have_position_names_only():
+    """configuration.md §3.3: InpMap's own names; the Linux names are gone."""
+    assert [codes.code_name(c) for c in (0x130, 0x131, 0x133, 0x134)] == [
+        "BTN_FACE_DOWN",
+        "BTN_FACE_RIGHT",
+        "BTN_FACE_LEFT",
+        "BTN_FACE_UP",
+    ]
+    for old, new in codes.RENAMED_FACE_BUTTONS.items():
+        assert codes.code_from_name(old) is None
+        assert codes.code_from_name(new) is not None
 
 
 def test_range_markers_are_not_names():
@@ -24,7 +37,7 @@ def test_unknown_code_name_formatting():
 
 
 @pytest.mark.parametrize(
-    "name", ["BTN_SOUTH", "BTN_THUMBR", "BTN_TRIGGER", "BTN_DPAD_UP", "BTN_GRIPL", "BTN_GRIPR2"]
+    "name", ["BTN_FACE_DOWN", "BTN_THUMBR", "BTN_TRIGGER", "BTN_DPAD_UP", "BTN_GRIPL", "BTN_GRIPR2"]
 )
 def test_gamepad_buttons(name):
     assert codes.is_gamepad_button(codes.code_from_name(name))
@@ -47,7 +60,14 @@ def test_table_matches_installed_evdev():
         if hasattr(ecodes, name) and getattr(ecodes, name) != (value := codes.code_from_name(name))
     }
     assert mismatches == {}
-    assert hasattr(ecodes, "KEY_X") and hasattr(ecodes, "BTN_SOUTH")  # the check ran
+    assert hasattr(ecodes, "KEY_X") and hasattr(ecodes, "BTN_TRIGGER")  # the check ran
+    # Our own face button names stand for the codes of evdev's Linux names.
+    assert [codes.code_from_name(f"BTN_FACE_{p}") for p in ("DOWN", "RIGHT", "LEFT", "UP")] == [
+        ecodes.BTN_SOUTH,
+        ecodes.BTN_EAST,
+        ecodes.BTN_NORTH,
+        ecodes.BTN_WEST,
+    ]
 
 
 def test_catalog_lists_each_code_once_with_aliases_and_sender():
@@ -55,7 +75,8 @@ def test_catalog_lists_each_code_once_with_aliases_and_sender():
 
     entries = {entry.name: entry for entry in catalog()}
     assert len(entries) == len({entry.code for entry in catalog()})
-    assert entries["BTN_SOUTH"].aliases == ("BTN_A",) and entries["BTN_SOUTH"].sent_by == "gamepad"
+    assert entries["BTN_FACE_DOWN"].aliases == () and entries["BTN_FACE_DOWN"].sent_by == "gamepad"
+    assert entries["KEY_COFFEE"].aliases == ("KEY_SCREENLOCK",)
     assert entries["KEY_KP1"].sent_by == "keyboard"
     assert entries["BTN_LEFT"].sent_by == ""  # mouse button: only usable as a trigger
-    assert "BTN_A" not in entries
+    assert "BTN_SOUTH" not in entries

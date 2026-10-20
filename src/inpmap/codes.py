@@ -1,8 +1,10 @@
 """Key and button code vocabulary.
 
-Codes are identified by their Linux names (``KEY_X``, ``BTN_SOUTH``) and
-integer values from ``linux/input-event-codes.h``. This module is pure data
-and must not import evdev, so the core stays backend-independent.
+Codes are identified by names and integer values from
+``linux/input-event-codes.h`` (``KEY_X``), except the four face buttons,
+which InpMap names by position (``BTN_FACE_DOWN`` …, see tools/gen_codes.py).
+This module is pure data and must not import evdev, so the core stays
+backend-independent.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from dataclasses import dataclass
 from ._linux_codes import CANONICAL_NAMES, CODES
 
 # Inclusive ranges of EV_KEY codes that belong to joysticks/gamepads:
-# BTN_TRIGGER..BTN_DEAD, BTN_SOUTH..BTN_THUMBR, BTN_DPAD_UP..BTN_DPAD_RIGHT
+# BTN_TRIGGER..BTN_DEAD, BTN_FACE_DOWN..BTN_THUMBR, BTN_DPAD_UP..BTN_DPAD_RIGHT
 # plus the back paddles BTN_GRIPL..BTN_GRIPR2, BTN_TRIGGER_HAPPY1..40.
 GAMEPAD_BUTTON_RANGES: tuple[tuple[int, int], ...] = (
     (0x120, 0x12F),
@@ -20,6 +22,20 @@ GAMEPAD_BUTTON_RANGES: tuple[tuple[int, int], ...] = (
     (0x220, 0x227),
     (0x2C0, 0x2E7),
 )
+
+
+# Linux names of the face buttons that InpMap replaced by BTN_FACE_*
+# (configuration.md §3.3); only used for a helpful error message.
+RENAMED_FACE_BUTTONS = {
+    "BTN_A": "BTN_FACE_DOWN",
+    "BTN_SOUTH": "BTN_FACE_DOWN",
+    "BTN_B": "BTN_FACE_RIGHT",
+    "BTN_EAST": "BTN_FACE_RIGHT",
+    "BTN_X": "BTN_FACE_LEFT",
+    "BTN_NORTH": "BTN_FACE_LEFT",
+    "BTN_Y": "BTN_FACE_UP",
+    "BTN_WEST": "BTN_FACE_UP",
+}
 
 
 def code_from_name(name: str) -> int | None:
@@ -51,10 +67,10 @@ KEYBOARD_OUTPUT_KEYS: frozenset[int] = frozenset(
 GAMEPAD_OUTPUT_BUTTONS: frozenset[int] = frozenset(
     CODES[name]
     for name in (
-        "BTN_SOUTH",
-        "BTN_EAST",
-        "BTN_X",
-        "BTN_Y",
+        "BTN_FACE_DOWN",
+        "BTN_FACE_RIGHT",
+        "BTN_FACE_LEFT",
+        "BTN_FACE_UP",
         "BTN_TL",
         "BTN_TR",
         "BTN_TL2",

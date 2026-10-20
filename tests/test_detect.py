@@ -21,7 +21,9 @@ def test_keys_with_input_names_and_modifiers():
     line = d.key(KBD, "Dongle", c("KEY_F7"), True)
     assert line.startswith("kbd.KEY_F7 modifiers(ctrl, shift) ")
     d.key(KBD, "Dongle", c("KEY_RIGHTCTRL"), False)
-    assert d.key(PAD, "Pad", c("BTN_SOUTH"), True).startswith("pad.BTN_SOUTH modifiers(shift) ")
+    assert d.key(PAD, "Pad", c("BTN_FACE_DOWN"), True).startswith(
+        "pad.BTN_FACE_DOWN modifiers(shift) "
+    )
 
 
 def test_devices_outside_the_profile_get_a_hint():

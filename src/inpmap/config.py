@@ -816,7 +816,12 @@ class _Validator:
         code = codes.code_from_name(value)
         if code is None:
             candidates = [n for n in codes.all_names() if n.startswith(prefix)]
-            hint = _suggest(value.upper(), candidates)
+            renamed = codes.RENAMED_FACE_BUTTONS.get(value.upper())
+            hint = (
+                f" (face buttons are named by position: use '{renamed}', configuration.md §3.3)"
+                if renamed
+                else _suggest(value.upper(), candidates)
+            )
             self.error(where, f"unknown {event_type} code '{value}'{hint}")
             return None
         if not value.startswith(prefix):
@@ -892,7 +897,7 @@ def _describe_modifiers(trigger: InputTrigger) -> str:
 def _not_gamepad_button(code: int) -> str:
     return (
         f"{codes.code_name(code)} is not a gamepad/joystick button "
-        "(e.g. use BTN_SOUTH, BTN_EAST, BTN_START, BTN_DPAD_UP)"
+        "(e.g. use BTN_FACE_DOWN, BTN_FACE_RIGHT, BTN_START, BTN_DPAD_UP)"
     )
 
 

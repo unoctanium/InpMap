@@ -35,7 +35,7 @@ output gamepad { type = gamepad }
 # While X is held: Y on the virtual keyboard and A on the virtual gamepad
 map KEY_X {
     hold KEY_Y
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 
 # F9 types "hi"
@@ -173,29 +173,31 @@ players.
 | Output | Codes |
 |---|---|
 | `keyboard` | every `KEY_*` code |
-| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_X`, `BTN_Y`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger). The D-pad is the `BTN_DPAD_*` buttons; a physical pad's D-pad axes `ABS_HAT0X`/`ABS_HAT0Y` arrive as these buttons (§3.4) |
+| `gamepad` | buttons `BTN_FACE_DOWN`, `BTN_FACE_RIGHT`, `BTN_FACE_LEFT`, `BTN_FACE_UP`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger). The D-pad is the `BTN_DPAD_*` buttons; a physical pad's D-pad axes `ABS_HAT0X`/`ABS_HAT0Y` arrive as these buttons (§3.4) |
 
 A gamepad output with `emulate = "dualsense-edge"` has its own fixed set
 (§3.5).
 
-The four face buttons, and what they are labelled on different
-controllers:
+The four face buttons are named by **position**, because their labels
+differ between controllers:
 
 | Code | Position | Xbox | PlayStation | Nintendo |
 |---|---|---|---|---|
-| `BTN_SOUTH` (also `BTN_A`) | bottom | A | Cross | B |
-| `BTN_EAST` (also `BTN_B`) | right | B | Circle | A |
-| `BTN_X` | left | X | Square | Y |
-| `BTN_Y` | top | Y | Triangle | X |
+| `BTN_FACE_DOWN` | bottom | A | Cross | B |
+| `BTN_FACE_RIGHT` | right | B | Circle | A |
+| `BTN_FACE_LEFT` | left | X | Square | Y |
+| `BTN_FACE_UP` | top | Y | Triangle | X |
 
-This is how Xbox controllers (Linux's `xpad` driver), SDL and Steam use
-these codes, and so what games see from InpMap's gamepad outputs. Linux
-also calls `BTN_X` `BTN_NORTH` and `BTN_Y` `BTN_WEST`: these names are
-accepted but give a **warning**, because they say the opposite position.
-Exception: the Linux drivers of PlayStation and Nintendo controllers do
-follow those names and send `BTN_X` for the top button and `BTN_Y` for the
-left one. With such a controller as input, `inpmap detect` shows which
-code a button sends.
+These names are InpMap's own. Linux has several names for these codes
+(`BTN_A`, `BTN_SOUTH`, `BTN_X`, `BTN_NORTH`, …), and its drivers do not
+agree on them: Xbox controllers report the left button with the code
+Linux calls `BTN_X` and `BTN_NORTH` ("north" = top), PlayStation and
+Nintendo controllers report the top button with it. InpMap does not
+accept the Linux names; an error names the replacement. It translates
+for you: the left button of any controller is `BTN_FACE_LEFT`, as an
+input (InpMap swaps the two codes for controllers with the Linux drivers
+`hid-playstation`, `hid-sony` and `hid-nintendo`, as SDL does) and on its
+gamepad outputs (where games and Steam see it as X / Square).
 
 Back paddles follow the Linux convention: `BTN_GRIPL` and `BTN_GRIPR` are
 the upper left and right paddle, `BTN_GRIPL2` and `BTN_GRIPR2` the lower
@@ -379,7 +381,7 @@ What is different from a normal gamepad output:
 
   | Code | DualSense Edge | In SDL-based games |
   |---|---|---|
-  | `BTN_SOUTH`, `BTN_EAST`, `BTN_X`, `BTN_Y` | Cross, Circle, Square, Triangle | A, B, X, Y |
+  | `BTN_FACE_DOWN`, `BTN_FACE_RIGHT`, `BTN_FACE_LEFT`, `BTN_FACE_UP` | Cross, Circle, Square, Triangle | A, B, X, Y |
   | `BTN_TL`, `BTN_TR` | L1, R1 | shoulder buttons |
   | `BTN_TL2`, `BTN_TR2` | L2, R2 fully pressed | triggers |
   | `BTN_SELECT`, `BTN_START`, `BTN_MODE` | Create, Options, PS button | Back, Start, Guide |
@@ -480,7 +482,7 @@ map TRIGGER [as NAME] {
 The **trigger** is one key or button:
 
 - `KEY_F9` — on **every** input device that has this key;
-- `kbd.KEY_F9`, `pad.BTN_EAST` — the input's name, a dot and the code:
+- `kbd.KEY_F9`, `pad.BTN_FACE_RIGHT` — the input's name, a dot and the code:
   only on that input device.
 
 With one input device, both mean the same. With two keyboards,
@@ -511,7 +513,7 @@ the trigger key, only what the mapping does.
 
 `as NAME` gives the mapping a name for messages and for
 `inpmap macro-trace`. Without it, the name is the trigger as written
-(`KEY_F9`, `pad.BTN_EAST`), with the modifiers appended by `+`
+(`KEY_F9`, `pad.BTN_FACE_RIGHT`), with the modifiers appended by `+`
 (`KEY_LEFTBRACE+ctrl+shift`, `KEY_F5+ignore`). For axes, spaces become
 `_` (`pad.ABS_RZ_above_0.5`).
 
@@ -536,8 +538,8 @@ By default a mapping fires only when **no** modifier key is held. With
 ```text
 map KEY_A modifiers(right_shift) { … }        # only with the right Shift
 map KEY_LEFTBRACE modifiers(ctrl, shift) { … } # Ctrl+Shift+[
-map pad.BTN_SOUTH modifiers(ctrl) { … }       # gamepad A while Ctrl is held on the keyboard
-map pad.BTN_SOUTH { … }                       # gamepad A without modifiers
+map pad.BTN_FACE_DOWN modifiers(ctrl) { … }       # gamepad A while Ctrl is held on the keyboard
+map pad.BTN_FACE_DOWN { … }                       # gamepad A without modifiers
 map KEY_F5 modifiers(ignore) { … }            # F5 whatever modifiers are held
 ```
 
@@ -582,7 +584,7 @@ Rules:
 ### 5.3 Output keys, chords and aliases
 
 An output key, button or axis is written `DEVICE.CODE`: `keyboard.KEY_Q`,
-`gamepad.BTN_EAST`, `gamepad.ABS_Y`. The device part may be left out when
+`gamepad.BTN_FACE_RIGHT`, `gamepad.ABS_Y`. The device part may be left out when
 exactly one declared output can emit the code (§3.3); otherwise InpMap
 reports an error naming the candidates.
 
@@ -610,7 +612,7 @@ Options are written first in the mapping, one per line:
 map KEY_F11 {
     cancel on release
     key_pause 5ms
-    while held { tap BTN_SOUTH }
+    while held { tap BTN_FACE_DOWN }
 }
 ```
 
@@ -694,9 +696,9 @@ layer nav {
 map pad.BTN_MODE { layer dcs toggle }
 
 layer dcs {
-    map pad.BTN_SOUTH { tap KEY_KP5 }
+    map pad.BTN_FACE_DOWN { tap KEY_KP5 }
     map pad.ABS_HAT0Y below -0.5 { tap KEY_KP8 }
-    map pad.BTN_EAST { hold BTN_EAST }  # still B on the virtual gamepad
+    map pad.BTN_FACE_RIGHT { hold BTN_FACE_RIGHT }  # still B on the virtual gamepad
 }
 ```
 
@@ -757,7 +759,7 @@ released. It does **not wait**: the next statement runs at once.
 ```inpmap
 map KEY_X {
     hold KEY_Y  # keyboard Y and gamepad A, both held while X is held
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 ```
 
@@ -795,7 +797,7 @@ again.
 
 After every press and every release comes the key pause (default 10 ms,
 §4.1). `(pause D)` after `tap`, `press` or `release` sets it for that
-statement: `tap BTN_SOUTH (pause 30ms)`.
+statement: `tap BTN_FACE_DOWN (pause 30ms)`.
 
 ```inpmap
 map KEY_F1 { tap ctrl + KEY_C }  # Ctrl+C
@@ -852,11 +854,11 @@ time.
 ```inpmap
 map KEY_F5 {  # autofire while held
     cancel on release
-    while held { tap BTN_SOUTH (pause 30ms) }
+    while held { tap BTN_FACE_DOWN (pause 30ms) }
 }
 
 map KEY_F6 {  # autofire on/off with the same key
-    toggle { tap BTN_SOUTH (pause 50ms) }
+    toggle { tap BTN_FACE_DOWN (pause 50ms) }
 }
 
 map KEY_F7 {  # sweep the stick while tapping
@@ -867,7 +869,7 @@ map KEY_F7 {  # sweep the stick while tapping
         }
         branch {
             repeat 5 {
-                tap BTN_X
+                tap BTN_FACE_LEFT
                 wait 100ms
             }
         }
@@ -1014,12 +1016,12 @@ block close_dialog {
     wait 500ms
     tap KEY_ENTER
     tap KEY_ESC
-    tap BTN_EAST
+    tap BTN_FACE_RIGHT
 }
 
 let bracket_mode = false
 
-map pad.BTN_X as alternate {
+map pad.BTN_FACE_LEFT as alternate {
     if not bracket_mode {
         bracket_mode = true
         tap KEY_ENTER
@@ -1125,7 +1127,8 @@ reported with its position, all problems of a file at once:
 config/my.inpmap:14:9: unknown key code 'KEY_QQ' (did you mean 'KEY_Q'?)
 ```
 
-Errors include: syntax errors; unknown names and codes; codes the device
+Errors include: syntax errors; unknown names and codes (Linux names of the
+face buttons such as `BTN_A` name their replacement, §3.3); codes the device
 cannot emit; a device part left out where several outputs could emit the
 code; the same trigger and modifiers mapped twice; duplicate names; options
 after statements; `toggle` or `disable` not alone; values out of range;
@@ -1141,8 +1144,7 @@ start: no write access to `/dev/uhid` for an emulating output (§3.5).
 When InpMap opens a device: keys without a keyboard output, gamepad
 buttons or axes the gamepad output does not have (§3.4 rule 2).
 
-Warnings (the file still loads): `BTN_NORTH` and `BTN_WEST` (§3.3); blocks that
-are never called.
+Warnings (the file still loads): blocks that are never called.
 
 Check a file with `inpmap check FILE`.
 
@@ -1182,7 +1184,7 @@ output gamepad { type = gamepad }
 # F1: one key, two devices - keyboard A and gamepad A while F1 is held
 map KEY_F1 {
     hold KEY_A
-    hold BTN_SOUTH
+    hold BTN_FACE_DOWN
 }
 
 # F2: tap types 1, double tap types 2, long press types 3
@@ -1196,18 +1198,18 @@ map KEY_F2 {
 map KEY_F3 {
     tap KEY_Q
     wait random(40ms, 60ms)
-    tap BTN_EAST
+    tap BTN_FACE_RIGHT
 }
 
 # F4: autofire gamepad A while F4 is held
 map KEY_F4 {
     cancel on release
-    while held { tap BTN_SOUTH (pause 30ms) }
+    while held { tap BTN_FACE_DOWN (pause 30ms) }
 }
 
 # F5: autofire switched on by one press and off by the next
 map KEY_F5 {
-    toggle { tap BTN_SOUTH (pause 50ms) }
+    toggle { tap BTN_FACE_DOWN (pause 50ms) }
 }
 
 # F6: push the left stick up within 150 ms; it returns within 50 ms on release
@@ -1298,7 +1300,7 @@ map kbd.KEY_F2 {
 # Toggle autofire on and off with the same key
 map kbd.KEY_F3 {
     toggle {
-        tap BTN_SOUTH (pause 50ms)
+        tap BTN_FACE_DOWN (pause 50ms)
     }
 }
 
@@ -1311,7 +1313,7 @@ map kbd.KEY_F4 {
         }
         branch {
             repeat 5 {
-                tap BTN_X
+                tap BTN_FACE_LEFT
                 wait 100ms
             }
         }
@@ -1324,8 +1326,8 @@ map kbd.KEY_F5 {
 }
 
 # Gamepad A with Ctrl held on the keyboard, and without
-map pad.BTN_SOUTH modifiers(ctrl) { tap KEY_C }
-map pad.BTN_SOUTH { hold BTN_SOUTH }
+map pad.BTN_FACE_DOWN modifiers(ctrl) { tap KEY_C }
+map pad.BTN_FACE_DOWN { hold BTN_FACE_DOWN }
 ```
 
 A key combination replaced by a sequence, and a gamepad button that
@@ -1348,13 +1350,13 @@ map kbd.KEY_LEFTBRACE modifiers(ctrl, shift) as bracket_combo {
         wait 200ms
         tap KEY_ENTER
         tap KEY_ESC
-        tap BTN_EAST
+        tap BTN_FACE_RIGHT
     }
 }
 
 # Gamepad X: first press opens, second press closes
 let bracket_mode = false
-map pad.BTN_X as alternate {
+map pad.BTN_FACE_LEFT as alternate {
     if not bracket_mode {
         bracket_mode = true
         tap KEY_ENTER
@@ -1365,7 +1367,7 @@ map pad.BTN_X as alternate {
         wait 500ms
         tap KEY_ENTER
         tap KEY_ESC
-        tap BTN_EAST
+        tap BTN_FACE_RIGHT
     }
 }
 ```

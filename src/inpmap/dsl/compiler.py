@@ -48,14 +48,6 @@ RESERVED = {
     *LEDS,
     *MODIFIER_NAMES,
 }
-# The kernel's positional names for 0x133/0x134 say the opposite of what
-# Xbox controllers, SDL and Steam do with these codes (configuration.md §3.3).
-CONFUSING_BUTTONS = {
-    "BTN_NORTH": "BTN_NORTH is the left button (X on Xbox, Square on PlayStation) "
-    "in games and Steam; BTN_X says so",
-    "BTN_WEST": "BTN_WEST is the top button (Y on Xbox, Triangle on PlayStation) "
-    "in games and Steam; BTN_Y says so",
-}
 OPTION_STATEMENTS = {"opt_cancel", "opt_restart", "opt_keep", "opt_kv"}
 # Statements that only make sense for a whole mapping (§6.11 rule 3).
 BLOCK_FORBIDDEN = {
@@ -463,7 +455,6 @@ class _Compiler:
         device = tokens[0] if len(tokens) == 2 else None
         name = tokens[-1]
         code = OUTPUT_ALIASES.get(name, name)
-        self.check_confusing(ref, code)
         if device is None:
             device = self.infer_device(ref, code)
             if device is None:
@@ -512,10 +503,6 @@ class _Compiler:
     def unknown_output(self, name: str) -> str:
         known = ", ".join(sorted(self.outputs)) or "none declared"
         return f"unknown output device '{name}' (declared outputs: {known})"
-
-    def check_confusing(self, node: Tree, code: str) -> None:
-        if code in CONFUSING_BUTTONS:
-            self.warn(node, CONFUSING_BUTTONS[code])
 
     def keys(self, keys: Tree, path: str) -> list[dict] | None:
         result = []
@@ -629,7 +616,6 @@ class _Compiler:
             self.error(threshold, "'above' and 'below' are only for axes (ABS_*)")
             return None
         elif code.startswith(("KEY_", "BTN_")):
-            self.check_confusing(ref, code)
             trigger = {"type": "key" if code.startswith("KEY_") else "button", "code": code}
         else:
             self.error(ref, f"a trigger must be a KEY_*, BTN_* or ABS_* name, got '{code}'")

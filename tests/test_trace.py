@@ -22,7 +22,7 @@ CONFIG = parse_config(
                             "steps": [
                                 {"tap": {"code": "KEY_Q", "device": "keyboard"}},
                                 {"wait_ms": {"min": 40, "max": 60}},
-                                {"tap": {"code": "BTN_EAST", "device": "gamepad"}},
+                                {"tap": {"code": "BTN_FACE_RIGHT", "device": "gamepad"}},
                             ]
                         }
                     }
@@ -84,7 +84,7 @@ def test_combo_timeline_is_deterministic_per_seed():
         (0.0, "keyboard KEY_Q down"),
         (10.0, "keyboard KEY_Q up"),
     ]
-    east_down = next(ms for ms, text in first if text == "gamepad BTN_EAST down")
+    east_down = next(ms for ms, text in first if text == "gamepad BTN_FACE_RIGHT down")
     assert 60.0 <= east_down <= 80.0
 
 

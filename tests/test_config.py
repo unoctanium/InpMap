@@ -19,7 +19,7 @@ VALID = {
             "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
             "outputs": [
                 {"device": "vkbd", "type": "key", "code": "KEY_Y"},
-                {"device": "pad", "type": "button", "code": "BTN_SOUTH"},
+                {"device": "pad", "type": "button", "code": "BTN_FACE_DOWN"},
             ],
         }
     ],
@@ -50,7 +50,7 @@ def test_valid_config_is_converted_to_models():
     assert rule.trigger.code == code_from_name("KEY_X")
     assert [(a.device, a.code) for a in rule.outputs] == [
         ("vkbd", code_from_name("KEY_Y")),
-        ("pad", code_from_name("BTN_SOUTH")),
+        ("pad", code_from_name("BTN_FACE_DOWN")),
     ]
     assert rule.consume is True
 
@@ -66,7 +66,7 @@ def test_output_and_input_codes_per_device():
     )
     config = parse_config(data)
     assert config.output_codes("vkbd") == {code_from_name("KEY_Y")}
-    assert config.output_codes("pad") == {code_from_name("BTN_SOUTH")}
+    assert config.output_codes("pad") == {code_from_name("BTN_FACE_DOWN")}
     assert config.input_codes("kbd") == {code_from_name("KEY_X"), code_from_name("KEY_Z")}
 
 
@@ -85,9 +85,9 @@ def test_output_name_defaults_to_device_id():
 
 def test_code_aliases_resolve_to_same_code():
     data = valid()
-    data["mappings"][0]["outputs"][1]["code"] = "BTN_A"
+    data["mappings"][0]["outputs"][1]["code"] = "BTN_FACE_DOWN"
     rule = parse_config(data).mappings[0]
-    assert rule.outputs[1].code == code_from_name("BTN_SOUTH")
+    assert rule.outputs[1].code == code_from_name("BTN_FACE_DOWN")
 
 
 def test_gamepad_buttons_as_input():
@@ -96,7 +96,7 @@ def test_gamepad_buttons_as_input():
     data["mappings"].append(
         {
             "id": "pad-east",
-            "input": {"device": "pad-in", "type": "button", "code": "BTN_EAST"},
+            "input": {"device": "pad-in", "type": "button", "code": "BTN_FACE_RIGHT"},
             "outputs": [{"device": "vkbd", "type": "key", "code": "KEY_ESC"}],
         }
     )
@@ -274,13 +274,17 @@ def test_code_must_be_string():
 
 def test_code_prefix_must_match_type():
     data = valid()
-    data["mappings"][0]["input"]["code"] = "BTN_SOUTH"
-    assert "'BTN_SOUTH' is not a key code" in problems_of(data)
+    data["mappings"][0]["input"]["code"] = "BTN_FACE_DOWN"
+    assert "'BTN_FACE_DOWN' is not a key code" in problems_of(data)
 
 
 def test_keyboard_output_rejects_button_type():
     data = valid()
-    data["mappings"][0]["outputs"][0] = {"device": "vkbd", "type": "button", "code": "BTN_SOUTH"}
+    data["mappings"][0]["outputs"][0] = {
+        "device": "vkbd",
+        "type": "button",
+        "code": "BTN_FACE_DOWN",
+    }
     assert "accepts type 'key', not 'button'" in problems_of(data)
 
 
@@ -324,7 +328,7 @@ def test_same_input_in_two_mappings_rejected():
 def test_same_input_via_alias_rejected():
     data = valid()
     data["inputs"]["pad-in"] = {"name": "Physical Pad"}
-    for rule_id, code in (("a", "BTN_SOUTH"), ("b", "BTN_A")):
+    for rule_id, code in (("a", "BTN_FACE_DOWN"), ("b", "BTN_FACE_DOWN")):
         data["mappings"].append(
             {
                 "id": rule_id,

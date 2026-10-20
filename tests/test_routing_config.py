@@ -24,7 +24,7 @@ def test_each_kind_goes_to_its_only_output():
         """input kbd { name = "K" }
 output keyboard { type = keyboard }
 output gamepad { type = gamepad }
-map KEY_X { hold BTN_SOUTH }
+map KEY_X { hold BTN_FACE_DOWN }
 """
     )
     spec = c.inputs["kbd"]
@@ -39,8 +39,8 @@ input pad2 { name = "P2"; to = gamepad2 }
 output keyboard { type = keyboard }
 output gamepad1 { type = gamepad }
 output gamepad2 { type = gamepad }
-map pad1.BTN_EAST { hold gamepad1.BTN_SOUTH }
-map pad2.BTN_EAST { hold gamepad2.BTN_SOUTH }
+map pad1.BTN_FACE_RIGHT { hold gamepad1.BTN_FACE_DOWN }
+map pad2.BTN_FACE_RIGHT { hold gamepad2.BTN_FACE_DOWN }
 """
     )
     assert c.inputs["pad1"].targets == ((GAMEPAD, "gamepad1"), (KEYBOARD, "keyboard"))
@@ -54,7 +54,7 @@ output keyboard1 { type = keyboard }
 output keyboard2 { type = keyboard }
 output gamepad1 { type = gamepad }
 output gamepad2 { type = gamepad }
-map KEY_A { hold keyboard1.KEY_B; hold gamepad1.BTN_SOUTH }
+map KEY_A { hold keyboard1.KEY_B; hold gamepad1.BTN_FACE_DOWN }
 """
     )
     assert c.inputs["kbd"].targets == ((GAMEPAD, "gamepad2"), (KEYBOARD, "keyboard2"))
@@ -75,7 +75,7 @@ def test_several_outputs_of_a_kind_require_to():
         """input kbd { name = "K" }
 output gamepad1 { type = gamepad }
 output gamepad2 { type = gamepad }
-map KEY_A { hold gamepad1.BTN_SOUTH; hold gamepad2.BTN_SOUTH }
+map KEY_A { hold gamepad1.BTN_FACE_DOWN; hold gamepad2.BTN_FACE_DOWN }
 """
     )
     assert found == [
@@ -98,7 +98,7 @@ def test_wrong_to(to, message):
         f"""input kbd {{ name = "K"; to = {to} }}
 output keyboard {{ type = keyboard }}
 output gamepad {{ type = gamepad }}
-map KEY_A {{ hold BTN_SOUTH }}
+map KEY_A {{ hold BTN_FACE_DOWN }}
 """
     )
     assert len(found) == 1 and found[0].startswith("t.inpmap:2:") and message in found[0]
