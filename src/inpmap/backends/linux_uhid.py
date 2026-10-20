@@ -241,10 +241,13 @@ BUTTON_BITS: dict[int, tuple[int, int]] = {
     codes.CODES["BTN_THUMBL"]: (9, 0x40),  # L3
     codes.CODES["BTN_THUMBR"]: (9, 0x80),  # R3
     codes.CODES["BTN_MODE"]: (10, 0x01),  # PS
-    codes.CODES["BTN_GRIPL2"]: (10, 0x10),  # left Fn (SDL paddle 4)
-    codes.CODES["BTN_GRIPR2"]: (10, 0x20),  # right Fn (SDL paddle 3)
-    codes.CODES["BTN_GRIPL"]: (10, 0x40),  # left paddle (SDL paddle 2)
-    codes.CODES["BTN_GRIPR"]: (10, 0x80),  # right paddle (SDL paddle 1)
+    # The paddle codes follow SDL's paddle numbers, not the Edge's sides
+    # (configuration.md §3.5): SDL counts as seen from the back, so its
+    # paddle 1 is the Edge's right paddle.
+    codes.CODES["BTN_GRIPL"]: (10, 0x80),  # right paddle = SDL paddle 1
+    codes.CODES["BTN_GRIPR"]: (10, 0x40),  # left paddle = SDL paddle 2
+    codes.CODES["BTN_GRIPL2"]: (10, 0x20),  # right Fn = SDL paddle 3
+    codes.CODES["BTN_GRIPR2"]: (10, 0x10),  # left Fn = SDL paddle 4
 }
 _TL2 = codes.CODES["BTN_TL2"]
 _TR2 = codes.CODES["BTN_TR2"]

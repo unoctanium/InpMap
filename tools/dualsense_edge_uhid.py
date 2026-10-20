@@ -2,7 +2,7 @@
 
 Creates the same device as an output with ``emulate = "dualsense-edge"``
 (docs/configuration.md §3.5, ``inpmap.backends.linux_uhid``) without any
-input device, and presses cross, the back paddles and the Fn buttons one
+input device, and presses cross and BTN_GRIPL … BTN_GRIPR2 (paddles 1 to 4) one
 after another. For checking what a game or Steam receives, e.g. in WoW
 (``PADPADDLE1``…``4``), without a physical controller.
 
@@ -10,7 +10,7 @@ Usage (needs write access to /dev/uhid; `inpmap udev-rules` grants it for a
 profile that emulates a controller, otherwise use sudo):
     python3 tools/dualsense_edge_uhid.py              # press sequence, until Ctrl+C
     python3 tools/dualsense_edge_uhid.py --idle       # only create the device
-    python3 tools/dualsense_edge_uhid.py --buttons rpaddle lpaddle --hold 2
+    python3 tools/dualsense_edge_uhid.py --buttons gripl gripr --hold 2
 
 The device is destroyed on exit.
 """
@@ -38,12 +38,12 @@ log = logging.getLogger("dualsense-edge-uhid")
 # name -> (code, description); SDL paddle numbers as WoW shows them.
 BUTTONS = {
     "cross": ("BTN_SOUTH", "cross (SDL A, WoW PAD1)"),
-    "rpaddle": ("BTN_GRIPR", "right back paddle (SDL PADDLE1, WoW PADPADDLE1)"),
-    "lpaddle": ("BTN_GRIPL", "left back paddle (SDL PADDLE2, WoW PADPADDLE2)"),
-    "rfn": ("BTN_GRIPR2", "right Fn button (SDL PADDLE3, WoW PADPADDLE3)"),
-    "lfn": ("BTN_GRIPL2", "left Fn button (SDL PADDLE4, WoW PADPADDLE4)"),
+    "gripl": ("BTN_GRIPL", "Edge right paddle (SDL PADDLE1, WoW PADPADDLE1)"),
+    "gripr": ("BTN_GRIPR", "Edge left paddle (SDL PADDLE2, WoW PADPADDLE2)"),
+    "gripl2": ("BTN_GRIPL2", "Edge right Fn (SDL PADDLE3, WoW PADPADDLE3)"),
+    "gripr2": ("BTN_GRIPR2", "Edge left Fn (SDL PADDLE4, WoW PADPADDLE4)"),
 }
-DEFAULT_SEQUENCE = ("cross", "rpaddle", "lpaddle", "rfn", "lfn")
+DEFAULT_SEQUENCE = ("cross", "gripl", "gripr", "gripl2", "gripr2")
 SPEC = OutputDeviceSpec(
     id="uhid-test",
     kind=OutputKind.GAMEPAD,

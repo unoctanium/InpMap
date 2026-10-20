@@ -140,10 +140,19 @@ Maintainer's decisions 2026-10-20: squash the unpushed prototype commits
 (done: one commit b47ce2c…, tree identical, no hid-tools data left in the
 unpushed history); `emulate = "dualsense-edge"` is now in the maintainer's
 `gaming` profile (the installed 0.3.0 rejects it: `inpmap@gaming` fails
-until 0.4.0 is installed); release 0.4.0. Version bumped and CHANGELOG
-dated locally; ⏳ push + tag (publishes to PyPI) waits for the maintainer's
-explicit go; then AUR PKGBUILD 0.4.0 (pkgver, sha256 of the PyPI sdist),
-`makepkg -sri`, `inpmap udev-rules gaming` reinstalled, service restart.
+until 0.4.0 is installed); release 0.4.0. 0.4.0 released (push + tag
+v0.4.0 on the maintainer's "go"; on PyPI). Two problems found after it:
+(1) the AUR test build failed: `tests/test_tool_dualsense_edge_uhid.py`
+needs `tools/`, which the sdist lacks → now skipped there (like the
+packaged-rule test); (2) the maintainer expected `BTN_GRIPL/GRIPR/GRIPL2/
+GRIPR2` = `PADPADDLE1/2/3/4`, but §3.5 followed SDL's sides (SDL counts
+paddles as seen from the back: paddle 1 = the Edge's right paddle).
+Decision (maintainer, 2026-10-20): number order — GRIPL → Edge right
+paddle bit (SDL 1), GRIPR → left paddle (2), GRIPL2 → right Fn (3), GRIPR2
+→ left Fn (4); Steam/evtest show it mirrored, documented in §3.5. Both in
+0.4.1. Then AUR PKGBUILD 0.4.1, `makepkg -sri` by the maintainer,
+`inpmap udev-rules gaming` reinstalled, service restart; the WoW check of
+the new order is still to do.
 
 ## Next steps
 

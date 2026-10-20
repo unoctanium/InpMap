@@ -5,10 +5,14 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 from inpmap.backends.linux_uhid import BUTTON_BITS
 from inpmap.codes import CODES
 
 _PATH = Path(__file__).resolve().parent.parent / "tools" / "dualsense_edge_uhid.py"
+if not _PATH.exists():  # e.g. tests run from the source distribution
+    pytest.skip("tools/ is not part of the source distribution", allow_module_level=True)
 _spec = importlib.util.spec_from_file_location("dualsense_edge_uhid", _PATH)
 tool = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(tool)

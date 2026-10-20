@@ -379,15 +379,20 @@ What is different from a normal gamepad output:
   | `BTN_SELECT`, `BTN_START`, `BTN_MODE` | Create, Options, PS button | Back, Start, Guide |
   | `BTN_THUMBL`, `BTN_THUMBR` | L3, R3 (stick clicks) | stick buttons |
   | `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT` | D-pad | D-pad |
-  | `BTN_GRIPR` | right back paddle | Paddle 1 |
-  | `BTN_GRIPL` | left back paddle | Paddle 2 |
-  | `BTN_GRIPR2` | right Fn button | Paddle 3 |
-  | `BTN_GRIPL2` | left Fn button | Paddle 4 |
+  | `BTN_GRIPL` | right back paddle | Paddle 1 |
+  | `BTN_GRIPR` | left back paddle | Paddle 2 |
+  | `BTN_GRIPL2` | right Fn button | Paddle 3 |
+  | `BTN_GRIPR2` | left Fn button | Paddle 4 |
   | `ABS_X`, `ABS_Y`, `ABS_RX`, `ABS_RY` | left and right stick | sticks |
   | `ABS_Z`, `ABS_RZ` | L2, R2 analog | triggers |
 
   World of Warcraft, for example, names Paddle 1 to 4 `PADPADDLE1` to
-  `PADPADDLE4`. The paddles and Fn buttons are always present, because a
+  `PADPADDLE4`. The codes follow the paddle **numbers** games use:
+  `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` are Paddle 1 to 4.
+  SDL numbers the paddles as seen from the back of the controller, so
+  Paddle 1 is the Edge's right paddle; programs that show the Edge's
+  layout (Steam's controller settings, `evtest`) therefore show
+  `BTN_GRIPL` on the right. The paddles and Fn buttons are always present, because a
   DualSense Edge always has them (unlike §3.3, where a gamepad gets
   paddles only when a mapping uses them). The touchpad, the microphone
   button and the motion sensors are not driven.

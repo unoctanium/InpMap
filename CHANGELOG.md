@@ -4,6 +4,15 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
+## 0.4.1 (2026-10-20)
+
+- **Changed:** on an emulated DualSense Edge, `BTN_GRIPL`, `BTN_GRIPR`,
+  `BTN_GRIPL2`, `BTN_GRIPR2` are now paddles 1 to 4 in the order games
+  number them (in WoW `PADPADDLE1` … `PADPADDLE4`). In 0.4.0, `BTN_GRIPL`
+  was paddle 2 and `BTN_GRIPR` paddle 1 (configuration.md §3.5).
+- The unit tests run from the source distribution again (a test needed
+  `tools/`, which it does not contain); this broke the Arch package build.
+
 ## 0.4.0 (2026-10-20)
 
 - **Emulated DualSense Edge** (configuration.md §3.5): `emulate =
