@@ -1,6 +1,6 @@
 pkgbase = inpmap
 	pkgdesc = Configuration-driven input remapper: one key can drive several virtual devices
-	pkgver = 0.4.1
+	pkgver = 0.4.3
 	pkgrel = 1
 	url = https://github.com/unoctanium/InpMap
 	install = inpmap.install
@@ -15,10 +15,10 @@ pkgbase = inpmap
 	depends = python-evdev
 	depends = python-lark-parser
 	optdepends = evtest: show the events of input devices
-	source = https://files.pythonhosted.org/packages/source/i/inpmap/inpmap-0.4.1.tar.gz
+	source = https://files.pythonhosted.org/packages/source/i/inpmap/inpmap-0.4.3.tar.gz
 	source = inpmap@.service
 	source = 70-inpmap-uinput.rules
-	sha256sums = cfd69304ce86efbc829152b6d2bd6847f3459a52bf6d8db7e17b388c94100623
+	sha256sums = 31cc8ef95adece16ce148e780010fdcabd04f3f27816760e8e5a530bafe0e6a4
 	sha256sums = 145e4c37729992ff6817f205590b6705066ba524361a67768ffb3565357d48ce
 	sha256sums = 06669ec9a93c7870e2ae8f76c54ef1dbff6b6e7a85c1d1627090e563c235a2a9
 

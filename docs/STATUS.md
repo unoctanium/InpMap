@@ -11,14 +11,14 @@ Last updated: 2026-10-20
 
 - V1, V1.1, the configuration language, the systemd user service and
   **routing by kind** (0.3.0) are done and verified on real hardware.
-- **InpMap 0.4.1 released** (2026-10-20, on PyPI; 0.4.0 the same day, 0.3.0
-  on 2026-10-15): adds the emulated DualSense Edge (`emulate`). The Arch
-  package in `packaging/aur` is 0.4.1 (pkgrel 1), test-built with
+- **InpMap 0.4.3 released** (2026-10-20, on PyPI; 0.4.0–0.4.2 the same day,
+  0.3.0 on 2026-10-15): emulated DualSense Edge (`emulate`), face buttons
+  `BTN_FACE_*`. The Arch package in `packaging/aur` is 0.4.3 (pkgrel 1), test-built with
   `makepkg -f`; installing it is the maintainer's step. The maintainer's
   login service runs a personal profile (`inpmap@gaming`: small keyboard
   with a Caps Lock layer, Raiju pad + its keyboard part as one controller
   with back paddles, now with `emulate = "dualsense-edge"`); it needs
-  0.4.x installed (0.3.0 rejects `emulate`).
+  0.4.3 installed (0.3.0 rejects `emulate`).
 - **Publishing (roadmap)** is in progress:
   - a. ✅ Independent of the source tree (profiles, packaged example and
     syntax files, `inpmap@NAME`, `detect`).
