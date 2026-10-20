@@ -187,12 +187,17 @@ playstation/sony/nintendo get 0x133/0x134 swapped on the way in (driver
 read from sysfs; raw codes kept for their own pass-through device).
 Released as 0.4.2 (its sdist lacked docs/wow-dualsense.md → AUR check()
 failed; fixed in MANIFEST.in + a test, released as 0.4.3) together with the X/Y fix, the Steam-picture paddle
-layout and the WoW guide; ⏳ the maintainer's WoW/Steam test follows with
-the package. The maintainer's `~/.config/inpmap/example.inpmap` copy
+layout and the WoW guide. Maintainer's test with the packaged 0.4.3
+(2026-10-20): successful (paddles in Steam's picture and WoW, X/Y, View as
+PADBACK with the WoW file of docs/wow-dualsense.md). The maintainer's `~/.config/inpmap/example.inpmap` copy
 still uses old names (left for the maintainer).
-Also open: with emulation off (uinput gamepad), KDE's controller page
-showed "Paddle Button 2" stuck after holding M3, pressing M4, releasing
-both; not yet reproduced with a recording (InpMap, Raiju or KDE display?).
+Stuck "Paddle Button 2" in KDE's controller page with emulation off
+(hold M3, press M4, release both): recorded 2026-10-20 on the uinput
+"InpMap Gamepad" (service 0.4.3, no emulate) — 97 presses incl. many
+overlapping M3/M4 holds released in both orders and M5/M6: every press
+released exactly once, none doubled, nothing held at the end. So InpMap's
+output is correct; the display comes from KDE's page (SDL). ⏳ Maintainer to
+confirm whether KDE showed it stuck during that recording.
 
 ## Next steps
 
