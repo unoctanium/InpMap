@@ -102,7 +102,11 @@ InpMap needs:
 
 - **write access to `/dev/uinput`**, to create its virtual devices;
 - **read/write access to the input devices you configure**
-  (`/dev/input/eventN`), to read and grab them and to set their LEDs.
+  (`/dev/input/eventN`), to read and grab them and to set their LEDs;
+- only for an emulated DualSense Edge
+  ([configuration.md §3.5](configuration.md#35-emulating-a-dualsense-edge-emulate)):
+  **write access to `/dev/uhid`**, and for the games read/write access to
+  the controller's `/dev/hidraw*` node.
 
 Check the current state:
 
@@ -133,6 +137,14 @@ The rules give access to the user of the active local login session only,
 and only to `/dev/uinput` and the configured devices (matched by name plus
 vendor and product ID, so other keyboards stay inaccessible). Run the
 commands again after adding input devices to your configuration.
+
+If the profile has an output with `emulate = "dualsense-edge"`, the rules
+also grant `/dev/uhid` and the raw HID node of InpMap's emulated
+controller (only devices created through `/dev/uhid` with the DualSense
+Edge's IDs match). `/dev/uhid` lets a program create any HID device, a
+little more than `/dev/uinput` allows; profiles without `emulate` do not
+get this rule. Arch's `steam-devices` package already grants the raw HID
+node of a DualSense Edge, but not `/dev/uhid`.
 
 ### Option B: the `input` group
 

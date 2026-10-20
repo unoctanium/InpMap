@@ -159,6 +159,9 @@ output gamepad { type = gamepad }
 - `name` (optional): the device name applications see. Default:
   `InpMap ` followed by the output's name (`InpMap gamepad`). At most 79
   bytes, unique.
+- `emulate` (optional, gamepad only): `"dualsense-edge"` makes the output
+  present itself as a Sony DualSense Edge, for games that read paddles only
+  from real controllers (§3.5).
 
 Once the file has mappings, every declared output must be used: a
 mapping sends to it, or an input's unmapped input goes to it (§3.4). You
@@ -171,6 +174,9 @@ players.
 |---|---|
 | `keyboard` | every `KEY_*` code |
 | `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger). The D-pad is the `BTN_DPAD_*` buttons; a physical pad's D-pad axes `ABS_HAT0X`/`ABS_HAT0Y` arrive as these buttons (§3.4) |
+
+A gamepad output with `emulate = "dualsense-edge"` has its own fixed set
+(§3.5).
 
 Gamepad buttons are named by **position**, because the printed labels
 differ between controllers:
@@ -324,6 +330,98 @@ What this means in practice:
 - A file with only a gamepad output and a keyboard input is rejected:
   the keyboard's other keys would have nowhere to go. Add a keyboard
   output.
+
+### 3.5 Emulating a DualSense Edge: `emulate`
+
+Some games see only the standard buttons of a virtual gamepad. Windows
+games under Proton are the typical case: Proton hands a virtual gamepad to
+them as an Xbox controller, which has no back paddles. Real PlayStation
+controllers, by contrast, are passed to the game directly, and the game's
+own PlayStation driver reads all their buttons. For such games a gamepad
+output can present itself as a Sony DualSense Edge (USB):
+
+```inpmap
+version 1
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+input padkeys { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-if01-event-kbd" }
+output keyboard { type = keyboard }
+output gamepad {
+    type    = gamepad
+    emulate = "dualsense-edge"
+}
+
+# The pad's extra buttons send F13 to F16: back paddles and Fn buttons
+map padkeys.KEY_F13 { hold BTN_GRIPL }
+map padkeys.KEY_F14 { hold BTN_GRIPR }
+map padkeys.KEY_F15 { hold BTN_GRIPL2 }
+map padkeys.KEY_F16 { hold BTN_GRIPR2 }
+```
+
+This is the one exception to InpMap's rule that its virtual devices do not
+pretend to be real hardware. Use it only for a game that needs it; without
+`emulate` nothing changes.
+
+What is different from a normal gamepad output:
+
+- The device is created through `/dev/uhid` as a HID device with Sony's
+  USB IDs (`054C:0DF2`) instead of through `/dev/uinput`. It has a raw HID
+  node (`/dev/hidraw*`), which is what lets Proton pass it to the game.
+  On the desktop, Linux's `hid-playstation` driver shows it as a DualSense
+  Edge: a gamepad plus motion-sensor, touchpad and headset-jack devices,
+  which stay idle.
+- It has a fixed set of codes, the controls of a DualSense Edge:
+
+  | Code | DualSense Edge | In SDL-based games |
+  |---|---|---|
+  | `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST` | Cross, Circle, Triangle, Square | A, B, Y, X |
+  | `BTN_TL`, `BTN_TR` | L1, R1 | shoulder buttons |
+  | `BTN_TL2`, `BTN_TR2` | L2, R2 fully pressed | triggers |
+  | `BTN_SELECT`, `BTN_START`, `BTN_MODE` | Create, Options, PS button | Back, Start, Guide |
+  | `BTN_THUMBL`, `BTN_THUMBR` | L3, R3 (stick clicks) | stick buttons |
+  | `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT` | D-pad | D-pad |
+  | `BTN_GRIPR` | right back paddle | Paddle 1 |
+  | `BTN_GRIPL` | left back paddle | Paddle 2 |
+  | `BTN_GRIPR2` | right Fn button | Paddle 3 |
+  | `BTN_GRIPL2` | left Fn button | Paddle 4 |
+  | `ABS_X`, `ABS_Y`, `ABS_RX`, `ABS_RY` | left and right stick | sticks |
+  | `ABS_Z`, `ABS_RZ` | L2, R2 analog | triggers |
+
+  World of Warcraft, for example, names Paddle 1 to 4 `PADPADDLE1` to
+  `PADPADDLE4`. The paddles and Fn buttons are always present, because a
+  DualSense Edge always has them (unlike §3.3, where a gamepad gets
+  paddles only when a mapping uses them). The touchpad, the microphone
+  button and the motion sensors are not driven.
+
+Rules:
+
+1. Other codes cannot be sent to this output (an error, §8), and an input
+   whose unmapped buttons or axes it does not have is not grabbed (§3.4
+   rule 2).
+2. A trigger is as far pressed as the larger of its axis (`ABS_Z`,
+   `ABS_RZ`) and its button (`BTN_TL2`, `BTN_TR2` = fully pressed). A
+   DualSense reports the D-pad as one direction: two neighbouring
+   directions held give the diagonal; up and down (or left and right)
+   held together count as neither.
+3. Its identity is fixed: vendor and product of a DualSense Edge, and a
+   serial number (MAC address) derived from the output's name, so it stays
+   the same across restarts and differs between two such outputs. `name`
+   works as in §3.2.
+4. What the game sends back — rumble, the light bar, player LEDs,
+   adaptive-trigger effects — is accepted and ignored.
+5. InpMap never takes the devices that Linux creates for its own emulated
+   controller as inputs, and does not list them in `inpmap devices`.
+6. It needs write access to `/dev/uhid`, besides `/dev/uinput`
+   ([installation.md](installation.md)). Without it, InpMap stops with an
+   error before it grabs any device.
+7. Steam: turn Steam Input off for the game (game properties →
+   Controller → "Disable Steam Input"). Otherwise Steam hides the
+   controller from the game and offers its own virtual controller, which
+   has no paddles again. Proton needs no setting: it passes PlayStation
+   controllers to the game directly.
+
+Sony, DualSense and PlayStation are trademarks of Sony Interactive
+Entertainment. InpMap is not affiliated with Sony; the emulation exists
+only so that games accept the controller you actually use.
 
 ## 4. Settings and variables
 
@@ -1025,9 +1123,11 @@ trigger; unknown, duplicate or empty layers; statements other than `map`
 inside a layer; unknown or duplicate blocks, blocks that call themselves,
 and statements a block may not contain (§6.11); `to` naming an
 unknown output or two outputs of one kind, `own` together with outputs, a
-missing `to` where several outputs of a kind exist (§3.4). When InpMap
-opens a device: keys without a keyboard output, gamepad buttons or axes
-the gamepad output does not have (§3.4 rule 2).
+missing `to` where several outputs of a kind exist (§3.4); `emulate` on
+an output that is not a gamepad, or with an unknown value (§3.5). At
+start: no write access to `/dev/uhid` for an emulating output (§3.5).
+When InpMap opens a device: keys without a keyboard output, gamepad
+buttons or axes the gamepad output does not have (§3.4 rule 2).
 
 Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3); blocks that
 are never called.

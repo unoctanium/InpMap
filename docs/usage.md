@@ -421,7 +421,8 @@ inpmap udev-rules [PROFILE_OR_FILE]
 ```
 
 Prints udev rules that give your login session access to `/dev/uinput` and
-the input devices of the configuration, which must be connected. Nothing is installed;
+the input devices of the configuration, which must be connected (with an
+emulated DualSense Edge also `/dev/uhid` and its raw HID node). Nothing is installed;
 see [installation.md](installation.md#3-device-permissions).
 
 ### `inpmap service-unit`
@@ -466,6 +467,12 @@ where to put it.
   mistake it for a keyboard.
 - Both report the USB vendor ID `0x0001` (product `0x0001` keyboard,
   `0x0002` gamepad); they do not pretend to be real hardware.
+- **Emulated DualSense Edge** (only with `emulate = "dualsense-edge"`,
+  [configuration.md §3.5](configuration.md#35-emulating-a-dualsense-edge-emulate)):
+  a HID device with Sony's IDs `054C:0DF2`, created through `/dev/uhid`.
+  Linux adds four devices for it — the gamepad plus "… Motion Sensors",
+  "… Touchpad" and "… Headset Jack", which stay idle. `inpmap devices`
+  marks them as InpMap's own; InpMap never reads them.
 
 ## 5. Troubleshooting
 
@@ -476,6 +483,8 @@ where to put it.
 | "N devices are named …" | use `path` with a `/dev/input/by-id` link instead of `name` |
 | "… is not taken over, its unmapped input would have nowhere to go" | add the output the message names, or `to = own` to that device's `input` block ([configuration.md §3.4](configuration.md#34-where-unmapped-input-goes)) |
 | a game sees two controllers | the physical pad is still visible to it: is the pad an `input` of the running profile? Steam may also list the grabbed physical pad; it no longer reacts |
+| an emulated DualSense Edge: the game sees no paddles, or an Xbox controller | turn Steam Input off for the game (game properties → Controller → "Disable Steam Input"); do not use Proton's `sdlinput` compatibility option. With Steam Input on, Steam also shows extra "Microsoft X-Box 360 pad" devices on the desktop |
+| "cannot create emulated controller … /dev/uhid" | the profile's udev rules are missing or old: run `inpmap udev-rules` again ([installation.md §3](installation.md#3-device-permissions)) |
 | "already grabbed by another program" | the InpMap service is running (`systemctl --user stop 'inpmap@*'`), or another remapper (e.g. Input Remapper) uses the device |
 | the service does not run | `systemctl --user status inpmap@default` and `journalctl --user -u inpmap@default` show the reason (an invalid configuration is reported with its line number) |
 | "no such configuration" | the profile does not exist yet; create it with the command shown (`inpmap input-config NAME`) |

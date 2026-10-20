@@ -31,14 +31,16 @@ from evdev import AbsInfo, UInput, ecodes
 from evdev.uinput import UInputError
 
 from ..macros import OUTPUT_AXIS_KINDS, AxisKind, Led
-from ..models import OutputDeviceSpec, OutputKind
-from ..output import OutputError, output_capabilities
+from ..models import EMULATE_DUALSENSE_EDGE, OutputDeviceSpec, OutputKind
+from ..output import OutputDevice, OutputError, output_capabilities
+from .linux_uhid import open_uhid
 
 log = logging.getLogger(__name__)
 
 # Identity of our virtual devices. Not a registered USB vendor ID; it only
 # needs to be stable and must not impersonate real hardware (SDL drivers
-# special-case known controllers by VID/PID).
+# special-case known controllers by VID/PID). The one opt-in exception is an
+# emulated DualSense Edge (linux_uhid.py, configuration.md §3.5).
 BUSTYPE = ecodes.BUS_USB
 VENDOR = 0x0001
 PRODUCT = {OutputKind.KEYBOARD: 0x0001, OutputKind.GAMEPAD: 0x0002}
@@ -149,17 +151,28 @@ class LinuxOutputDevice:
 class LinuxOutputBackend:
     """Creates uinput devices. Implements :class:`inpmap.output.OutputBackend`.
 
+    An output with ``emulate = "dualsense-edge"`` becomes a uhid device
+    instead (:mod:`inpmap.backends.linux_uhid`).
+
     ``products`` overrides the product IDs; the hardware tests use their own,
     because Steam remembers a controller's name per vendor and product ID.
     """
 
     def __init__(
-        self, devnode: str = "/dev/uinput", products: Mapping[OutputKind, int] = PRODUCT
+        self,
+        devnode: str = "/dev/uinput",
+        products: Mapping[OutputKind, int] = PRODUCT,
+        uhid_devnode: str = "/dev/uhid",
     ) -> None:
         self.devnode = devnode
         self.products = dict(products)
+        self.uhid_devnode = uhid_devnode
 
-    def create(self, spec: OutputDeviceSpec, key_codes: frozenset[int]) -> LinuxOutputDevice:
+    def create(self, spec: OutputDeviceSpec, key_codes: frozenset[int]) -> OutputDevice:
+        if spec.emulate == EMULATE_DUALSENSE_EDGE:
+            device = open_uhid(spec, self.uhid_devnode)
+            log.debug("uhid device '%s' (uniq %s)", spec.name, device.uniq)
+            return device
         try:
             uinput = UInput(
                 events=capabilities(spec.kind, key_codes),

@@ -1,6 +1,8 @@
 import pytest
 
 from inpmap.backends.linux_setup import (
+    EMULATED_HIDRAW_RULE,
+    UHID_RULE,
     UINPUT_RULE,
     SysfsInput,
     device_rule,
@@ -96,6 +98,27 @@ def test_render_rules_contains_uinput_and_inputs_and_instructions():
     # every non-comment line is a rule
     rules = [line for line in text.splitlines() if line and not line.startswith("#")]
     assert len(rules) == 2
+
+
+def test_render_rules_for_an_emulated_controller_add_uhid_and_its_hidraw_node():
+    plain = render_rules(config_with({"name": "2.4G Dongle"}), [KBD], "p")
+    assert UHID_RULE not in plain and EMULATED_HIDRAW_RULE not in plain
+    config = parse_config(
+        {
+            "version": 1,
+            "inputs": {"kbd": {"name": "2.4G Dongle"}},
+            "outputs": {"pad": {"type": "gamepad", "emulate": "dualsense-edge"}},
+            "mappings": [
+                {
+                    "id": "x",
+                    "input": {"device": "kbd", "type": "key", "code": "KEY_X"},
+                    "outputs": [{"device": "pad", "type": "button", "code": "BTN_GRIPL"}],
+                }
+            ],
+        }
+    )
+    text = render_rules(config, [KBD], "p")
+    assert UINPUT_RULE in text and UHID_RULE in text and EMULATED_HIDRAW_RULE in text
 
 
 def test_packaged_uinput_rule_matches_the_generated_one():

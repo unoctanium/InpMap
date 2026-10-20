@@ -68,6 +68,28 @@ Remove the `output keyboard` line and run again. **Expected:** InpMap
 stops at once with "… is not taken over … there is no keyboard output";
 the keyboard keeps working. Restore the line afterwards.
 
+## 2b. Emulated DualSense Edge
+
+Needs the udev rules of a profile with `emulate` (or run as described in
+`tools/dualsense_edge_uhid.py`). Profile: the pad as input `pad` (its extra
+buttons mapped to `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2`),
+`output gamepad { type = gamepad; emulate = "dualsense-edge" }`.
+
+1. `inpmap run PROFILE`. **Expected:** `journalctl -k` shows
+   "playstation …: Registered DualSense controller"; `inpmap devices` lists
+   "InpMap gamepad" and its Motion Sensors, Touchpad and Headset Jack as
+   InpMap's own; `getfacl` on the new `/dev/hidraw*` node shows your user.
+2. `evtest` on "InpMap gamepad": sticks, triggers, D-pad (as `ABS_HAT0X/Y`)
+   and buttons work; the paddles arrive as `BTN_TRIGGER_HAPPY3` (left) and
+   `BTN_TRIGGER_HAPPY4` (right), the Fn buttons as `BTN_TRIGGER_HAPPY1/2`
+   (Linux 7.2 or later).
+3. A Windows game under Proton with Steam Input disabled (e.g. WoW with the
+   InputLogger addon): the controller is a DualSense with ID 054C:0DF2;
+   right paddle, left paddle, right Fn, left Fn arrive as `PADPADDLE1` …
+   `PADPADDLE4` (SDL paddles 1 to 4).
+4. Stop InpMap. **Expected:** the four devices disappear, nothing stays
+   pressed in the game.
+
 ## 3. Emergency stop
 
 During a `run`, hold Backspace + Escape + Enter. **Expected:** InpMap stops

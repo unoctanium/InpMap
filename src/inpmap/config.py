@@ -34,6 +34,8 @@ from .macros import (
     axis_range,
 )
 from .models import (
+    EMULATE_DUALSENSE_EDGE,
+    EMULATIONS,
     MODIFIER_KEYS,
     AxisOutput,
     AxisThreshold,
@@ -66,7 +68,7 @@ _AXIS_OUTPUT_KEYS = {"device", "type", "code", "value", "attack_ms", "release_ms
 _VARIABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 _INPUT_DEVICE_KEYS = {"name", "path", "to"}
 OWN = "own"  # `to = own` (docs/configuration.md §3.4)
-_OUTPUT_DEVICE_KEYS = {"type", "name"}
+_OUTPUT_DEVICE_KEYS = {"type", "name", "emulate"}
 _MAPPING_KEYS = {
     "id",
     "description",
@@ -368,9 +370,29 @@ class _Validator:
                 self.error(f"{where}.name", f"name '{name}' is already used by '{names[name]}'")
                 continue
             names[name] = device_id
+            emulate = self.emulation(spec, kind, f"{where}.emulate")
             if id_ok and kind is not None:
-                result[device_id] = OutputDeviceSpec(id=device_id, kind=kind, name=name)
+                result[device_id] = OutputDeviceSpec(
+                    id=device_id, kind=kind, name=name, emulate=emulate
+                )
         return result
+
+    def emulation(self, spec: dict, kind: OutputKind | None, where: str) -> str | None:
+        """The `emulate` value (§3.5); None without one or if invalid (reported)."""
+        if "emulate" not in spec:
+            return None
+        value = spec["emulate"]
+        if value not in EMULATIONS:
+            self.error(
+                where,
+                f"unknown controller {value!r} to emulate "
+                f"(expected one of: {', '.join(EMULATIONS)})",
+            )
+            return None
+        if kind is not None and kind is not OutputKind.GAMEPAD:
+            self.error(where, f"only a gamepad output can emulate a controller, not a {kind.value}")
+            return None
+        return value
 
     def output_kind(self, value: object, where: str) -> OutputKind | None:
         valid = [kind.value for kind in OutputKind]
@@ -680,6 +702,9 @@ class _Validator:
         if spec.kind is OutputKind.GAMEPAD and not codes.is_gamepad_button(code):
             self.error(where, _not_gamepad_button(code))
             return None
+        if not _emulated_has(spec, code):
+            self.error(where, _not_on_emulated(spec, code))
+            return None
         return code
 
     def axis_code(
@@ -734,6 +759,9 @@ class _Validator:
             return None
         if spec.kind is OutputKind.GAMEPAD and not codes.is_gamepad_button(code):
             self.error(f"{where}.code", _not_gamepad_button(code))
+            return None
+        if not _emulated_has(spec, code):
+            self.error(f"{where}.code", _not_on_emulated(spec, code))
             return None
         if mode is None:
             return None
@@ -865,6 +893,18 @@ def _not_gamepad_button(code: int) -> str:
     return (
         f"{codes.code_name(code)} is not a gamepad/joystick button "
         "(e.g. use BTN_SOUTH, BTN_EAST, BTN_START, BTN_DPAD_UP)"
+    )
+
+
+def _emulated_has(spec: OutputDeviceSpec, code: int) -> bool:
+    """Whether an emulated controller has the button (always true otherwise)."""
+    return spec.emulate != EMULATE_DUALSENSE_EDGE or code in codes.DUALSENSE_EDGE_BUTTONS
+
+
+def _not_on_emulated(spec: OutputDeviceSpec, code: int) -> str:
+    return (
+        f"'{spec.id}' emulates a DualSense Edge, which has no {codes.code_name(code)} "
+        "(see configuration.md §3.5 for its buttons)"
     )
 
 

@@ -72,6 +72,13 @@ GAMEPAD_OUTPUT_BUTTONS: frozenset[int] = frozenset(
 )
 
 
+# An emulated DualSense Edge (configuration.md §3.5): the standard buttons
+# plus its back paddles (BTN_GRIPL/R) and Fn buttons (BTN_GRIPL2/R2), always.
+DUALSENSE_EDGE_BUTTONS: frozenset[int] = GAMEPAD_OUTPUT_BUTTONS | frozenset(
+    CODES[name] for name in ("BTN_GRIPL", "BTN_GRIPR", "BTN_GRIPL2", "BTN_GRIPR2")
+)
+
+
 @dataclass(frozen=True)
 class CodeEntry:
     """One key/button code for listings (``inpmap codes``)."""

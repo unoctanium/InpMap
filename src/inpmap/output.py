@@ -18,7 +18,7 @@ from typing import Protocol
 
 from . import codes
 from .macros import AXIS_REST, OUTPUT_AXIS_KINDS, AxisKind, Led
-from .models import Config, OutputDeviceSpec, OutputKind
+from .models import EMULATE_DUALSENSE_EDGE, Config, OutputDeviceSpec, OutputKind
 
 log = logging.getLogger(__name__)
 
@@ -35,12 +35,17 @@ class OutputCapabilities:
     axes: Mapping[int, AxisKind]
 
 
-def output_capabilities(kind: OutputKind, mapped_codes: frozenset[int]) -> OutputCapabilities:
+def output_capabilities(
+    kind: OutputKind, mapped_codes: frozenset[int], emulate: str | None = None
+) -> OutputCapabilities:
     """The fixed set of an output of ``kind`` plus the codes mappings send to it.
 
     The set does not depend on any input device, so an output stays the same
-    when a device is missing at start or reconnects.
+    when a device is missing at start or reconnects. An emulated controller
+    has exactly the set of the real one (the validator keeps mappings inside).
     """
+    if kind is OutputKind.GAMEPAD and emulate == EMULATE_DUALSENSE_EDGE:
+        return OutputCapabilities(codes.DUALSENSE_EDGE_BUTTONS, OUTPUT_AXIS_KINDS)
     if kind is OutputKind.KEYBOARD:
         return OutputCapabilities(codes.KEYBOARD_OUTPUT_KEYS | mapped_codes, {})
     if kind is OutputKind.GAMEPAD:
@@ -103,7 +108,9 @@ class OutputManager:
             raise RuntimeError("output devices are already open")
         for device_id, spec in self._config.outputs.items():
             try:
-                carried = output_capabilities(spec.kind, self._config.output_codes(device_id))
+                carried = output_capabilities(
+                    spec.kind, self._config.output_codes(device_id), spec.emulate
+                )
                 device = self._backend.create(spec, carried.keys)
             except BaseException:
                 # Cleanup boundary: also covers KeyboardInterrupt and

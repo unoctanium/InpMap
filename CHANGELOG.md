@@ -4,6 +4,19 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
+## Unreleased
+
+- **Emulated DualSense Edge** (configuration.md §3.5): `emulate =
+  "dualsense-edge"` on a gamepad output makes it a Sony DualSense Edge,
+  created through `/dev/uhid`. Windows games under Proton then read it with
+  their own PlayStation driver and get the back paddles (`BTN_GRIPL`,
+  `BTN_GRIPR`) and Fn buttons (`BTN_GRIPL2`, `BTN_GRIPR2`) as paddles 1 to 4,
+  which a normal virtual gamepad cannot deliver there. Opt-in; needs access
+  to `/dev/uhid` (`inpmap udev-rules` adds it for such profiles) and Steam
+  Input turned off for the game.
+- `tools/dualsense_edge_uhid.py` presses the emulated controller's buttons
+  in turn, for checking a game without a physical controller.
+
 ## 0.3.0 (2026-10-15)
 
 - **Unmapped input goes to the outputs** (configuration.md §3.4): keys to

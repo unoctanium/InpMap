@@ -103,6 +103,7 @@ button (A) pressed. Releasing `X` releases both, and nothing stays stuck.
 | **V1.1** – mappings and macros | sequences, waits, loops, parallel branches, conditions, variables, modifiers, gestures (tap, double tap, long press), clean cancellation; based on a study of Input Remapper | done |
 | Configuration language | `.inpmap` replaces JSON; layers, reusable blocks, `disable`, mappings for one device or every input, sticks/triggers/D-pad as triggers | done |
 | Routing by kind | unmapped input goes to the outputs of its kind (one controller per pad incl. extra buttons, `to`, refusal of devices that do not fit, mouse parts pass through), inspired by InputPlumber's composite devices | done |
+| Emulated DualSense Edge | opt-in gamepad output through `/dev/uhid` (`emulate = "dualsense-edge"`), so Windows games under Proton get back paddles and Fn buttons; requested by the wow-input project | done (hardware-tested 2026-10-20; not yet released) |
 | Background operation | systemd user service with profiles (`inpmap@NAME`), emergency stop | done |
 | Tools | `input-config`, `detect`, `axes`, `codes`, `check`, `macro-trace`, `fmt`, `udev-rules`, `service-unit`, `syntax-file` | done |
 | **Publishing** | installable without the source code (profiles in `~/.config/inpmap`, example and editor files in the package); CI; release 0.2.0 on PyPI; AUR package; demo and announcement | in progress |

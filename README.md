@@ -22,6 +22,9 @@ together.
 - 🕹️ **Unlock hidden buttons** — extra buttons that a controller only sends
   as keyboard keys become real **back paddles** that Steam shows as L4, R4,
   L5 and R5 and lets you bind ([see how](#example-back-paddles-for-the-razer-raiju)).
+- 🎯 **Paddles in Windows games under Proton** — an output can emulate a
+  DualSense Edge, so games that only read paddles from real controllers
+  get them ([configuration.md §3.5](docs/configuration.md#35-emulating-a-dualsense-edge-emulate)).
 - 🧩 **Merge devices** — a gamepad and its extra buttons become **one**
   controller, several keyboards become one keyboard, two pads become two
   separate players.

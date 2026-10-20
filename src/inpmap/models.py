@@ -64,6 +64,11 @@ class InputDeviceSpec:
         return dict(self.targets).get(kind)
 
 
+# Values of `emulate` (configuration.md §3.5).
+EMULATE_DUALSENSE_EDGE = "dualsense-edge"
+EMULATIONS = (EMULATE_DUALSENSE_EDGE,)
+
+
 @dataclass(frozen=True)
 class OutputDeviceSpec:
     """A virtual output device to create."""
@@ -71,6 +76,9 @@ class OutputDeviceSpec:
     id: str
     kind: OutputKind
     name: str
+    # A real controller the gamepad presents itself as (configuration.md
+    # §3.5); None for InpMap's own virtual gamepad.
+    emulate: str | None = None
 
 
 class Modifier(Enum):

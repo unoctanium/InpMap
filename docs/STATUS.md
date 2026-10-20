@@ -5,7 +5,7 @@ the project stands, what was decided and why, and what comes next. A new
 session continues from this file plus the repository. Goals and milestones:
 [roadmap.md](roadmap.md).
 
-Last updated: 2026-10-19
+Last updated: 2026-10-20
 
 ## Current position
 
@@ -39,6 +39,101 @@ Last updated: 2026-10-19
     maintainer posts it). d4 announcement drafts
     per venue (r/linux_gaming, r/hotas, r/hoggit, r/archlinux, Arch forum,
     Show HN) after checking each venue's rules, as a private page.
+
+### Side project: DualSense Edge output via /dev/uhid (started 2026-10-20)
+
+Requested by the separate wow-input project (its own `STATUS.md` holds the
+WoW test logs). Goal: WoW Classic "Forever" beta under Proton receives the
+back paddles. uinput pads reach Wine only via SDL → XInput (no paddle
+bits); a uhid device has a real hidraw node that Proton can pass through to
+WoW's SDL HIDAPI PS5 driver. Plan: (1) standalone prototype in `tools/`
+(no change to InpMap's code), tested by the maintainer in WoW; (2) only then
+an opt-in output `emulate = "dualsense-edge"` (an explicit, documented
+exception to "virtual devices never impersonate real hardware").
+
+Research (2026-10-20, from kernel `hid-playstation.c`, SDL2
+`SDL_hidapi_ps5.c`/`SDL_gamecontroller.c`, hid-tools `sony_gamepad.py`,
+Wine/Proton `winebus.sys` incl. the CachyOS 11.0 fork):
+- Report 0x01 is 64 bytes; Edge bits in byte 10: 0x10 left Fn, 0x20 right
+  Fn, 0x40 left paddle, 0x80 right paddle. SDL2 (PID 0x0DF2 only):
+  PADDLE1 = right paddle, PADDLE2 = left paddle, PADDLE3 = right Fn,
+  PADDLE4 = left Fn. WoW's rawIndex is the SDL game-controller button
+  index: PADPADDLE1–4 = rawIndex 16–19 (observed in WoW 2026-10-20; not the
+  reversed raw joystick buttons b17–b20 of the PS5 driver). Kernel ≥ 7.2: BTN_TRIGGER_HAPPY1–4 = lFn, rFn,
+  lPaddle, rPaddle.
+- hid-playstation probe needs feature 0x09 (20 bytes), 0x20 (64), 0x05 (41),
+  first byte = ID, else probe fails; no CRC on USB; MAC must be unique.
+- SDL needs a 64-byte report within 16 ms of opening (else "Bluetooth").
+- Proton passes 054C:0DF2 as hidraw by default (no env variable); no XInput
+  copy; same-ID SDL/evdev duplicates are removed. Steam Input must be
+  disabled for the game, otherwise Steam lists the pad in
+  `SDL_GAMECONTROLLER_IGNORE_DEVICES`, which winebus honours for hidraw.
+  Avoid the `sdlinput` compat option (sets `PROTON_DISABLE_HIDRAW=1`).
+- Steam's `60-steam-input.rules` already gives the hidraw node uaccess
+  (`KERNELS=="*054C:0DF2*"`); `/dev/uhid` itself is root-only.
+- The descriptor and feature replies come from hid-tools (a dump of a
+  DualSense 0x0CE6); check hid-tools' license before copying them into
+  InpMap's package in stage 2.
+
+Stage 1 done in code: `tools/dualsense_edge_uhid.py` (stdlib only, run with
+sudo) plus `tests/test_tool_dualsense_edge_uhid.py`.
+
+(a) Desktop test passed 2026-10-20: hid-playstation probed it
+("Registered DualSense controller hw_version=0x00000313
+fw_version=0x0100001e"), created gamepad, motion sensors, touchpad and
+headset-jack devices; `/dev/hidraw10` got `user:<maintainer>:rw-`; the
+gamepad has BTN_TRIGGER_HAPPY1–4; one round recorded through evdev gave
+BTN_SOUTH, HAPPY4, HAPPY3, HAPPY2, HAPPY1 with releases, device removed
+cleanly on exit. Steam (running, Steam Input on) immediately created two
+virtual "Microsoft X-Box 360 pad" devices (28de:11ff) — expect double
+input on the desktop while Steam runs.
+(b) WoW test: the maintainer reported "works" on 2026-10-20 (Steam Input
+disabled for the shortcut, `--start-delay 60`); details are in wow-input's
+`STATUS.md`. Stage 1 is done.
+
+Stage 2 decisions (maintainer, 2026-10-20): option `emulate =
+"dualsense-edge"` on a gamepad output; the existing codes stay
+(`BTN_SOUTH` = Cross …); back paddles = `BTN_GRIPL`/`BTN_GRIPR`, Fn
+buttons = `BTN_GRIPL2`/`BTN_GRIPR2`. My suggestions on the other points
+(packaged uaccess rule for `/dev/uhid`, ignore own uhid devices,
+document Steam Input off, check the hid-tools license, no feedback) are
+in configuration.md §3.5, approved by the maintainer 2026-10-20 ("go").
+
+Stage 2 implemented 2026-10-20 (unit-tested; hardware test pending):
+- `backends/linux_uhid.py`: `UhidDualSenseEdge` (one thread per device
+  answers GET_REPORT and streams a report every 4 ms; set_key/set_axis
+  change state under a lock and send at once), own report descriptor and
+  feature replies written from the protocol facts — hid-tools is GPL-2.0,
+  so its dump is no longer used; MAC = 02:49:4d + 3 bytes of sha256(output
+  id) (stable, distinct, marks the kernel's nodes as own via `uniq`).
+- `models.OutputDeviceSpec.emulate`, `codes.DUALSENSE_EDGE_BUTTONS`,
+  `output_capabilities(..., emulate)`, routing uses the emulated set,
+  validator errors (unknown value, non-gamepad, button the Edge lacks).
+- `linux_setup.is_own_node(phys, uniq)` used by device listing,
+  input-config and input resolution.
+- `inpmap udev-rules`: adds `/dev/uhid` (uaccess) and a hidraw rule for
+  uhid-created 054C:0DF2 only when the profile emulates (decided instead
+  of a packaged uhid rule: no wider permissions for everyone who installs
+  the package).
+- `tools/dualsense_edge_uhid.py` is now a thin press-sequence tool on top
+  of the module.
+- Docs: configuration.md §3.5, installation.md §3, usage.md §4/§5,
+  manual-tests.md §2b, CHANGELOG (Unreleased), README, roadmap.
+- The two earlier local commits of the prototype (7536f2d, …) contain the
+  hid-tools (GPL-2.0) descriptor dump; not pushed. Ask the maintainer
+  before pushing whether to squash them out (history rewrite needs OK).
+Hardware test of the integration, 2026-10-20 (maintainer's gaming profile
+copy with `emulate`, `.venv/bin/inpmap run`, udev rules from `inpmap
+udev-rules` installed): hid-playstation registered it with our own
+firmware values (hw 0x1, fw 0x10000); name "InpMap Gamepad", uniq
+02:49:4d:54:db:a8; `inpmap devices` marks its nodes as own; /dev/uhid and
+/dev/hidraw10 have `user:<maintainer>:rw-`. evdev recording: Raiju F21 →
+BTN_TRIGGER_HAPPY3 (left paddle), F22 → HAPPY4 (right paddle), face,
+shoulder, trigger and menu buttons, every press released. WoW (Steam
+Input disabled): controller reported as DualSense, all buttons detected
+(maintainer). Stopping InpMap: WoW reports the DualSense disconnected.
+Open (WoW behaviour, not InpMap): WoW does not switch to another pad
+in-game after the DualSense disappears; a WoW restart picks it up.
 
 ## Next steps
 
@@ -113,7 +208,7 @@ the hardware tests now use product IDs 0x7E01/0x7E02 (`tests/hardware.py`).
 
 ## Verification
 
-- Unit tests: 627 passed (`.venv/bin/python -m pytest`); ruff clean.
+- Unit tests: 684 passed (`.venv/bin/python -m pytest`); ruff clean.
 - Hardware tests (synthetic uinput devices, `-m hardware`): 19, all passed
   on 2026-10-15 (incl. routing: keyboard + pad into the outputs, mouse part
   on a pass-through device, LEDs to the physical keyboard, refused device

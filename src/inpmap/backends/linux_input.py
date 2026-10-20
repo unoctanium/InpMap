@@ -15,8 +15,9 @@ Notes:
   keyboard output (or, with ``to = own``, on the pass-through device); it is
   read back from the uinput descriptor and applied to the physical device.
 * Force feedback (rumble) is not passed through; forwarders have no EV_FF.
-* Our own virtual devices (phys starting with "inpmap") are never opened as
-  inputs, which prevents feedback loops.
+* Our own virtual devices (phys starting with "inpmap", or the MAC prefix of
+  an emulated DualSense Edge as uniq) are never opened as inputs, which
+  prevents feedback loops.
 """
 
 from __future__ import annotations
@@ -40,11 +41,10 @@ from ..input import InputDeviceLost, InputError
 from ..macros import Led
 from ..models import AxisThreshold, InputDeviceSpec, InputEvent, KeyAction
 from ..routing import DeviceCapabilities, RoutePlan
-from .linux_setup import symlinks_by_target
+from .linux_setup import is_own_node, symlinks_by_target
 
 log = logging.getLogger(__name__)
 
-OWN_PHYS_PREFIX = "inpmap"  # output devices use "inpmap", forwarders "inpmap-forward"
 FORWARD_PHYS = "inpmap-forward"
 FORWARD_NAME_PREFIX = "InpMap forward: "
 LINK_DIRS = ("/dev/input/by-id", "/dev/input/by-path")  # same as linux_setup.LINK_DIRS
@@ -58,7 +58,7 @@ _LEDS = {
 
 
 def is_own_device(device: InputDevice) -> bool:
-    return (device.phys or "").startswith(OWN_PHYS_PREFIX)
+    return is_own_node(device.phys or "", device.uniq or "")
 
 
 def forward_name(name: str) -> str:

@@ -123,11 +123,13 @@ def plan_route(spec: InputDeviceSpec, config: Config, caps: DeviceCapabilities) 
     watched = config.watched_axes(spec.id)
     keyboard = spec.target(OutputKind.KEYBOARD)
     gamepad = spec.target(OutputKind.GAMEPAD)
-    gamepad_buttons = (
-        output_capabilities(OutputKind.GAMEPAD, config.output_codes(gamepad)).keys
-        if gamepad
-        else frozenset()
-    )
+    gamepad_buttons: frozenset[int] = frozenset()
+    if gamepad:
+        output = config.outputs.get(gamepad)
+        emulate = output.emulate if output is not None else None
+        gamepad_buttons = output_capabilities(
+            OutputKind.GAMEPAD, config.output_codes(gamepad), emulate
+        ).keys
 
     keys: dict[int, str] = {}
     passthrough_keys: set[int] = set()
