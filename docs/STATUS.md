@@ -132,8 +132,18 @@ BTN_TRIGGER_HAPPY3 (left paddle), F22 → HAPPY4 (right paddle), face,
 shoulder, trigger and menu buttons, every press released. WoW (Steam
 Input disabled): controller reported as DualSense, all buttons detected
 (maintainer). Stopping InpMap: WoW reports the DualSense disconnected.
-Open (WoW behaviour, not InpMap): WoW does not switch to another pad
-in-game after the DualSense disappears; a WoW restart picks it up.
+After the DualSense disappears, WoW switches to another pad in-game with
+the addon's `/il use 2` (CVar GamePadSingleActiveID); confirmed by the
+maintainer.
+
+Maintainer's decisions 2026-10-20: squash the unpushed prototype commits
+(done: one commit b47ce2c…, tree identical, no hid-tools data left in the
+unpushed history); `emulate = "dualsense-edge"` is now in the maintainer's
+`gaming` profile (the installed 0.3.0 rejects it: `inpmap@gaming` fails
+until 0.4.0 is installed); release 0.4.0. Version bumped and CHANGELOG
+dated locally; ⏳ push + tag (publishes to PyPI) waits for the maintainer's
+explicit go; then AUR PKGBUILD 0.4.0 (pkgver, sha256 of the PyPI sdist),
+`makepkg -sri`, `inpmap udev-rules gaming` reinstalled, service restart.
 
 ## Next steps
 
@@ -210,9 +220,10 @@ the hardware tests now use product IDs 0x7E01/0x7E02 (`tests/hardware.py`).
 
 - Unit tests: 684 passed (`.venv/bin/python -m pytest`); ruff clean.
 - Hardware tests (synthetic uinput devices, `-m hardware`): 19, all passed
-  on 2026-10-15 (incl. routing: keyboard + pad into the outputs, mouse part
-  on a pass-through device, LEDs to the physical keyboard, refused device
-  never grabbed).
+  on 2026-10-20 (incl. routing: keyboard + pad into the outputs, mouse
+  part on a pass-through device, LEDs to the physical keyboard, refused
+  device never grabbed). They do not cover the emulated controller (needs
+  /dev/uhid); that was tested by hand in WoW (above).
 - CI: green on Python 3.11–3.14 for `6935fbc`; release workflow green for
   `v0.3.0`.
 - Real hardware (keyboard dongle, Razer Raiju V3 Pro): everything listed
