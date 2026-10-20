@@ -11,12 +11,14 @@ Last updated: 2026-10-20
 
 - V1, V1.1, the configuration language, the systemd user service and
   **routing by kind** (0.3.0) are done and verified on real hardware.
-- **InpMap 0.3.0 released** (2026-10-15): on PyPI; CI and the release
-  workflow green; the Arch package in `packaging/aur` is 0.3.0 (pkgrel 1),
-  test-built and installed by the maintainer with `makepkg -sri`. The
-  maintainer's login service runs a personal profile (`inpmap@gaming`:
-  small keyboard with a Caps Lock layer, Raiju pad + its keyboard part as
-  one controller with back paddles) with the packaged 0.3.0.
+- **InpMap 0.4.1 released** (2026-10-20, on PyPI; 0.4.0 the same day, 0.3.0
+  on 2026-10-15): adds the emulated DualSense Edge (`emulate`). The Arch
+  package in `packaging/aur` is 0.4.1 (pkgrel 1), test-built with
+  `makepkg -f`; installing it is the maintainer's step. The maintainer's
+  login service runs a personal profile (`inpmap@gaming`: small keyboard
+  with a Caps Lock layer, Raiju pad + its keyboard part as one controller
+  with back paddles, now with `emulate = "dualsense-edge"`); it needs
+  0.4.x installed (0.3.0 rejects `emulate`).
 - **Publishing (roadmap)** is in progress:
   - a. ✅ Independent of the source tree (profiles, packaged example and
     syntax files, `inpmap@NAME`, `detect`).
@@ -150,7 +152,8 @@ paddles as seen from the back: paddle 1 = the Edge's right paddle).
 Decision (maintainer, 2026-10-20): number order — GRIPL → Edge right
 paddle bit (SDL 1), GRIPR → left paddle (2), GRIPL2 → right Fn (3), GRIPR2
 → left Fn (4); Steam/evtest show it mirrored, documented in §3.5. Both in
-0.4.1. Then AUR PKGBUILD 0.4.1, `makepkg -sri` by the maintainer,
+0.4.1, released 2026-10-20 (PyPI); AUR files 0.4.1 test-built with
+`makepkg -f` (check() passed). ⏳ Maintainer: install the package,
 `inpmap udev-rules gaming` reinstalled, service restart; the WoW check of
 the new order is still to do.
 

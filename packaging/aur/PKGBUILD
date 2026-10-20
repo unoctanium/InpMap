@@ -1,7 +1,7 @@
 # Maintainer: unoctanium
 
 pkgname=inpmap
-pkgver=0.3.0
+pkgver=0.4.1
 pkgrel=1
 pkgdesc="Configuration-driven input remapper: one key can drive several virtual devices"
 arch=('any')
@@ -15,7 +15,7 @@ install=inpmap.install
 source=("https://files.pythonhosted.org/packages/source/i/$pkgname/$pkgname-$pkgver.tar.gz"
         "inpmap@.service"
         "70-inpmap-uinput.rules")
-sha256sums=('468de4ad711fb9f1f8afe1b2dbf6df0562f20f65220a324946d9257a359f0d75'
+sha256sums=('cfd69304ce86efbc829152b6d2bd6847f3459a52bf6d8db7e17b388c94100623'
             '145e4c37729992ff6817f205590b6705066ba524361a67768ffb3565357d48ce'
             '06669ec9a93c7870e2ae8f76c54ef1dbff6b6e7a85c1d1627090e563c235a2a9')
 
