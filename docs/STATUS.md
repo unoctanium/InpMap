@@ -196,8 +196,11 @@ Stuck "Paddle Button 2" in KDE's controller page with emulation off
 "InpMap Gamepad" (service 0.4.3, no emulate) — 97 presses incl. many
 overlapping M3/M4 holds released in both orders and M5/M6: every press
 released exactly once, none doubled, nothing held at the end. So InpMap's
-output is correct; the display comes from KDE's page (SDL). ⏳ Maintainer to
-confirm whether KDE showed it stuck during that recording.
+output is correct. The maintainer's table of four press/release orders
+fits exactly one rule: KDE's page updates "Paddle Button 2" only on M4's
+(BTN_GRIPR) events and shows M3's (BTN_GRIPL) state at that moment — a
+display bug of KDE's controller page (or its SDL), not InpMap. Noted in
+usage.md §5; nothing to fix in InpMap.
 
 ## Next steps
 
