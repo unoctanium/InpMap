@@ -152,7 +152,7 @@ def test_keys_that_mappings_use_need_no_target():
 
 def test_pad_without_gamepad_output_is_refused():
     message = refusal(XBOX_PAD, "output keyboard { type = keyboard }\nmap BTN_SOUTH { tap KEY_A }")
-    assert "gamepad or joystick parts (BTN_EAST, BTN_NORTH, BTN_WEST, BTN_TL, BTN_TR, … " in message
+    assert "gamepad or joystick parts (BTN_EAST, BTN_X, BTN_Y, BTN_TL, BTN_TR, … " in message
     assert "add: output gamepad { type = gamepad }, or use `to = own`" in message
 
 

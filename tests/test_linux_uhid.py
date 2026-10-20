@@ -114,10 +114,10 @@ def test_neutral_report():
 @pytest.mark.parametrize(
     ("name", "byte", "bit"),
     [
-        ("BTN_WEST", 8, 0x10),
+        ("BTN_X", 8, 0x10),  # Square
         ("BTN_SOUTH", 8, 0x20),
         ("BTN_EAST", 8, 0x40),
-        ("BTN_NORTH", 8, 0x80),
+        ("BTN_Y", 8, 0x80),  # Triangle
         ("BTN_TL", 9, 0x01),
         ("BTN_TR", 9, 0x02),
         ("BTN_SELECT", 9, 0x10),
@@ -125,10 +125,10 @@ def test_neutral_report():
         ("BTN_THUMBL", 9, 0x40),
         ("BTN_THUMBR", 9, 0x80),
         ("BTN_MODE", 10, 0x01),
-        ("BTN_GRIPL", 10, 0x80),  # right paddle: SDL paddle 1
-        ("BTN_GRIPR", 10, 0x40),  # left paddle: SDL paddle 2
-        ("BTN_GRIPL2", 10, 0x20),  # right Fn: SDL paddle 3
-        ("BTN_GRIPR2", 10, 0x10),  # left Fn: SDL paddle 4
+        ("BTN_GRIPL", 10, 0x10),  # left Fn (Steam: upper left)
+        ("BTN_GRIPR", 10, 0x20),  # right Fn (Steam: upper right)
+        ("BTN_GRIPL2", 10, 0x40),  # left paddle (Steam: lower left)
+        ("BTN_GRIPR2", 10, 0x80),  # right paddle (Steam: lower right)
     ],
 )
 def test_button_bits(name, byte, bit):
@@ -262,7 +262,7 @@ def test_reports_stream_and_presses_are_sent_at_once():
     try:
         first = kernel.receive_until(u.UHID_INPUT2)
         assert struct.unpack_from("<H", first, 4)[0] == 64
-        device.set_key(c("BTN_GRIPL"), True)
+        device.set_key(c("BTN_GRIPR2"), True)
         deadline = time.monotonic() + 1.0
         while time.monotonic() < deadline:
             report = kernel.receive_until(u.UHID_INPUT2)[6:]
@@ -270,7 +270,7 @@ def test_reports_stream_and_presses_are_sent_at_once():
                 break
         else:
             pytest.fail("the press never arrived")
-        device.set_key(c("BTN_GRIPL"), False)
+        device.set_key(c("BTN_GRIPR2"), False)
         device.set_axis(0x00, 1.0)
         while True:
             report = kernel.receive_until(u.UHID_INPUT2)[6:]

@@ -53,8 +53,8 @@ GAMEPAD_OUTPUT_BUTTONS: frozenset[int] = frozenset(
     for name in (
         "BTN_SOUTH",
         "BTN_EAST",
-        "BTN_NORTH",
-        "BTN_WEST",
+        "BTN_X",
+        "BTN_Y",
         "BTN_TL",
         "BTN_TR",
         "BTN_TL2",

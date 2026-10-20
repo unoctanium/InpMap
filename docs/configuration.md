@@ -173,23 +173,29 @@ players.
 | Output | Codes |
 |---|---|
 | `keyboard` | every `KEY_*` code |
-| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger). The D-pad is the `BTN_DPAD_*` buttons; a physical pad's D-pad axes `ABS_HAT0X`/`ABS_HAT0Y` arrive as these buttons (§3.4) |
+| `gamepad` | buttons `BTN_SOUTH`, `BTN_EAST`, `BTN_X`, `BTN_Y`, `BTN_TL`, `BTN_TR`, `BTN_TL2`, `BTN_TR2`, `BTN_SELECT`, `BTN_START`, `BTN_MODE`, `BTN_THUMBL`, `BTN_THUMBR`, `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT`; if you map them, also the back paddles `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` and other joystick buttons; axes `ABS_X`, `ABS_Y` (left stick), `ABS_RX`, `ABS_RY` (right stick), `ABS_Z`, `ABS_RZ` (left and right trigger). The D-pad is the `BTN_DPAD_*` buttons; a physical pad's D-pad axes `ABS_HAT0X`/`ABS_HAT0Y` arrive as these buttons (§3.4) |
 
 A gamepad output with `emulate = "dualsense-edge"` has its own fixed set
 (§3.5).
 
-Gamepad buttons are named by **position**, because the printed labels
-differ between controllers:
+The four face buttons, and what they are labelled on different
+controllers:
 
 | Code | Position | Xbox | PlayStation | Nintendo |
 |---|---|---|---|---|
 | `BTN_SOUTH` (also `BTN_A`) | bottom | A | Cross | B |
 | `BTN_EAST` (also `BTN_B`) | right | B | Circle | A |
-| `BTN_NORTH` | top | Y | Triangle | X |
-| `BTN_WEST` | left | X | Square | Y |
+| `BTN_X` | left | X | Square | Y |
+| `BTN_Y` | top | Y | Triangle | X |
 
-`BTN_X` and `BTN_Y` are accepted but give a **warning**: in Linux `BTN_X` is
-the top button (labelled Y on Xbox) and `BTN_Y` the left one (labelled X).
+This is how Xbox controllers (Linux's `xpad` driver), SDL and Steam use
+these codes, and so what games see from InpMap's gamepad outputs. Linux
+also calls `BTN_X` `BTN_NORTH` and `BTN_Y` `BTN_WEST`: these names are
+accepted but give a **warning**, because they say the opposite position.
+Exception: the Linux drivers of PlayStation and Nintendo controllers do
+follow those names and send `BTN_X` for the top button and `BTN_Y` for the
+left one. With such a controller as input, `inpmap detect` shows which
+code a button sends.
 
 Back paddles follow the Linux convention: `BTN_GRIPL` and `BTN_GRIPR` are
 the upper left and right paddle, `BTN_GRIPL2` and `BTN_GRIPR2` the lower
@@ -373,26 +379,27 @@ What is different from a normal gamepad output:
 
   | Code | DualSense Edge | In SDL-based games |
   |---|---|---|
-  | `BTN_SOUTH`, `BTN_EAST`, `BTN_NORTH`, `BTN_WEST` | Cross, Circle, Triangle, Square | A, B, Y, X |
+  | `BTN_SOUTH`, `BTN_EAST`, `BTN_X`, `BTN_Y` | Cross, Circle, Square, Triangle | A, B, X, Y |
   | `BTN_TL`, `BTN_TR` | L1, R1 | shoulder buttons |
   | `BTN_TL2`, `BTN_TR2` | L2, R2 fully pressed | triggers |
   | `BTN_SELECT`, `BTN_START`, `BTN_MODE` | Create, Options, PS button | Back, Start, Guide |
   | `BTN_THUMBL`, `BTN_THUMBR` | L3, R3 (stick clicks) | stick buttons |
   | `BTN_DPAD_UP`, `BTN_DPAD_DOWN`, `BTN_DPAD_LEFT`, `BTN_DPAD_RIGHT` | D-pad | D-pad |
-  | `BTN_GRIPL` | right back paddle | Paddle 1 |
-  | `BTN_GRIPR` | left back paddle | Paddle 2 |
-  | `BTN_GRIPL2` | right Fn button | Paddle 3 |
-  | `BTN_GRIPR2` | left Fn button | Paddle 4 |
+  | `BTN_GRIPL` | left Fn button (Steam: upper left) | Paddle 4 |
+  | `BTN_GRIPR` | right Fn button (Steam: upper right) | Paddle 3 |
+  | `BTN_GRIPL2` | left back paddle (Steam: lower left) | Paddle 2 |
+  | `BTN_GRIPR2` | right back paddle (Steam: lower right) | Paddle 1 |
   | `ABS_X`, `ABS_Y`, `ABS_RX`, `ABS_RY` | left and right stick | sticks |
   | `ABS_Z`, `ABS_RZ` | L2, R2 analog | triggers |
 
-  World of Warcraft, for example, names Paddle 1 to 4 `PADPADDLE1` to
-  `PADPADDLE4`. The codes follow the paddle **numbers** games use:
-  `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` are Paddle 1 to 4.
-  SDL numbers the paddles as seen from the back of the controller, so
-  Paddle 1 is the Edge's right paddle; programs that show the Edge's
-  layout (Steam's controller settings, `evtest`) therefore show
-  `BTN_GRIPL` on the right. The paddles and Fn buttons are always present, because a
+  The paddle codes follow the **positions** Steam shows for the Edge, like
+  the Linux convention of §3.3: `BTN_GRIPL`/`BTN_GRIPR` the upper row (the
+  Fn buttons), `BTN_GRIPL2`/`BTN_GRIPR2` the lower row (the back paddles).
+  Games number them differently: SDL counts the paddles as seen from the
+  back, right paddle first, so World of Warcraft, for example, shows
+  `BTN_GRIPR2`, `BTN_GRIPL2`, `BTN_GRIPR`, `BTN_GRIPL` as `PADPADDLE1` to
+  `PADPADDLE4`. What else WoW needs: [wow-dualsense.md](wow-dualsense.md).
+  The paddles and Fn buttons are always present, because a
   DualSense Edge always has them (unlike §3.3, where a gamepad gets
   paddles only when a mapping uses them). The touchpad, the microphone
   button and the motion sensors are not driven.
@@ -860,7 +867,7 @@ map KEY_F7 {  # sweep the stick while tapping
         }
         branch {
             repeat 5 {
-                tap BTN_WEST
+                tap BTN_X
                 wait 100ms
             }
         }
@@ -1012,7 +1019,7 @@ block close_dialog {
 
 let bracket_mode = false
 
-map pad.BTN_WEST as alternate {
+map pad.BTN_X as alternate {
     if not bracket_mode {
         bracket_mode = true
         tap KEY_ENTER
@@ -1134,7 +1141,7 @@ start: no write access to `/dev/uhid` for an emulating output (§3.5).
 When InpMap opens a device: keys without a keyboard output, gamepad
 buttons or axes the gamepad output does not have (§3.4 rule 2).
 
-Warnings (the file still loads): `BTN_X` and `BTN_Y` (§3.3); blocks that
+Warnings (the file still loads): `BTN_NORTH` and `BTN_WEST` (§3.3); blocks that
 are never called.
 
 Check a file with `inpmap check FILE`.
@@ -1304,7 +1311,7 @@ map kbd.KEY_F4 {
         }
         branch {
             repeat 5 {
-                tap BTN_WEST
+                tap BTN_X
                 wait 100ms
             }
         }
@@ -1347,7 +1354,7 @@ map kbd.KEY_LEFTBRACE modifiers(ctrl, shift) as bracket_combo {
 
 # Gamepad X: first press opens, second press closes
 let bracket_mode = false
-map pad.BTN_WEST as alternate {
+map pad.BTN_X as alternate {
     if not bracket_mode {
         bracket_mode = true
         tap KEY_ENTER

@@ -157,6 +157,7 @@ Not yet: mouse output, a GUI, Windows, a system-wide service.
 | [docs/installation.md](https://github.com/unoctanium/InpMap/blob/main/docs/installation.md) | requirements, installation, device permissions, user service, uninstall |
 | [docs/usage.md](https://github.com/unoctanium/InpMap/blob/main/docs/usage.md) | first configuration step by step, all commands and options, troubleshooting |
 | [docs/configuration.md](https://github.com/unoctanium/InpMap/blob/main/docs/configuration.md) | **reference** of the configuration language: every feature with examples |
+| [docs/wow-dualsense.md](https://github.com/unoctanium/InpMap/blob/main/docs/wow-dualsense.md) | World of Warcraft with the emulated DualSense Edge: the settings to make by hand |
 | [docs/development.md](https://github.com/unoctanium/InpMap/blob/main/docs/development.md) | for contributors: tests, architecture, releases |
 | [docs/roadmap.md](https://github.com/unoctanium/InpMap/blob/main/docs/roadmap.md) | goals, requirements, milestones and what comes next |
 | [CHANGELOG.md](https://github.com/unoctanium/InpMap/blob/main/CHANGELOG.md) | changes per version |

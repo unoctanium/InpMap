@@ -2,7 +2,7 @@
 
 Creates the same device as an output with ``emulate = "dualsense-edge"``
 (docs/configuration.md §3.5, ``inpmap.backends.linux_uhid``) without any
-input device, and presses cross and BTN_GRIPL … BTN_GRIPR2 (paddles 1 to 4) one
+input device, and presses cross and BTN_GRIPL … BTN_GRIPR2 one
 after another. For checking what a game or Steam receives, e.g. in WoW
 (``PADPADDLE1``…``4``), without a physical controller.
 
@@ -38,10 +38,10 @@ log = logging.getLogger("dualsense-edge-uhid")
 # name -> (code, description); SDL paddle numbers as WoW shows them.
 BUTTONS = {
     "cross": ("BTN_SOUTH", "cross (SDL A, WoW PAD1)"),
-    "gripl": ("BTN_GRIPL", "Edge right paddle (SDL PADDLE1, WoW PADPADDLE1)"),
-    "gripr": ("BTN_GRIPR", "Edge left paddle (SDL PADDLE2, WoW PADPADDLE2)"),
-    "gripl2": ("BTN_GRIPL2", "Edge right Fn (SDL PADDLE3, WoW PADPADDLE3)"),
-    "gripr2": ("BTN_GRIPR2", "Edge left Fn (SDL PADDLE4, WoW PADPADDLE4)"),
+    "gripl": ("BTN_GRIPL", "Edge left Fn (SDL PADDLE4, WoW PADPADDLE4)"),
+    "gripr": ("BTN_GRIPR", "Edge right Fn (SDL PADDLE3, WoW PADPADDLE3)"),
+    "gripl2": ("BTN_GRIPL2", "Edge left paddle (SDL PADDLE2, WoW PADPADDLE2)"),
+    "gripr2": ("BTN_GRIPR2", "Edge right paddle (SDL PADDLE1, WoW PADPADDLE1)"),
 }
 DEFAULT_SEQUENCE = ("cross", "gripl", "gripr", "gripl2", "gripr2")
 SPEC = OutputDeviceSpec(

@@ -483,7 +483,7 @@ where to put it.
 | "N devices are named …" | use `path` with a `/dev/input/by-id` link instead of `name` |
 | "… is not taken over, its unmapped input would have nowhere to go" | add the output the message names, or `to = own` to that device's `input` block ([configuration.md §3.4](configuration.md#34-where-unmapped-input-goes)) |
 | a game sees two controllers | the physical pad is still visible to it: is the pad an `input` of the running profile? Steam may also list the grabbed physical pad; it no longer reacts |
-| an emulated DualSense Edge: the game sees no paddles, or an Xbox controller | turn Steam Input off for the game (game properties → Controller → "Disable Steam Input"); do not use Proton's `sdlinput` compatibility option. With Steam Input on, Steam also shows extra "Microsoft X-Box 360 pad" devices on the desktop |
+| an emulated DualSense Edge: the game sees no paddles, or an Xbox controller | turn Steam Input off for the game (game properties → Controller → "Disable Steam Input"); do not use Proton's `sdlinput` compatibility option. With Steam Input on, Steam also shows extra "Microsoft X-Box 360 pad" devices on the desktop. World of Warcraft: [wow-dualsense.md](wow-dualsense.md) |
 | "cannot create emulated controller … /dev/uhid" | the profile's udev rules are missing or old: run `inpmap udev-rules` again ([installation.md §3](installation.md#3-device-permissions)) |
 | "already grabbed by another program" | the InpMap service is running (`systemctl --user stop 'inpmap@*'`), or another remapper (e.g. Input Remapper) uses the device |
 | the service does not run | `systemctl --user status inpmap@default` and `journalctl --user -u inpmap@default` show the reason (an invalid configuration is reported with its line number) |

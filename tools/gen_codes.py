@@ -34,6 +34,12 @@ EXCLUDED = {
     "BTN_TRIGGER_HAPPY",
 }
 
+# Canonical names that differ from the header's first definition. Xbox
+# controllers (Linux xpad driver), SDL and Steam treat 0x133 as the left face
+# button "X" and 0x134 as the top one "Y", although the header names them
+# BTN_NORTH and BTN_WEST first (docs/configuration.md §3.3).
+CANONICAL_OVERRIDES = {0x133: "BTN_X", 0x134: "BTN_Y"}
+
 DEFINE = re.compile(r"^#define\s+((?:KEY|BTN)_\w+)\s+(\w+)")
 
 
@@ -63,6 +69,7 @@ def parse(header: str) -> tuple[dict[str, int], dict[int, str]]:
             raise SystemExit(f"cannot resolve {name} = {value}") from None
         codes[name] = code
         canonical.setdefault(code, name)
+    canonical.update(CANONICAL_OVERRIDES)
     return codes, canonical
 
 

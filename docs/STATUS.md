@@ -157,6 +157,33 @@ paddle bit (SDL 1), GRIPR → left paddle (2), GRIPL2 → right Fn (3), GRIPR2
 `inpmap udev-rules gaming` reinstalled, service restart; the WoW check of
 the new order is still to do.
 
+### X/Y and paddle layout (after 0.4.1, 2026-10-20, unreleased)
+
+Maintainer's test with the packaged 0.4.1 (`/il use 0` fixed "no
+controller": WoW's saved GamePadSingleActiveID pointed at a stale device
+number): paddles OK in WoW, but with emulation X/Y were swapped in KDE,
+Steam and WoW, and View arrived as PADSOCIAL. Cause, from the sources:
+Linux `xpad` reports the Xbox X button as `BTN_X` = 0x133 (also named
+`BTN_NORTH`); SDL2 treats 0x133 as X for non-Sony devices and as Triangle
+for Sony ones; InpMap's docs and the emulation treated 0x133 positionally
+as "top". WoW's own default config for 1356:3570 (written into
+`WTF/GamePadConfig_Default.json`) equals the Raiju's except raw 4 →
+PADSOCIAL and labelStyle Shapes.
+Decisions (maintainer): (1) §3.3 describes 0x133/0x134 as `BTN_X` left /
+`BTN_Y` top (canonical names now BTN_X/BTN_Y, `tools/gen_codes.py`
+override; warning moved to BTN_NORTH/BTN_WEST); emulated Edge: 0x133 →
+Square, 0x134 → Triangle. (2) Steam's Edge picture beats WoW's numbering:
+GRIPL/GRIPR = Fn (Steam upper row), GRIPL2/GRIPR2 = back paddles (lower
+row); WoW then shows GRIPR2, GRIPL2, GRIPR, GRIPL as PADPADDLE1–4.
+(3) The WoW manual setup is documented here, not in wow-input:
+`docs/wow-dualsense.md` (Steam Input off, GamePadSingleActiveID 0, a
+`WTF/GamePadConfig_InpMap.json` with raw 4 → PADBACK, made from WoW's own
+entry; whether WoW applies it is not yet verified).
+⏳ Maintainer's test of the source version, then release 0.4.2.
+Also open: with emulation off (uinput gamepad), KDE's controller page
+showed "Paddle Button 2" stuck after holding M3, pressing M4, releasing
+both; not yet reproduced with a recording (InpMap, Raiju or KDE display?).
+
 ## Next steps
 
 1. Step d2 (demo recording by the maintainer), then d3, d4 — or whatever

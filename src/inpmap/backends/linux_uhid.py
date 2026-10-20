@@ -230,10 +230,12 @@ HAT_NEUTRAL = 8
 
 # EV_KEY code -> (byte, bit) in report 0x01 (hid-playstation DS_BUTTONS*).
 BUTTON_BITS: dict[int, tuple[int, int]] = {
-    codes.CODES["BTN_WEST"]: (8, 0x10),  # Square
+    # 0x133 is the left button for Xbox pads, SDL and Steam (BTN_X), although
+    # the kernel also calls it BTN_NORTH (configuration.md §3.3).
+    codes.CODES["BTN_X"]: (8, 0x10),  # Square
     codes.CODES["BTN_SOUTH"]: (8, 0x20),  # Cross
     codes.CODES["BTN_EAST"]: (8, 0x40),  # Circle
-    codes.CODES["BTN_NORTH"]: (8, 0x80),  # Triangle
+    codes.CODES["BTN_Y"]: (8, 0x80),  # Triangle
     codes.CODES["BTN_TL"]: (9, 0x01),  # L1
     codes.CODES["BTN_TR"]: (9, 0x02),  # R1
     codes.CODES["BTN_SELECT"]: (9, 0x10),  # Create
@@ -241,13 +243,13 @@ BUTTON_BITS: dict[int, tuple[int, int]] = {
     codes.CODES["BTN_THUMBL"]: (9, 0x40),  # L3
     codes.CODES["BTN_THUMBR"]: (9, 0x80),  # R3
     codes.CODES["BTN_MODE"]: (10, 0x01),  # PS
-    # The paddle codes follow SDL's paddle numbers, not the Edge's sides
-    # (configuration.md §3.5): SDL counts as seen from the back, so its
-    # paddle 1 is the Edge's right paddle.
-    codes.CODES["BTN_GRIPL"]: (10, 0x80),  # right paddle = SDL paddle 1
-    codes.CODES["BTN_GRIPR"]: (10, 0x40),  # left paddle = SDL paddle 2
-    codes.CODES["BTN_GRIPL2"]: (10, 0x20),  # right Fn = SDL paddle 3
-    codes.CODES["BTN_GRIPR2"]: (10, 0x10),  # left Fn = SDL paddle 4
+    # The paddle codes follow the positions Steam shows for the Edge
+    # (configuration.md §3.5): upper row = Fn buttons, lower row = back
+    # paddles. SDL numbers them from the back, right first.
+    codes.CODES["BTN_GRIPL"]: (10, 0x10),  # left Fn = SDL paddle 4
+    codes.CODES["BTN_GRIPR"]: (10, 0x20),  # right Fn = SDL paddle 3
+    codes.CODES["BTN_GRIPL2"]: (10, 0x40),  # left paddle = SDL paddle 2
+    codes.CODES["BTN_GRIPR2"]: (10, 0x80),  # right paddle = SDL paddle 1
 }
 _TL2 = codes.CODES["BTN_TL2"]
 _TR2 = codes.CODES["BTN_TR2"]

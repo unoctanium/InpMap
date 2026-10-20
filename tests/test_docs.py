@@ -95,3 +95,16 @@ def test_examples_are_formatted():
         assert format_text(block) == block, block
     for path in (EXAMPLE, JSON_ERA_EXAMPLE):
         assert format_text(path.read_text()) == path.read_text(), path
+
+
+def test_wow_guide_config_is_valid_json_for_the_emulated_controller():
+    import json
+
+    text = (ROOT / "docs" / "wow-dualsense.md").read_text()
+    blocks = re.findall(r"```json\n(.*?)```", text, re.S)
+    assert len(blocks) == 1
+    config = json.loads(blocks[0])["configs"][0]
+    assert (config["vendorID"], config["productID"]) == (0x054C, 0x0DF2)
+    buttons = {m["rawIndex"]: m["button"] for m in config["rawButtonMappings"]}
+    assert buttons[4] == "PADBACK"
+    assert [buttons[i] for i in range(16, 20)] == [f"PADPADDLE{n}" for n in range(1, 5)]

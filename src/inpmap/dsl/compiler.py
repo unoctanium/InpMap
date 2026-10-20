@@ -48,9 +48,13 @@ RESERVED = {
     *LEDS,
     *MODIFIER_NAMES,
 }
+# The kernel's positional names for 0x133/0x134 say the opposite of what
+# Xbox controllers, SDL and Steam do with these codes (configuration.md §3.3).
 CONFUSING_BUTTONS = {
-    "BTN_X": "BTN_X is the top button (labelled Y on Xbox controllers); BTN_NORTH says so",
-    "BTN_Y": "BTN_Y is the left button (labelled X on Xbox controllers); BTN_WEST says so",
+    "BTN_NORTH": "BTN_NORTH is the left button (X on Xbox, Square on PlayStation) "
+    "in games and Steam; BTN_X says so",
+    "BTN_WEST": "BTN_WEST is the top button (Y on Xbox, Triangle on PlayStation) "
+    "in games and Steam; BTN_Y says so",
 }
 OPTION_STATEMENTS = {"opt_cancel", "opt_restart", "opt_keep", "opt_kv"}
 # Statements that only make sense for a whole mapping (§6.11 rule 3).

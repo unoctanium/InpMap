@@ -81,12 +81,18 @@ buttons mapped to `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2`),
    InpMap's own; `getfacl` on the new `/dev/hidraw*` node shows your user.
 2. `evtest` on "InpMap gamepad": sticks, triggers, D-pad (as `ABS_HAT0X/Y`)
    and buttons work; `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2`
-   arrive as `BTN_TRIGGER_HAPPY4`, `3`, `2`, `1` (the Edge's right paddle,
-   left paddle, right Fn, left Fn; Linux 7.2 or later).
+   arrive as `BTN_TRIGGER_HAPPY1` … `4` (the Edge's left Fn, right Fn,
+   left paddle, right paddle; Linux 7.2 or later). The pad's X button is
+   `BTN_WEST` there (Square; the PlayStation driver's naming, §3.3).
+   Steam's controller settings show `BTN_GRIPL`/`BTN_GRIPR` in the upper
+   row and `BTN_GRIPL2`/`BTN_GRIPR2` in the lower row, each on its side;
+   X shows as Square, Y as Triangle.
 3. A Windows game under Proton with Steam Input disabled (e.g. WoW with the
    InputLogger addon): the controller is a DualSense with ID 054C:0DF2;
-   `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2` arrive as
-   `PADPADDLE1` … `PADPADDLE4` (SDL paddles 1 to 4).
+   `BTN_GRIPR2`, `BTN_GRIPL2`, `BTN_GRIPR`, `BTN_GRIPL` arrive as
+   `PADPADDLE1` … `PADPADDLE4` (SDL paddles 1 to 4); X and Y as `PAD3` and
+   `PAD4`; View (`BTN_SELECT`) as `PADBACK` once the WoW configuration of
+   [wow-dualsense.md](wow-dualsense.md) is in place (otherwise `PADSOCIAL`).
 4. Stop InpMap. **Expected:** the four devices disappear, nothing stays
    pressed in the game.
 

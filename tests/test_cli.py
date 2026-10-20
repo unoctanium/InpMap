@@ -47,10 +47,10 @@ def test_check_reports_positions_and_warnings(tmp_path, capsys):
     ok = tmp_path / "warn.inpmap"
     ok.write_text(
         'version 1\ninput kbd { name = "K" }\noutput pad { type = gamepad }\n'
-        "map KEY_X { tap BTN_X }\n"
+        "map KEY_X { tap BTN_NORTH }\n"
     )
     assert main(["check", str(ok)]) == EXIT_OK
-    assert f"{ok}:4:17: warning: BTN_X is the top button" in capsys.readouterr().err
+    assert f"{ok}:4:17: warning: BTN_NORTH is the left button" in capsys.readouterr().err
 
 
 def test_check_unsupported_version(tmp_path, capsys):

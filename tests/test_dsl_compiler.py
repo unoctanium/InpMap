@@ -264,9 +264,9 @@ def test_gestures():
 
 
 def test_warning_for_btn_x():
-    result = compile_text(HEADER + "map KEY_X { tap BTN_X }" + ANCHOR, "t.inpmap")
+    result = compile_text(HEADER + "map KEY_X { tap BTN_NORTH }" + ANCHOR, "t.inpmap")
     assert len(result.warnings) == 1
-    assert result.warnings[0].startswith("t.inpmap:5:17: warning: BTN_X is the top button")
+    assert result.warnings[0].startswith("t.inpmap:5:17: warning: BTN_NORTH is the left button")
 
 
 # -- errors with positions -------------------------------------------------------------------

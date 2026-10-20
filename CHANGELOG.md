@@ -4,6 +4,25 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
+## Unreleased
+
+- **Changed: X and Y.** `BTN_X` (code 0x133) is the left face button (Xbox
+  X, PlayStation Square) and `BTN_Y` (0x134) the top one, as Xbox
+  controllers, SDL and Steam use them; InpMap's outputs always behaved that
+  way in games, but configuration.md §3.3 described the opposite. Their
+  other Linux names `BTN_NORTH`/`BTN_WEST` now give the warning (instead
+  of `BTN_X`/`BTN_Y`), and InpMap shows 0x133/0x134 as `BTN_X`/`BTN_Y`.
+- **Fixed:** on an emulated DualSense Edge, the X and Y buttons were
+  Triangle and Square.
+- **Changed:** on an emulated DualSense Edge, the paddle codes follow the
+  layout Steam shows: `BTN_GRIPL`/`BTN_GRIPR` are the Fn buttons (upper
+  row), `BTN_GRIPL2`/`BTN_GRIPR2` the back paddles (lower row). In games
+  (SDL) that makes `BTN_GRIPR2`, `BTN_GRIPL2`, `BTN_GRIPR`, `BTN_GRIPL`
+  paddles 1 to 4.
+- New guide [docs/wow-dualsense.md](docs/wow-dualsense.md): what to set by
+  hand in World of Warcraft (Steam Input, the active controller, a WoW
+  controller file that makes View `PADBACK`).
+
 ## 0.4.1 (2026-10-20)
 
 - **Changed:** on an emulated DualSense Edge, `BTN_GRIPL`, `BTN_GRIPR`,
