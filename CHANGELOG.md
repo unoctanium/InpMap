@@ -4,6 +4,11 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
+## 0.4.3 (2026-10-20)
+
+- The source distribution contains docs/wow-dualsense.md again; without it
+  the tests (and so the Arch package build) failed. No other changes.
+
 ## 0.4.2 (2026-10-20)
 
 - **Changed, incompatible: face buttons are named by position.**

@@ -108,3 +108,18 @@ def test_wow_guide_config_is_valid_json_for_the_emulated_controller():
     buttons = {m["rawIndex"]: m["button"] for m in config["rawButtonMappings"]}
     assert buttons[4] == "PADBACK"
     assert [buttons[i] for i in range(16, 20)] == [f"PADPADDLE{n}" for n in range(1, 5)]
+
+
+def test_source_distribution_lists_every_user_document():
+    """MANIFEST.in names the docs one by one; a new document must be added there.
+
+    docs/STATUS.md (the development handoff) and the git-ignored local
+    notes docs/macros-research.md stay out on purpose.
+    """
+    manifest = ROOT / "MANIFEST.in"
+    if not manifest.exists():  # tests run from the source distribution
+        pytest.skip("MANIFEST.in is not part of the source distribution")
+    listed = set(re.search(r"^recursive-include docs (.*)$", manifest.read_text(), re.M)[1].split())
+    documents = {path.name for path in (ROOT / "docs").glob("*.md")}
+    documents -= {"STATUS.md", "macros-research.md"}
+    assert documents <= listed

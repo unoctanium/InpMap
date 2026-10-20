@@ -185,7 +185,8 @@ names rejected with an error naming the replacement, only a CHANGELOG
 note since nobody else uses InpMap yet), and inputs with the drivers
 playstation/sony/nintendo get 0x133/0x134 swapped on the way in (driver
 read from sysfs; raw codes kept for their own pass-through device).
-Released as 0.4.2 together with the X/Y fix, the Steam-picture paddle
+Released as 0.4.2 (its sdist lacked docs/wow-dualsense.md → AUR check()
+failed; fixed in MANIFEST.in + a test, released as 0.4.3) together with the X/Y fix, the Steam-picture paddle
 layout and the WoW guide; ⏳ the maintainer's WoW/Steam test follows with
 the package. The maintainer's `~/.config/inpmap/example.inpmap` copy
 still uses old names (left for the maintainer).

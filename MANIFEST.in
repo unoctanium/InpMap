@@ -1,5 +1,5 @@
 # The source distribution: everything needed to build, read and test InpMap.
 include CHANGELOG.md CONTRIBUTING.md
-recursive-include docs configuration.md installation.md usage.md development.md roadmap.md manual-tests.md
+recursive-include docs configuration.md installation.md usage.md development.md roadmap.md manual-tests.md wow-dualsense.md
 recursive-include tests *.py *.inpmap
 include tools/gen_codes.py
