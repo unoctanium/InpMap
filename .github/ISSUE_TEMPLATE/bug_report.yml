@@ -34,7 +34,7 @@ body:
     attributes:
       label: InpMap version
       description: Output of `inpmap --version`.
-      placeholder: inpmap 0.4.3
+      placeholder: inpmap 0.5.0
     validations:
       required: true
   - type: input

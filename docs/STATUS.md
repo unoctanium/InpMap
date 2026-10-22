@@ -11,14 +11,16 @@ Last updated: 2026-10-22
 
 - V1, V1.1, the configuration language, the systemd user service and
   **routing by kind** (0.3.0) are done and verified on real hardware.
-- **InpMap 0.4.3 released** (2026-10-20, on PyPI; 0.4.0–0.4.2 the same day,
+- **InpMap 0.5.0** (2026-10-22): touchpad of the emulated DualSense Edge;
+  README with the emulator chapter. Release in progress (see "Release
+  0.5.0" below). Before: 0.4.3 (2026-10-20; 0.4.0–0.4.2 the same day,
   0.3.0 on 2026-10-15): emulated DualSense Edge (`emulate`), face buttons
-  `BTN_FACE_*`. The Arch package in `packaging/aur` is 0.4.3 (pkgrel 1), test-built with
-  `makepkg -f`; installing it is the maintainer's step. The maintainer's
+  `BTN_FACE_*`. The maintainer's
   login service runs a personal profile (`inpmap@gaming`: small keyboard
   with a Caps Lock layer, Raiju pad + its keyboard part as one controller
   with back paddles, now with `emulate = "dualsense-edge"`); it needs
-  0.4.3 installed (0.3.0 rejects `emulate`).
+  0.4.3 installed (0.3.0 rejects `emulate`); the touchpad input needs
+  0.5.0.
 - **Publishing (roadmap)** is in progress:
   - a. ✅ Independent of the source tree (profiles, packaged example and
     syntax files, `inpmap@NAME`, `detect`).
@@ -225,14 +227,33 @@ decodes only when routed, `OutputManager.set_touch` (lifted on
 release_all), uhid report bytes 33–40 and click bit (byte 10, 0x02),
 `codes.TOUCHPAD_CLICK` kept out of the validator's set. Docs: §3.5,
 usage.md §4/limits, manual-tests.md §2b step 5, CHANGELOG (Unreleased),
-roadmap backlog. ⏳ Hardware test by the maintainer (manual-tests §2b
-step 5) with the dev tree (`.venv/bin/inpmap run` on a copy of the gaming
-profile plus the touchpad input; the installed 0.4.3 does not have it).
+roadmap backlog.
+Hardware test 2026-10-22 (maintainer, dev tree, `inpmap run gaming-touch`
+= gaming profile + touchpad input): "works perfectly". KDE listed two
+touchpads with empty names in its touchpad page (KWin's D-Bus has the
+right names: display problem of the page; documented in usage.md §5);
+the maintainer switched off both (Raiju's and "InpMap Gamepad
+Touchpad") so the pointer stays still. Steam (Steam Input on): right
+trackpad = mouse with click = left click, center = none, left = radial
+menu (4 D-pad entries, centre = right click) opening on touch, selecting
+on click — worked; mouse needed sensitivity, vertical sensitivity,
+trackball friction and vertical trackball friction adjusted (stretch).
+The maintainer's new setup binds the paddles to F9–F12 in Steam (Steam
+Input on) for WoW.
+
+### Release 0.5.0 (2026-10-22)
+
+Maintainer asked (2026-10-22): new README (first paragraph: keys, gamepad,
+several outputs, DualSense emulator; a marketing chapter on the emulator
+and the Raiju setup as motivation), docs, STATUS, commit, push, PyPI
+release, working alone. Done: README, configuration.md §3.5 (Steam Input
+on/off, KDE touchpads, Steam mouse tuning), usage.md §5, wow-dualsense.md
+intro, CHANGELOG, version 0.5.0.
 
 ## Next steps
 
-1. Hardware test of the touchpad (above), then release 0.5.0 on the
-   maintainer's "go".
+1. Finish release 0.5.0 (above), AUR files 0.5.0; maintainer: install
+   the package, add the touchpad input to `gaming`, restart the service.
 2. Step d2 (demo recording by the maintainer), then d3, d4 — or whatever
    the maintainer chooses.
 3. AUR upload when registration reopens.
@@ -371,4 +392,5 @@ the hardware tests now use product IDs 0x7E01/0x7E02 (`tests/hardware.py`).
 - **2026-10-22** — Removed a stray generated udev rules file from the
   repository root (identical to the installed one). Researched Steam
   Input's trackpads; touchpad of the emulated Edge specified, implemented
-  and unit-tested; hardware test pending.
+  and unit-tested; hardware test passed (maintainer); README and docs
+  rewritten for the emulator; release 0.5.0.

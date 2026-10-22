@@ -4,13 +4,17 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
-## Unreleased
+## 0.5.0 (2026-10-22)
 
 - **New:** a physical touchpad (e.g. the Razer Raiju V3 Pro's) can drive
   the touchpad of an emulated DualSense Edge: declare it as an input, and
   its fingers (up to two) and click reach the controller, where Steam
   Input's trackpad settings (whole pad or left/right halves; mouse, radial
   menu, touch menu …) or the game use them (configuration.md §3.5).
+- Documentation: the README introduces the DualSense Edge emulator and a
+  complete Razer Raiju V3 Pro setup; configuration.md §3.5 describes Steam
+  Input on (bind paddles and touchpad in Steam) as well as off, and how to
+  keep the desktop pointer still.
 
 ## 0.4.3 (2026-10-20)
 

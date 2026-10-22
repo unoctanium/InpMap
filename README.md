@@ -2,12 +2,15 @@
 
 [![CI](https://github.com/unoctanium/InpMap/actions/workflows/ci.yml/badge.svg)](https://github.com/unoctanium/InpMap/actions/workflows/ci.yml)
 
-InpMap is an input remapper for Linux. It takes over your physical keyboard
-or gamepad and turns its keys and buttons into whatever you describe in a
-small configuration file: other keys, gamepad buttons, stick movements, or
-whole timed sequences ("macros"). One key can act on **several virtual
-devices at once**, for example press a keyboard key and a gamepad button
-together.
+InpMap is an input remapper for Linux. It takes over your physical
+keyboards and gamepads and turns their keys, buttons, sticks and triggers
+into whatever you describe in a small configuration file: other keys,
+gamepad buttons, stick movements, or whole timed sequences ("macros"). One
+key can act on **several virtual devices at once**, for example press a
+keyboard key and a gamepad button together. And it brings a **DualSense
+Edge emulator**: your controller, whatever brand it is, can appear to
+games and Steam as a Sony DualSense Edge, with back paddles and a working
+touchpad ([see below](#the-dualsense-edge-emulator)).
 
 ## What you can do with it
 
@@ -22,9 +25,10 @@ together.
 - 🕹️ **Unlock hidden buttons** — extra buttons that a controller only sends
   as keyboard keys become real **back paddles** that Steam shows as L4, R4,
   L5 and R5 and lets you bind ([see how](#example-back-paddles-for-the-razer-raiju)).
-- 🎯 **Paddles in Windows games under Proton** — an output can emulate a
-  DualSense Edge, so games that only read paddles from real controllers
-  get them ([configuration.md §3.5](docs/configuration.md#35-emulating-a-dualsense-edge-emulate)).
+- 🎯 **Turn any controller into a DualSense Edge** — back paddles, Fn
+  buttons and a touchpad that Steam Input and games understand: trackpad
+  mouse, radial menus, paddles in Windows games under Proton
+  ([see below](#the-dualsense-edge-emulator)).
 - 🧩 **Merge devices** — a gamepad and its extra buttons become **one**
   controller, several keyboards become one keyboard, two pads become two
   separate players.
@@ -70,6 +74,88 @@ map padkeys.KEY_F18 { hold BTN_GRIPR2 }  # lower right paddle (Steam: R5)
 The sticks, triggers, D-pad and buttons of the pad go unchanged to the same
 virtual controller. The same works for any controller whose extra buttons
 send keys.
+
+## The DualSense Edge emulator
+
+Many controllers have more to offer than Linux lets through: back paddles
+that only arrive as keyboard keys, a touchpad that only moves the desktop
+pointer. Steam and most games do not know what to do with them.
+
+The Sony DualSense Edge is different. Steam Input knows it inside out, and
+games built on SDL read all of its controls directly. So InpMap lets your
+controller **become one**. One line in an output does it:
+
+```
+output gamepad {
+    type    = gamepad
+    name    = "InpMap Gamepad"
+    emulate = "dualsense-edge"
+}
+```
+
+What you get:
+
+- 🕹️ **Four back buttons Steam recognises.** Map your controller's extra
+  buttons to the Edge's back paddles and Fn buttons. Steam shows them in
+  its controller settings, ready to bind to anything: gamepad buttons,
+  keys, mouse clicks, macros.
+- 🖐️ **A touchpad that works like a Steam trackpad.** Your controller's
+  touchpad becomes the Edge's touchpad. In Steam Input, use it whole or
+  **split it into two trackpads**: one half as a mouse, the other as a
+  radial menu, a touch menu, a scroll wheel or a set of buttons.
+- 🎮 **Paddles in Windows games.** Proton hands a DualSense straight to
+  the game, so games with PlayStation support (World of Warcraft, for
+  example) see the paddles themselves, even with Steam Input switched off
+  ([wow-dualsense.md](https://github.com/unoctanium/InpMap/blob/main/docs/wow-dualsense.md)).
+- 🎛️ **Everything else stays yours.** Sticks, triggers, D-pad and buttons
+  arrive unchanged, and all of InpMap's mappings, macros and layers keep
+  working on top.
+
+### Why it was built: a Razer Raiju V3 Pro
+
+The Razer Raiju V3 Pro is a great controller with four back paddles, two
+front paddles and a touchpad. On Linux, most of that was out of reach: the
+paddles only send keyboard keys, and the touchpad only moves the desktop
+pointer. Steam saw an ordinary Xbox-style pad.
+
+The setup that unlocks all of it:
+
+1. In Razer Synapse (once, stored in the pad), the back paddles send F13
+   and up.
+2. InpMap emulates a DualSense Edge and turns those keys into its paddles,
+   and passes on the touchpad:
+
+```inpmap
+version 1
+input pad { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-event-joystick" }
+input padkeys { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-if01-event-kbd" }
+input touch { path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-if05-event-mouse" }
+output keyboard { type = keyboard }
+output gamepad {
+    type    = gamepad
+    name    = "InpMap Gamepad"
+    emulate = "dualsense-edge"
+}
+
+map padkeys.KEY_F15 { hold BTN_GRIPL }  # back buttons of the Edge
+map padkeys.KEY_F16 { hold BTN_GRIPR }
+map padkeys.KEY_F17 { hold BTN_GRIPL2 }
+map padkeys.KEY_F18 { hold BTN_GRIPR2 }
+```
+
+3. In KDE's touchpad settings, both the Razer touchpad and "InpMap Gamepad
+   Touchpad" are switched off, so the desktop pointer stays out of the way.
+4. In Steam (Steam Input on), the controller shows up as a DualSense Edge:
+   - the four back buttons are bound to F9 to F12, which World of Warcraft
+     uses as ordinary key bindings;
+   - the right trackpad is a mouse, a click is a left click;
+   - the left trackpad is a radial menu that opens on touch and selects on
+     click, with a right click in its centre.
+
+Now the right thumb moves and clicks the mouse on the touchpad while the
+left thumb picks actions from a radial menu — on a controller that
+Linux used to treat as a plain gamepad. Details:
+[configuration.md §3.5](https://github.com/unoctanium/InpMap/blob/main/docs/configuration.md#35-emulating-a-dualsense-edge-emulate).
 
 ### A first look at the configuration
 
@@ -123,7 +209,8 @@ InpMap was started for needs it covers less well:
   device only (`pad.BTN_FACE_RIGHT`). Keys can be disabled.
 - Sticks, analog triggers and the D-pad as buttons (`map pad.ABS_RZ above
   0.5`), also two-stage triggers; `inpmap axes` shows their live values.
-- Virtual keyboards and gamepads (buttons, D-pad, sticks, triggers).
+- Virtual keyboards and gamepads (buttons, D-pad, sticks, triggers), and
+  an emulated DualSense Edge with back paddles, Fn buttons and touchpad.
 - Hold, tap, chords (`ctrl + KEY_C`), sequences with waits and random
   waits, loops, autofire, toggles, parallel branches, stick movements with
   ramps.
@@ -186,12 +273,13 @@ To work on InpMap itself, install it from the source code
 
 ## Status
 
-Version 0.3, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
+Version 0.5, Linux only. Verified on CachyOS / KDE Plasma (Wayland) with a
 real keyboard and a Razer Raiju V3 Pro: remapping, suppression of the
 original keys, unmapped input on the virtual devices (one controller in
 KDE and Steam, back paddles in Steam), macros, modifiers, axes as triggers,
-the configuration language and the user service. Later: Windows, then
-GUIs.
+the configuration language, the user service, and the emulated DualSense
+Edge (paddles in Steam and in World of Warcraft under Proton; the touchpad
+as a split trackpad in Steam Input). Later: Windows, then GUIs.
 
 ## License
 

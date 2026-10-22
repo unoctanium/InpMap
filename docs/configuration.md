@@ -429,11 +429,17 @@ Rules:
 6. It needs write access to `/dev/uhid`, besides `/dev/uinput`
    ([installation.md](installation.md)). Without it, InpMap stops with an
    error before it grabs any device.
-7. Steam: turn Steam Input off for the game (game properties →
-   Controller → "Disable Steam Input"). Otherwise Steam hides the
-   controller from the game and offers its own virtual controller, which
-   has no paddles again. Proton needs no setting: it passes PlayStation
-   controllers to the game directly.
+7. Steam offers two ways:
+   - **Steam Input on**: Steam recognises the controller as a DualSense
+     Edge and shows its back paddles, Fn buttons and touchpad in the
+     controller settings; bind them there (to keys, mouse buttons,
+     gamepad buttons, menus). The game gets Steam's own virtual
+     controller, which has no paddles, so paddles meant for the game are
+     bound to keys or mouse buttons.
+   - **Steam Input off** for the game (game properties → Controller →
+     "Disable Steam Input"): the game reads the controller itself, paddles
+     included, if it supports PlayStation controllers. Proton needs no
+     setting: it passes PlayStation controllers to the game directly.
 
 **The touchpad.** A physical touchpad — for example the one on a Razer
 Raiju V3 Pro, which Linux shows as a device of its own — can drive the
@@ -470,7 +476,19 @@ device of its own, as before (§3.4 rule 2).
 - When the touchpad disappears or InpMap stops, every finger is lifted and
   the click released (§7.4).
 - On the desktop, Linux shows the emulated touchpad as a touchpad of its
-  own ("… Touchpad"), so the desktop may use it as a mouse.
+  own ("InpMap Gamepad Touchpad" for an output named "InpMap Gamepad"), so
+  the desktop uses it as a mouse too. To keep the pointer still while Steam
+  or the game uses the touchpad, switch it off in the desktop's touchpad
+  settings (KDE: System Settings → Touchpad, device "InpMap Gamepad
+  Touchpad"); Steam and games read the controller directly and are not
+  affected. While InpMap runs, switching off the physical touchpad there
+  too does no harm. Without InpMap, switch the physical one on again:
+  some controllers (e.g. the Razer Raiju V3 Pro) stall when their
+  touchpad is read by no program (usage.md §5).
+- Steam Input as a mouse: a touchpad that is stretched more in one
+  direction (above) feels faster vertically. Steam's trackpad settings
+  even this out: sensitivity and vertical sensitivity, trackball friction
+  and vertical trackball friction.
 
 Sony, DualSense and PlayStation are trademarks of Sony Interactive
 Entertainment. InpMap is not affiliated with Sony; the emulation exists

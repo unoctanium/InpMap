@@ -5,6 +5,13 @@ Proton) uses InpMap's emulated DualSense Edge with all its buttons. The
 emulation itself is described in
 [configuration.md §3.5](configuration.md#35-emulating-a-dualsense-edge-emulate).
 
+This guide is for WoW reading the controller **itself** (Steam Input off),
+where it sees the paddles as `PADPADDLE1` … `PADPADDLE4`. The other way
+needs none of it: keep Steam Input on, bind the paddles to keys in Steam
+(e.g. F9 to F12) and use those keys in WoW's key bindings; Steam's
+trackpad features (mouse, radial menus) then work as well
+([README](../README.md#the-dualsense-edge-emulator)).
+
 Checked with the WoW Classic beta client under Proton CachyOS on
 2026-10-20. Other WoW versions read their gamepad files from their own
 folder (`_retail_`, `_classic_`, `_classic_era_`, `_classic_beta_`, …);
