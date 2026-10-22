@@ -15,7 +15,7 @@ import pytest
 from inpmap import codes
 from inpmap.backends import linux_uhid as u
 from inpmap.backends.linux_setup import is_own_node
-from inpmap.models import OutputDeviceSpec, OutputKind
+from inpmap.models import OutputDeviceSpec, OutputKind, TouchPoint
 from inpmap.output import OutputError
 
 SPEC = OutputDeviceSpec("gamepad", OutputKind.GAMEPAD, "InpMap gamepad", emulate="dualsense-edge")
@@ -187,6 +187,34 @@ def test_counter_and_timestamp_advance():
     assert struct.unpack_from("<I", second, 28)[0] > struct.unpack_from("<I", first, 28)[0]
 
 
+def decode_touch(report, offset):
+    """(active, contact number, x, y) of the touch point at ``offset``."""
+    first, x_low, mixed, y_high = report[offset : offset + 4]
+    return (not first & 0x80, first & 0x7F, x_low | (mixed & 0x0F) << 8, mixed >> 4 | y_high << 4)
+
+
+def test_touch_points_are_packed_like_hid_playstation_reads_them():
+    state = u.PadState()
+    state.touch = (TouchPoint(5, 1.0, 1.0), TouchPoint(127, 0.5, 0.0))
+    report = state.report()
+    assert decode_touch(report, 33) == (True, 5, 1919, 1079)
+    assert decode_touch(report, 37) == (True, 127, 960, 0)
+
+
+def test_missing_touch_point_is_inactive():
+    state = u.PadState()
+    state.touch = (None, TouchPoint(1, 0.0, 0.25))
+    report = state.report()
+    assert not decode_touch(report, 33)[0]
+    assert decode_touch(report, 37) == (True, 1, 0, 270)
+
+
+def test_touchpad_click_bit():
+    state = u.PadState()
+    state.held.add(codes.TOUCHPAD_CLICK)
+    assert state.report()[10] == 0x02
+
+
 # -- the device against a fake kernel ----------------------------------------------
 
 
@@ -301,6 +329,28 @@ def test_unknown_codes_are_refused():
         with pytest.raises(OutputError):
             device.set_axis(0x10, 1.0)  # ABS_HAT0X
         assert device.fileno() is None and device.poll_leds() is None
+        with pytest.raises(OutputError, match="at most 2 fingers"):
+            device.set_touch((None, None, None))
+    finally:
+        device.close()
+
+
+def test_touch_and_click_are_sent():
+    kernel = FakeKernel()
+    device = open_device(kernel)
+    try:
+        kernel.receive_until(u.UHID_INPUT2)
+        device.set_key(codes.TOUCHPAD_CLICK, True)
+        device.set_touch((TouchPoint(3, 0.0, 1.0),))
+        deadline = time.monotonic() + 1.0
+        while time.monotonic() < deadline:
+            report = kernel.receive_until(u.UHID_INPUT2)[6:]
+            if decode_touch(report, 33)[0]:
+                assert decode_touch(report, 33) == (True, 3, 0, 1079)
+                assert report[10] & 0x02 and not decode_touch(report, 37)[0]
+                break
+        else:
+            pytest.fail("the touch never arrived")
     finally:
         device.close()
 

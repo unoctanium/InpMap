@@ -1196,3 +1196,81 @@ def test_playstation_face_buttons_reach_inpmap_swapped_and_its_pass_through_raw(
     assert forwarder.calls == [("write", ecodes.EV_KEY, 0x134, 1)]
     source.mask(left)  # hides Square (0x134) on the pass-through device
     assert forwarder.calls[-2:] == [("write", ecodes.EV_KEY, 0x134, 0), ("syn",)]
+
+
+# -- a touchpad routed to an emulated controller (configuration.md §3.5) ----
+
+
+class StubTouchpad(StubDevice):
+    name, path = "Stub Touchpad", "/dev/input/event98"
+
+    def capabilities(self, absinfo=False):
+        from evdev import AbsInfo
+
+        def info(high):
+            return AbsInfo(value=0, min=0, max=high, fuzz=0, flat=0, resolution=0)
+
+        return {
+            ecodes.EV_KEY: [ecodes.BTN_LEFT, ecodes.BTN_TOUCH, ecodes.BTN_TOOL_FINGER],
+            ecodes.EV_ABS: [
+                (ecodes.ABS_X, info(2628)),
+                (ecodes.ABS_MT_SLOT, info(2)),
+                (ecodes.ABS_MT_POSITION_X, info(2628)),
+                (ecodes.ABS_MT_POSITION_Y, info(1332)),
+                (ecodes.ABS_MT_TRACKING_ID, info(65535)),
+            ],
+        }
+
+
+def touch_source(routed=True):
+    from inpmap.backends.linux_input import LinuxInputSource
+    from inpmap.routing import RoutePlan
+
+    source = LinuxInputSource(InputDeviceSpec(id="touch", name="T"), StubTouchpad(), swap={})
+    source.start_passthrough(RoutePlan(touch="gamepad", touch_points=2) if routed else RoutePlan())
+    return source, source._device
+
+
+def test_routed_touchpad_reports_touch_frames_instead_of_finger_axes():
+    from inpmap.axis_triggers import AxisEvent
+    from inpmap.models import TouchContact, TouchEvent
+
+    source, device = touch_source()
+    device.feed(
+        StubEvent(ecodes.EV_ABS, ecodes.ABS_MT_TRACKING_ID, 4),
+        StubEvent(ecodes.EV_ABS, ecodes.ABS_MT_POSITION_X, 2628),
+        StubEvent(ecodes.EV_ABS, ecodes.ABS_X, 2628),
+        StubEvent(ecodes.EV_KEY, ecodes.BTN_TOUCH, 1),
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+    )
+    events = [event for event, _ in source.read()]
+    assert events[:2] == [None, None]  # the finger's ABS_MT_* values
+    assert isinstance(events[2], AxisEvent)  # ABS_X stays an axis (the plan drops it)
+    assert events[3].code == ecodes.BTN_TOUCH
+    assert events[4] == TouchEvent("touch", (TouchContact(0, 1.0, 0.0),))
+    assert events[5] is None  # the SYN_REPORT itself
+    device.feed(StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0))
+    assert [event for event, _ in source.read()] == [None]  # nothing changed
+
+
+def test_dropped_events_lift_the_fingers():
+    from inpmap.models import TouchEvent
+
+    source, device = touch_source()
+    device.feed(
+        StubEvent(ecodes.EV_ABS, ecodes.ABS_MT_TRACKING_ID, 4),
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_DROPPED, 0),
+        StubEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0),
+    )
+    events = [event for event, _ in source.read()]
+    assert events[-1] == TouchEvent("touch", ())
+
+
+def test_touchpad_that_is_not_routed_keeps_its_finger_axes():
+    from inpmap.axis_triggers import AxisEvent
+
+    source, device = touch_source(routed=False)
+    device.feed(StubEvent(ecodes.EV_ABS, ecodes.ABS_MT_POSITION_X, 10))
+    [(event, _)] = source.read()
+    assert isinstance(event, AxisEvent)

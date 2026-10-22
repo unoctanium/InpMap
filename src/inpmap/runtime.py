@@ -46,7 +46,7 @@ from .config import Config
 from .engine import MappingEngine
 from .input import InputBackend, InputDeviceLost, InputError, InputSource
 from .macros import Led
-from .models import AxisThreshold, InputDeviceSpec, KeyAction, OutputKind
+from .models import AxisThreshold, InputDeviceSpec, KeyAction, OutputKind, TouchEvent
 from .output import OutputBackend, OutputError, OutputManager
 from .routing import InputRefused, Router, plan_route
 
@@ -354,6 +354,9 @@ class Runtime:
         watched = self._watched[slot.spec.id]
         routed = self._router.routes(slot.spec.id)
         for event, raw in events:
+            if isinstance(event, TouchEvent):
+                self._router.touch(event)  # only routed touchpads decode fingers
+                continue
             if isinstance(event, AxisEvent):
                 if event.code in watched:
                     # The axis drives thresholds and is suppressed (§5.5 rule 5).

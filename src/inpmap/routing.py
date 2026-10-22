@@ -9,7 +9,8 @@ the gamepad output), to the device's pass-through device (mouse parts and
 harmless extra buttons and axes such as BTN_0 or a volume wheel, until
 there is a mouse output),
 or nowhere — then the device is refused and never grabbed, so it keeps
-working as if InpMap were not running (§3.4 rule 2).
+working as if InpMap were not running (§3.4 rule 2). A touchpad goes to the
+touchpad of an emulated controller (§3.5) or is refused.
 
 This module is pure: it sees capability sets, not evdev objects.
 """
@@ -25,7 +26,15 @@ from . import codes
 from .axes import AxisStacks
 from .input import InputError
 from .macros import OUTPUT_AXIS_KINDS, AxisKind, KeyRef
-from .models import Config, InputDeviceSpec, InputEvent, KeyAction, OutputKind
+from .models import (
+    Config,
+    InputDeviceSpec,
+    InputEvent,
+    KeyAction,
+    OutputKind,
+    TouchEvent,
+    TouchPoint,
+)
 from .output import OutputError, output_capabilities
 
 log = logging.getLogger(__name__)
@@ -35,6 +44,11 @@ log = logging.getLogger(__name__)
 _TOUCH_BUTTONS = range(0x140, 0x150)
 # ABS_PRESSURE .. ABS_TOOL_WIDTH and ABS_MT_SLOT .. ABS_MT_TOOL_Y.
 _TOUCH_AXES = (*range(0x18, 0x1D), *range(0x2F, 0x3E))
+# Multi-touch protocol B: ABS_MT_SLOT, ABS_MT_POSITION_X/Y, ABS_MT_TRACKING_ID.
+_MULTITOUCH_AXES = (0x2F, 0x35, 0x36, 0x39)
+# ABS_X, ABS_Y: a touchpad's copy of its first finger, not a stick.
+_POINTER_AXES = (0x00, 0x01)
+_TOUCH_IDS = 128  # contact numbers of an output touchpad (7 bits)
 _JOYSTICK_AXES = frozenset(codes.TRIGGER_AXIS_NAMES)
 # A physical D-pad axis becomes the virtual gamepad's D-pad buttons:
 # ABS_HAT0X -> (left, right), ABS_HAT0Y -> (up, down).
@@ -93,6 +107,8 @@ class RoutePlan:
     passthrough_keys: frozenset[int] = frozenset()  # mouse and other buttons
     passthrough_axes: frozenset[int] = frozenset()  # e.g. ABS_VOLUME
     passthrough_relative: frozenset[int] = frozenset()  # EV_REL
+    touch: str | None = None  # output whose touchpad the device's fingers drive
+    touch_points: int = 0  # fingers that output's touchpad reports at once
 
     @property
     def needs_passthrough(self) -> bool:
@@ -115,10 +131,7 @@ def plan_route(spec: InputDeviceSpec, config: Config, caps: DeviceCapabilities) 
     if any(code in _TOUCH_BUTTONS for code in caps.keys) or any(
         code in _TOUCH_AXES for code in caps.axes
     ):
-        raise InputRefused(
-            f"input '{spec.id}' is a touchpad, touchscreen or tablet, which no output can "
-            f"carry; add `to = own` to its input block"
-        )
+        return _plan_touch(spec, config, caps)
     mapped = config.input_codes(spec.id) | config.shared_codes()
     watched = config.watched_axes(spec.id)
     keyboard = spec.target(OutputKind.KEYBOARD)
@@ -184,6 +197,47 @@ def plan_route(spec: InputDeviceSpec, config: Config, caps: DeviceCapabilities) 
     )
 
 
+def _plan_touch(spec: InputDeviceSpec, config: Config, caps: DeviceCapabilities) -> RoutePlan:
+    """A touchpad drives the touchpad of its gamepad output, which must have one (§3.5)."""
+    target = spec.target(OutputKind.GAMEPAD)
+    output = config.outputs.get(target) if target else None
+    points = 0
+    if output is not None:
+        points = output_capabilities(OutputKind.GAMEPAD, frozenset(), output.emulate).touch_points
+    if not target or not points:
+        raise InputRefused(
+            f"input '{spec.id}' is a touchpad, touchscreen or tablet; only a gamepad output "
+            'with emulate = "dualsense-edge" has a touchpad. Add `to = own` to its input '
+            "block, or route it to such an output"
+        )
+    if not all(code in caps.axes for code in _MULTITOUCH_AXES):
+        raise InputRefused(
+            f"input '{spec.id}' does not report its fingers in multi-touch slots, so it "
+            "cannot drive a touchpad; add `to = own` to its input block"
+        )
+    watched = config.watched_axes(spec.id)
+    keys: dict[int, str] = {}
+    passthrough_keys: set[int] = set()
+    for code in caps.keys:
+        if code == codes.TOUCHPAD_CLICK:
+            keys[code] = target
+        elif code not in _TOUCH_BUTTONS:  # finger counts are part of the touches
+            passthrough_keys.add(code)  # e.g. separate buttons below the surface
+    passthrough_axes = {
+        code
+        for code in caps.axes
+        if code not in _TOUCH_AXES and code not in _POINTER_AXES and code not in watched
+    }
+    return RoutePlan(
+        keys=keys,
+        passthrough_keys=frozenset(passthrough_keys),
+        passthrough_axes=frozenset(passthrough_axes),
+        passthrough_relative=caps.relative,
+        touch=target,
+        touch_points=points,
+    )
+
+
 def _problems(
     no_keyboard: list[str],
     no_gamepad: list[str],
@@ -234,6 +288,8 @@ class RouterHost(Protocol):
 
     def release_key(self, key: KeyRef) -> None: ...
 
+    def set_touch(self, output: str, points: tuple[TouchPoint | None, ...]) -> None: ...
+
 
 class Router:
     """Sends the unmapped input of grabbed devices to the outputs (§3.4).
@@ -242,7 +298,9 @@ class Router:
     button held on a pad and by a mapping stays down until both let go
     (§7.3). Axes set the base value of the output axis, which mappings
     override while they hold it. Key repeat is not sent: desktops repeat
-    held keys of the virtual keyboard themselves.
+    held keys of the virtual keyboard themselves. Fingers on a touchpad take
+    the output touchpad's points in the order they touch; one that finds
+    every point taken waits until a point is free (§3.5).
     """
 
     def __init__(self, host: RouterHost) -> None:
@@ -252,6 +310,9 @@ class Router:
         self._held: dict[str, set[int]] = {}  # keys this input holds on an output
         self._masked: dict[str, set[int]] = {}  # hidden while a mapping runs (§5.2)
         self._dpad: dict[str, dict[int, int]] = {}  # D-pad axis -> button held for it
+        # Touch slot -> (point index, contact number) on the output touchpad.
+        self._touches: dict[str, dict[int, tuple[int, int]]] = {}
+        self._touch_ids = 0
 
     def attach(self, input_id: str, plan: RoutePlan) -> None:
         self._plans[input_id] = plan
@@ -259,6 +320,7 @@ class Router:
         self._held[input_id] = set()
         self._masked[input_id] = set()
         self._dpad[input_id] = {}
+        self._touches[input_id] = {}
 
     def routes(self, input_id: str) -> bool:
         """Whether this input's unmapped input goes to the outputs."""
@@ -301,6 +363,28 @@ class Router:
         else:
             self._host.axes.set_base((route.output, code), input_id, route.value(normalized))
         return True
+
+    def touch(self, event: TouchEvent) -> None:
+        """Show the fingers of a touchpad on its output's touchpad."""
+        plan = self._plans[event.device]
+        if plan.touch is None:
+            return
+        assigned = self._touches[event.device]
+        present = {contact.slot: contact for contact in event.contacts}
+        for slot in [slot for slot in assigned if slot not in present]:
+            del assigned[slot]
+        for contact in event.contacts:
+            taken = {index for index, _ in assigned.values()}
+            if contact.slot in assigned or len(taken) >= plan.touch_points:
+                continue
+            free = min(set(range(plan.touch_points)) - taken)
+            assigned[contact.slot] = (free, self._touch_ids)
+            self._touch_ids = (self._touch_ids + 1) % _TOUCH_IDS
+        points: list[TouchPoint | None] = [None] * plan.touch_points
+        for slot, (index, contact_id) in assigned.items():
+            contact = present[slot]
+            points[index] = TouchPoint(contact_id, contact.x, contact.y)
+        self._host.set_touch(plan.touch, tuple(points))
 
     def _dpad_axis(self, input_id: str, code: int, route: AxisRoute, value: float) -> None:
         """Hold the D-pad button for the axis' direction (none at rest)."""
@@ -351,6 +435,11 @@ class Router:
                 continue
             try:
                 self._host.axes.clear_base((route.output, code), input_id)
+            except OutputError as exc:
+                failures.append(str(exc))
+        if self._touches.pop(input_id) and plan.touch is not None:
+            try:
+                self._host.set_touch(plan.touch, ())
             except OutputError as exc:
                 failures.append(str(exc))
         del self._down[input_id], self._masked[input_id]

@@ -45,11 +45,11 @@ import select
 import struct
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from .. import codes
 from ..macros import GAMEPAD_AXES, OUTPUT_AXIS_KINDS, AxisKind, Led
-from ..models import OutputDeviceSpec
+from ..models import OutputDeviceSpec, TouchPoint
 from ..output import OutputError
 
 log = logging.getLogger(__name__)
@@ -251,6 +251,7 @@ BUTTON_BITS: dict[int, tuple[int, int]] = {
     codes.CODES["BTN_GRIPL2"]: (10, 0x40),  # left paddle = SDL paddle 2
     codes.CODES["BTN_GRIPR2"]: (10, 0x80),  # right paddle = SDL paddle 1
 }
+_TOUCHPAD_CLICK_BIT = (10, 0x02)
 _TL2 = codes.CODES["BTN_TL2"]
 _TR2 = codes.CODES["BTN_TR2"]
 _L2_BIT = (9, 0x04)
@@ -261,8 +262,18 @@ _LEFT = codes.CODES["BTN_DPAD_LEFT"]
 _RIGHT = codes.CODES["BTN_DPAD_RIGHT"]
 DPAD_BUTTONS = frozenset({_UP, _DOWN, _LEFT, _RIGHT})
 
-# What the output carries (configuration.md §3.5).
+# What the output carries (configuration.md §3.5); the touchpad click only
+# comes from a routed touchpad.
 BUTTONS: frozenset[int] = frozenset(BUTTON_BITS) | {_TL2, _TR2} | DPAD_BUTTONS
+
+# Touch points: 4 bytes each at 33 and 37 (hid-playstation struct
+# dualsense_touch_point): bit 7 of the first byte set = no finger, bits 0-6
+# the contact number; then 12-bit x and 12-bit y, little-endian, packed.
+TOUCH_POINTS = 2
+TOUCH_OFFSETS = (33, 37)
+TOUCH_INACTIVE = 0x80
+TOUCHPAD_WIDTH = 1920
+TOUCHPAD_HEIGHT = 1080
 
 # Axis code -> byte in report 0x01.
 AXIS_BYTES = {
@@ -298,6 +309,15 @@ def hat_value(held: set[int] | frozenset[int]) -> int:
     return _HAT[(vertical, horizontal)]
 
 
+def touch_bytes(point: TouchPoint | None) -> bytes:
+    """The 4 report bytes of one touch point (x, y fractions -> 1920 x 1080)."""
+    if point is None:
+        return bytes([TOUCH_INACTIVE, 0, 0, 0])
+    x = max(0, min(TOUCHPAD_WIDTH - 1, int(point.x * (TOUCHPAD_WIDTH - 1) + 0.5)))
+    y = max(0, min(TOUCHPAD_HEIGHT - 1, int(point.y * (TOUCHPAD_HEIGHT - 1) + 0.5)))
+    return bytes([point.id & 0x7F, x & 0xFF, (x >> 8) | ((y & 0x0F) << 4), y >> 4])
+
+
 def stick_byte(value: float) -> int:
     """-1.0 … 1.0 -> 0 … 255 with rest (0.0) at 128."""
     return max(0, min(255, int((value + 1.0) * 127.5 + 0.5)))
@@ -314,6 +334,7 @@ class PadState:
     def __init__(self) -> None:
         self.held: set[int] = set()
         self.axes: dict[int, float] = {}
+        self.touch: tuple[TouchPoint | None, ...] = ()
         self._counter = 0
         self._timestamp = 0
 
@@ -335,13 +356,16 @@ class PadState:
             if code in BUTTON_BITS:
                 byte, bit = BUTTON_BITS[code]
                 report[byte] |= bit
+        if codes.TOUCHPAD_CLICK in self.held:
+            report[_TOUCHPAD_CLICK_BIT[0]] |= _TOUCHPAD_CLICK_BIT[1]
         if report[5]:
             report[_L2_BIT[0]] |= _L2_BIT[1]
         if report[6]:
             report[_R2_BIT[0]] |= _R2_BIT[1]
         struct.pack_into("<I", report, 28, self._timestamp & 0xFFFFFFFF)
-        report[33] = 0x80  # touch point 0 inactive
-        report[37] = 0x80  # touch point 1 inactive
+        for index, offset in enumerate(TOUCH_OFFSETS):
+            point = self.touch[index] if index < len(self.touch) else None
+            report[offset : offset + 4] = touch_bytes(point)
         report[53] = 0x0A  # battery full, discharging
         self._counter += 1
         self._timestamp += 12000  # 4 ms in the controller's ~0.33 µs units
@@ -437,7 +461,7 @@ class UhidDualSenseEdge:
     # OutputDevice
 
     def set_key(self, code: int, pressed: bool) -> None:
-        if code not in BUTTONS:
+        if code not in BUTTONS and code != codes.TOUCHPAD_CLICK:
             raise OutputError(f"'{self.spec.name}' has no button {codes.code_name(code)}")
         with self._lock:
             if pressed:
@@ -451,6 +475,13 @@ class UhidDualSenseEdge:
             raise OutputError(f"'{self.spec.name}' has no axis {code:#x}")
         with self._lock:
             self._state.axes[code] = value
+            self._send_locked()
+
+    def set_touch(self, points: Sequence[TouchPoint | None]) -> None:
+        if len(points) > TOUCH_POINTS:
+            raise OutputError(f"'{self.spec.name}' reports at most {TOUCH_POINTS} fingers")
+        with self._lock:
+            self._state.touch = tuple(points)
             self._send_locked()
 
     def fileno(self) -> int | None:

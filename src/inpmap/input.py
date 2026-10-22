@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from .axis_triggers import AxisEvent
 from .macros import Led
-from .models import InputDeviceSpec, InputEvent
+from .models import InputDeviceSpec, InputEvent, TouchEvent
 
 if TYPE_CHECKING:  # routing imports this module
     from .routing import DeviceCapabilities, RoutePlan
@@ -57,7 +57,8 @@ class InputSource(Protocol):
         ...
 
     def start_passthrough(self, plan: RoutePlan) -> None:
-        """Create the pass-through device the plan needs (none, partial, or a full copy)."""
+        """Create the pass-through device the plan needs (none, partial, or a full
+        copy); if the plan routes the device's fingers, report them as TouchEvents."""
         ...
 
     def leds(self) -> frozenset[Led]:
@@ -72,12 +73,12 @@ class InputSource(Protocol):
         """Take exclusive access: other programs stop receiving its events."""
         ...
 
-    def read(self) -> list[tuple[InputEvent | AxisEvent | None, object]]:
+    def read(self) -> list[tuple[InputEvent | AxisEvent | TouchEvent | None, object]]:
         """Read pending events without blocking.
 
-        Returns (normalized key event, normalized axis value (AxisEvent) or
-        None, raw event) pairs. Raises InputDeviceLost if the device
-        disappeared.
+        Returns (normalized key event, normalized axis value (AxisEvent),
+        fingers after a touch frame (TouchEvent, raw event None) or None,
+        raw event) pairs. Raises InputDeviceLost if the device disappeared.
         """
         ...
 

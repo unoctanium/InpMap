@@ -44,6 +44,37 @@ class InputEvent:
 
 
 @dataclass(frozen=True)
+class TouchContact:
+    """A finger on a physical touchpad.
+
+    ``slot`` identifies the finger while it touches; ``x`` and ``y`` are
+    fractions of the surface, 0.0 (left, top) … 1.0 (right, bottom).
+    """
+
+    slot: int
+    x: float
+    y: float
+
+
+@dataclass(frozen=True)
+class TouchEvent:
+    """Every finger on a touchpad after a change, in the order they touched."""
+
+    device: str
+    contacts: tuple[TouchContact, ...]
+
+
+@dataclass(frozen=True)
+class TouchPoint:
+    """A finger on an output's touchpad: a contact number (0 … 127, new for
+    every touch) and its position as in :class:`TouchContact`."""
+
+    id: int
+    x: float
+    y: float
+
+
+@dataclass(frozen=True)
 class InputDeviceSpec:
     """How to find a physical input device, and where its unmapped input goes.
 

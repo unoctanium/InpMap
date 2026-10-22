@@ -12,13 +12,13 @@ ignores redundant transitions.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
 from . import codes
 from .macros import AXIS_REST, OUTPUT_AXIS_KINDS, AxisKind, Led
-from .models import EMULATE_DUALSENSE_EDGE, Config, OutputDeviceSpec, OutputKind
+from .models import EMULATE_DUALSENSE_EDGE, Config, OutputDeviceSpec, OutputKind, TouchPoint
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +33,9 @@ class OutputCapabilities:
 
     keys: frozenset[int]
     axes: Mapping[int, AxisKind]
+    # Fingers its touchpad reports at once; 0: no touchpad. A touchpad has
+    # a click (codes.TOUCHPAD_CLICK) besides ``keys``.
+    touch_points: int = 0
 
 
 def output_capabilities(
@@ -45,7 +48,7 @@ def output_capabilities(
     has exactly the set of the real one (the validator keeps mappings inside).
     """
     if kind is OutputKind.GAMEPAD and emulate == EMULATE_DUALSENSE_EDGE:
-        return OutputCapabilities(codes.DUALSENSE_EDGE_BUTTONS, OUTPUT_AXIS_KINDS)
+        return OutputCapabilities(codes.DUALSENSE_EDGE_BUTTONS, OUTPUT_AXIS_KINDS, touch_points=2)
     if kind is OutputKind.KEYBOARD:
         return OutputCapabilities(codes.KEYBOARD_OUTPUT_KEYS | mapped_codes, {})
     if kind is OutputKind.GAMEPAD:
@@ -62,6 +65,10 @@ class OutputDevice(Protocol):
 
     def set_axis(self, code: int, value: float) -> None:
         """Set an axis to a fraction of its range (sticks and D-pad -1..1, triggers 0..1)."""
+        ...
+
+    def set_touch(self, points: Sequence[TouchPoint | None]) -> None:
+        """Report the fingers on the device's touchpad (None or missing: no finger)."""
         ...
 
     def close(self) -> None:
@@ -97,6 +104,7 @@ class OutputManager:
         self._devices: dict[str, OutputDevice] = {}
         self._held: dict[str, set[int]] = {}
         self._axes: dict[str, dict[int, float]] = {}  # axes not at rest
+        self._touched: set[str] = set()  # outputs with a finger on their touchpad
 
     @property
     def devices(self) -> Mapping[str, OutputDevice]:
@@ -111,7 +119,8 @@ class OutputManager:
                 carried = output_capabilities(
                     spec.kind, self._config.output_codes(device_id), spec.emulate
                 )
-                device = self._backend.create(spec, carried.keys)
+                keys = carried.keys | ({codes.TOUCHPAD_CLICK} if carried.touch_points else set())
+                device = self._backend.create(spec, keys)
             except BaseException:
                 # Cleanup boundary: also covers KeyboardInterrupt and
                 # unexpected backend errors; always re-raised.
@@ -147,6 +156,19 @@ class OutputManager:
         else:
             axes[code] = value
 
+    def set_touch(self, device_id: str, points: Sequence[TouchPoint | None]) -> None:
+        """Report the fingers on an output's touchpad (empty: none)."""
+        device = self._devices.get(device_id)
+        if device is None:
+            raise OutputError(f"output device '{device_id}' is not open")
+        # Recorded before writing: after a failed write the fingers are
+        # still lifted by release_all.
+        if any(point is not None for point in points):
+            self._touched.add(device_id)
+        else:
+            self._touched.discard(device_id)
+        device.set_touch(points)
+
     def feedback_filenos(self) -> list[int]:
         """Descriptors on which LED changes of the outputs arrive."""
         return [fd for d in self._devices.values() if (fd := d.fileno()) is not None]
@@ -171,6 +193,13 @@ class OutputManager:
         the failures.
         """
         failures: list[str] = []
+        for device_id in sorted(self._touched):
+            try:
+                self._devices[device_id].set_touch(())
+            except OutputError as exc:
+                failures.append(f"{device_id} touchpad: {exc}")
+                log.error("lifting the fingers on '%s' failed: %s", device_id, exc)
+        self._touched.clear()
         for device_id, axes in self._axes.items():
             for code in sorted(axes):
                 try:
@@ -248,4 +277,5 @@ class OutputManager:
         self._devices.clear()
         self._held.clear()
         self._axes.clear()
+        self._touched.clear()
         return errors

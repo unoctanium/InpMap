@@ -22,6 +22,9 @@ Notes:
   BTN_NORTH/BTN_WEST),
   so for those devices the two codes are swapped on the way in and back on
   the way to their own pass-through device. SDL makes the same distinction.
+* A touchpad routed to an emulated controller (configuration.md §3.5) is
+  decoded into touch events (:mod:`.linux_touch`); its ABS_MT_* events
+  never reach the engine.
 * Our own virtual devices (phys starting with "inpmap", or the MAC prefix of
   an emulated DualSense Edge as uniq) are never opened as inputs, which
   prevents feedback loops.
@@ -46,9 +49,10 @@ from ..axis_triggers import AxisEvent, AxisRow, normalize
 from ..config import MAX_DEVICE_NAME_BYTES
 from ..input import InputDeviceLost, InputError
 from ..macros import Led
-from ..models import AxisThreshold, InputDeviceSpec, InputEvent, KeyAction
+from ..models import AxisThreshold, InputDeviceSpec, InputEvent, KeyAction, TouchEvent
 from ..routing import DeviceCapabilities, RoutePlan
 from .linux_setup import is_own_node, symlinks_by_target
+from .linux_touch import ABS_MT_SLOT, TouchDecoder
 
 log = logging.getLogger(__name__)
 
@@ -400,6 +404,7 @@ class LinuxInputSource:
         self._absinfo = dict(capabilities.get(ecodes.EV_ABS, []))
         self._axis_ranges = {code: (info.min, info.max) for code, info in self._absinfo.items()}
         self._relative = frozenset(capabilities.get(ecodes.EV_REL, []))
+        self._touch: TouchDecoder | None = None  # set when the fingers are routed
 
     def _code(self, code: int) -> int:
         """Translate a key code between the device and InpMap (both ways)."""
@@ -426,7 +431,11 @@ class LinuxInputSource:
         return DeviceCapabilities(self._key_codes, dict(self._axis_ranges), self._relative)
 
     def start_passthrough(self, plan: RoutePlan) -> None:
-        """Create the pass-through device the route plan needs, if any."""
+        """Create the pass-through device the route plan needs, if any, and
+        decode the fingers if the plan routes them."""
+        if plan.touch is not None:
+            slot = self._absinfo[ABS_MT_SLOT].value if ABS_MT_SLOT in self._absinfo else 0
+            self._touch = TouchDecoder(self._spec.id, self._axis_ranges, slot)
         if not plan.needs_passthrough:
             return
         info = self._device.info
@@ -544,14 +553,15 @@ class LinuxInputSource:
     def axis_ranges(self) -> dict[int, tuple[int, int]]:
         return dict(self._axis_ranges)
 
-    def read(self) -> list[tuple[InputEvent | AxisEvent | None, object]]:
+    def read(self) -> list[tuple[InputEvent | AxisEvent | TouchEvent | None, object]]:
         try:
             raw_events = list(self._device.read())
         except BlockingIOError:
             return []
         except OSError as exc:
             raise _io_error(exc, self.description, "reading") from exc
-        result: list[tuple[InputEvent | AxisEvent | None, object]] = []
+        result: list[tuple[InputEvent | AxisEvent | TouchEvent | None, object]] = []
+        touch = self._touch
         for raw in raw_events:
             if raw.type == ecodes.EV_SYN and raw.code == ecodes.SYN_DROPPED:
                 # Kernel buffer overflow: events were lost. Per the evdev
@@ -563,6 +573,13 @@ class LinuxInputSource:
                 if raw.type == ecodes.EV_SYN and raw.code == ecodes.SYN_REPORT:
                     self._dropping = False
                     result += self._resync()
+            elif touch is not None and raw.type == ecodes.EV_ABS and touch.handles(raw.code):
+                touch.axis(raw.code, raw.value)
+                result.append((None, raw))
+            elif touch is not None and raw.type == ecodes.EV_SYN and raw.code == ecodes.SYN_REPORT:
+                if (frame := touch.frame()) is not None:
+                    result.append((frame, None))
+                result.append((None, raw))
             elif raw.type == ecodes.EV_KEY and raw.value in _KEY_ACTIONS:
                 code = self._code(raw.code)
                 self._track(code, raw.value)
@@ -581,17 +598,18 @@ class LinuxInputSource:
         elif value == 0:
             self._down.discard(code)
 
-    def _resync(self) -> list[tuple[InputEvent | None, object]]:
+    def _resync(self) -> list[tuple[InputEvent | TouchEvent | None, object]]:
         """Synthesize key events for state changes hidden by dropped events.
 
         Only key state is resynchronized; absolute axes of forwarded devices
-        are not (they are refreshed by the next movement).
+        are not (they are refreshed by the next movement). Routed fingers
+        are lifted (see TouchDecoder.reset).
         """
         try:
             current = set(map(self._code, self._device.active_keys()))
         except OSError as exc:
             raise _io_error(exc, self.description, "resynchronizing") from exc
-        result: list[tuple[InputEvent | None, object]] = []
+        result: list[tuple[InputEvent | TouchEvent | None, object]] = []
         for code in sorted(self._down - current):
             result.append(self._synthetic_key(code, 0))
         for code in sorted(current - self._down):
@@ -599,6 +617,8 @@ class LinuxInputSource:
         if result:
             result.append((None, _SyntheticEvent(ecodes.EV_SYN, ecodes.SYN_REPORT, 0)))
             log.info("resynchronized %d key(s) on %s", len(result) - 1, self.description)
+        if self._touch is not None and (lifted := self._touch.reset()) is not None:
+            result.append((lifted, None))
         return result
 
     def _synthetic_key(self, code: int, value: int) -> tuple[InputEvent, object]:

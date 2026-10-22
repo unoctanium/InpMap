@@ -4,6 +4,7 @@ from fakes import FakeOutputBackend
 from inpmap import codes
 from inpmap.codes import code_from_name
 from inpmap.config import parse_config
+from inpmap.models import TouchPoint
 from inpmap.output import OutputError, OutputManager
 
 KEY_Y = code_from_name("KEY_Y")
@@ -188,3 +189,48 @@ def test_axis_reset_failure_does_not_stop_key_release(backend):
         outputs.close()
     assert backend.created["vkbd"].events[-1] == (KEY_Y, False)
     assert all(d.closed for d in backend.created.values())
+
+
+EMULATED = parse_config(
+    {
+        "version": 1,
+        "inputs": {"kbd": {"name": "Kbd"}},
+        "outputs": {"pad": {"type": "gamepad", "emulate": "dualsense-edge"}},
+        "mappings": [
+            {
+                "id": "a",
+                "input": {"device": "kbd", "type": "key", "code": "KEY_A"},
+                "outputs": [{"device": "pad", "type": "button", "code": "BTN_FACE_RIGHT"}],
+            }
+        ],
+    }
+)
+
+
+def test_emulated_controller_gets_the_touchpad_click(backend):
+    with OutputManager(backend, EMULATED):
+        keys = backend.created["pad"].key_codes
+    assert keys == codes.DUALSENSE_EDGE_BUTTONS | {codes.TOUCHPAD_CLICK}
+
+
+def test_close_lifts_fingers_left_on_a_touchpad(backend):
+    manager = OutputManager(backend, EMULATED)
+    manager.open()
+    point = TouchPoint(0, 0.5, 0.5)
+    manager.set_touch("pad", (point, None))
+    manager.close()
+    assert backend.created["pad"].touch_events == [(point, None), ()]
+
+
+def test_lifted_fingers_are_not_lifted_again(backend):
+    manager = OutputManager(backend, EMULATED)
+    manager.open()
+    manager.set_touch("pad", (TouchPoint(0, 0.5, 0.5), None))
+    manager.set_touch("pad", (None, None))
+    manager.close()
+    assert len(backend.created["pad"].touch_events) == 2
+
+
+def test_touch_on_unknown_device_raises(backend):
+    with OutputManager(backend, EMULATED) as manager, pytest.raises(OutputError):
+        manager.set_touch("nope", ())

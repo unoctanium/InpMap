@@ -305,7 +305,8 @@ Rules:
    left alone, the reason is logged and the other devices keep running.
    Keys and buttons that a mapping uses need no output (if such a mapping
    does not fire, e.g. because of held modifiers, the press is dropped).
-   Touchpads, touchscreens and tablets always need `to = own`.
+   Touchpads, touchscreens and tablets need `to = own`; a touchpad may
+   instead drive an emulated DualSense Edge (§3.5).
 3. Mouse buttons and movement, buttons that are neither keys nor gamepad
    or joystick buttons (such as `BTN_0`), and axes that are neither gamepad
    nor joystick axes (such as a volume wheel) go to a pass-through device
@@ -403,8 +404,9 @@ What is different from a normal gamepad output:
   `PADPADDLE4`. What else WoW needs: [wow-dualsense.md](wow-dualsense.md).
   The paddles and Fn buttons are always present, because a
   DualSense Edge always has them (unlike §3.3, where a gamepad gets
-  paddles only when a mapping uses them). The touchpad, the microphone
-  button and the motion sensors are not driven.
+  paddles only when a mapping uses them). The touchpad is driven by a
+  touchpad input (below); the microphone button and the motion sensors are
+  not driven.
 
 Rules:
 
@@ -432,6 +434,43 @@ Rules:
    controller from the game and offers its own virtual controller, which
    has no paddles again. Proton needs no setting: it passes PlayStation
    controllers to the game directly.
+
+**The touchpad.** A physical touchpad — for example the one on a Razer
+Raiju V3 Pro, which Linux shows as a device of its own — can drive the
+touchpad of the emulated controller. Declare it as an input:
+
+```inpmap
+input touch {
+    path = "/dev/input/by-id/usb-Razer_Razer_Raiju_V3_Pro_Wireless_-if05-event-mouse"
+}
+```
+
+It goes to the gamepad output like a pad's buttons (§3.4 rule 1): no `to`
+is needed when the file has one gamepad output, otherwise name it
+(`to = gamepad2`). That output must have `emulate`; otherwise InpMap does
+not grab the touchpad and says so. `to = own` keeps the touchpad as a
+device of its own, as before (§3.4 rule 2).
+
+- The touchpad is grabbed like every input: the desktop no longer uses it
+  as a mouse while InpMap runs.
+- The whole surface is passed on, stretched to the emulated touchpad
+  (1920 × 1080). A touchpad of a different shape is stretched more in
+  one direction (the Raiju's, about 2 : 1, moves about 15 % more
+  vertically than horizontally). Up to two fingers are passed: the first
+  two that touch; a third finger is ignored until one of them lifts. The
+  physical click (`BTN_LEFT`) becomes the touchpad click.
+- The touchpad must report its fingers in multi-touch slots, as current
+  touchpads do; InpMap refuses one that does not.
+- What the touches mean is decided by whoever reads the controller: with
+  Steam Input, Steam's trackpad settings ("Center Trackpad" for the whole
+  surface, or "Left/Right Trackpad" for its halves; mouse, radial menu,
+  touch menu, …); without Steam Input, the game.
+- A mapping may use the click (`map touch.BTN_LEFT { … }`); it is then
+  not passed on (§3.4 rule 6). Finger positions cannot be mapped.
+- When the touchpad disappears or InpMap stops, every finger is lifted and
+  the click released (§7.4).
+- On the desktop, Linux shows the emulated touchpad as a touchpad of its
+  own ("… Touchpad"), so the desktop may use it as a mouse.
 
 Sony, DualSense and PlayStation are trademarks of Sony Interactive
 Entertainment. InpMap is not affiliated with Sony; the emulation exists

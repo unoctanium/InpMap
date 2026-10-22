@@ -10,6 +10,7 @@ from inpmap.codes import code_from_name as c
 from inpmap.dsl.compiler import compile_text
 from inpmap.input import InputError
 from inpmap.macros import Led
+from inpmap.models import TouchContact, TouchEvent, TouchPoint
 from inpmap.routing import InputRefused
 from inpmap.runtime import Runtime
 
@@ -183,3 +184,59 @@ def test_mouse_parts_go_to_the_pass_through_device():
     s.run()
     assert s.kbd.forwarded == [("rel", REL_X, 5), key_raw(BTN_LEFT, 1), key_raw(BTN_LEFT, 0)]
     assert (KEY_A, True) in s.events("keyboard")
+
+
+# -- a touchpad driving the emulated controller's touchpad (§3.5) ---------------
+
+TOUCH_TEXT = """version 1
+input kbd { name = "Kbd" }
+input pad { name = "Touchpad" }
+output keyboard { type = keyboard }
+output gamepad { type = gamepad; emulate = "dualsense-edge" }
+map kbd.KEY_X { hold KEY_Y }
+"""
+TOUCH_KEYS = frozenset({BTN_LEFT, c("BTN_TOUCH"), c("BTN_TOOL_FINGER")})
+# ABS_MT_SLOT, ABS_MT_POSITION_X/Y, ABS_MT_TRACKING_ID
+TOUCH_AXES = {0x2F: (0, 2), 0x35: (0, 2628), 0x36: (0, 1332), 0x39: (0, 65535)}
+
+
+def touch_setup():
+    s = Setup(TOUCH_TEXT, pad_keys=TOUCH_KEYS)
+    s.pad.axes = dict(TOUCH_AXES)
+    return s
+
+
+def frame(*contacts):
+    return ("touch", TouchEvent("pad", tuple(TouchContact(*contact) for contact in contacts)))
+
+
+def test_touchpad_fingers_and_click_reach_the_emulated_controller():
+    s = touch_setup()
+    s.step(lambda: s.pad.queue.extend([key_raw(BTN_LEFT, 1), frame((0, 0.25, 0.5)), SYN]))
+    s.step(lambda: s.pad.queue.extend([key_raw(BTN_LEFT, 0), frame(), SYN]))
+    s.run()
+    gamepad = s.outputs.created["gamepad"]
+    assert gamepad.events == [(BTN_LEFT, True), (BTN_LEFT, False)]
+    assert gamepad.touch_events == [(TouchPoint(0, 0.25, 0.5), None), (None, None)]
+    assert s.pad.forwarded == []
+
+
+def test_touchpad_loss_lifts_its_fingers():
+    s = touch_setup()
+    s.step(lambda: s.pad.queue.extend([frame((0, 0.25, 0.5)), SYN]))
+
+    def unplug():
+        s.pad.lost = True
+        s.inputs.open_error["pad"] = InputError("gone")
+
+    s.step(unplug)
+    s.run()
+    assert s.outputs.created["gamepad"].touch_events == [(TouchPoint(0, 0.25, 0.5), None), ()]
+
+
+def test_touchpad_without_an_emulated_controller_is_refused():
+    s = Setup(TOUCH_TEXT.replace('; emulate = "dualsense-edge"', ""), pad_keys=TOUCH_KEYS)
+    s.pad.axes = dict(TOUCH_AXES)
+    with pytest.raises(InputRefused, match="touchpad"):
+        s.run()
+    assert "grab pad" not in s.journal

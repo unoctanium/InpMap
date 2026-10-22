@@ -4,6 +4,14 @@ All notable changes to InpMap. Versions follow [semantic versioning](https://sem
 before 1.0, minor versions may change the configuration language (the
 `version` line in configuration files guards against incompatible changes).
 
+## Unreleased
+
+- **New:** a physical touchpad (e.g. the Razer Raiju V3 Pro's) can drive
+  the touchpad of an emulated DualSense Edge: declare it as an input, and
+  its fingers (up to two) and click reach the controller, where Steam
+  Input's trackpad settings (whole pad or left/right halves; mouse, radial
+  menu, touch menu …) or the game use them (configuration.md §3.5).
+
 ## 0.4.3 (2026-10-20)
 
 - The source distribution contains docs/wow-dualsense.md again; without it

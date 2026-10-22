@@ -12,7 +12,8 @@ from inpmap.models import InputDeviceSpec, InputEvent, KeyAction, OutputDeviceSp
 from inpmap.output import OutputError
 from inpmap.routing import DeviceCapabilities, RoutePlan
 
-# Raw fake events: ("key", code, value), ("abs", code, value), ("syn",), ("msc", code, value).
+# Raw fake events: ("key", code, value), ("abs", code, value), ("syn",), ("msc", code, value),
+# ("touch", TouchEvent): a finished frame of a touchpad whose fingers are routed.
 SYN = ("syn",)
 
 
@@ -112,6 +113,9 @@ class FakeInputSource:
             if raw[0] == "key":
                 event = InputEvent(self.spec.id, raw[1], KeyAction(raw[2]))
                 result.append((event, raw))
+            elif raw[0] == "touch":
+                if self.plan is not None and self.plan.touch is not None:
+                    result.append((raw[1], None))
             elif raw[0] == "abs" and raw[1] in self.axes:
                 value = normalize(raw[2], *self.axes[raw[1]])
                 result.append((AxisEvent(self.spec.id, raw[1], value), raw))
@@ -201,6 +205,7 @@ class FakeOutputDevice:
     key_codes: frozenset[int]
     events: list[tuple[int, bool]] = field(default_factory=list)
     axis_events: list[tuple[int, float]] = field(default_factory=list)
+    touch_events: list[tuple] = field(default_factory=list)
     closed: bool = False
     fail_writes: bool = False
     fail_close: bool = False
@@ -220,6 +225,13 @@ class FakeOutputDevice:
         if self.fail_writes:
             raise OutputError("simulated write failure")
         self.axis_events.append((code, value))
+
+    def set_touch(self, points) -> None:
+        if self.closed:
+            raise AssertionError("write to closed device")
+        if self.fail_writes:
+            raise OutputError("simulated write failure")
+        self.touch_events.append(tuple(points))
 
     def close(self) -> None:
         self.closed = True

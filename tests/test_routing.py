@@ -8,7 +8,7 @@ from inpmap.codes import code_from_name
 from inpmap.dsl.compiler import compile_text
 from inpmap.engine import MappingEngine
 from inpmap.macros import AxisKind
-from inpmap.models import InputEvent, KeyAction
+from inpmap.models import InputEvent, KeyAction, TouchContact, TouchEvent, TouchPoint
 from inpmap.routing import AxisRoute, DeviceCapabilities, InputRefused, Router, plan_route
 
 
@@ -394,4 +394,128 @@ def test_unmapped_press_of_a_key_without_target_is_dropped():
         "output gamepad { type = gamepad }\nmap KEY_W modifiers(ctrl) { hold BTN_DPAD_UP }", caps
     )
     assert router.key(InputEvent("dev", c("KEY_W"), PRESS))  # handled: dropped
+    assert sink.events == []
+
+
+# -- a touchpad on an emulated DualSense Edge (§3.5) ---------------------------
+
+ABS_MT_POSITION_X, ABS_MT_POSITION_Y, ABS_MT_TRACKING_ID = 0x35, 0x36, 0x39
+RAIJU_TOUCHPAD = DeviceCapabilities(
+    keys=keys("BTN_LEFT", "BTN_TOOL_FINGER", "BTN_TOUCH", "BTN_TOOL_DOUBLETAP"),
+    axes={
+        ABS["ABS_X"]: (0, 2628),
+        ABS["ABS_Y"]: (0, 1332),
+        ABS_MT_SLOT: (0, 2),
+        ABS_MT_POSITION_X: (0, 2628),
+        ABS_MT_POSITION_Y: (0, 1332),
+        ABS_MT_TRACKING_ID: (0, 65535),
+    },
+)
+EMULATED = """
+output keyboard { type = keyboard }
+output gamepad { type = gamepad; emulate = "dualsense-edge" }
+map KEY_A { hold BTN_FACE_DOWN }
+"""
+
+
+def test_touchpad_drives_the_touchpad_of_the_emulated_controller():
+    p = plan(RAIJU_TOUCHPAD, EMULATED)
+    assert (p.touch, p.touch_points) == ("gamepad", 2)
+    assert p.keys == {c("BTN_LEFT"): "gamepad"}  # the click
+    assert not p.axes and not p.needs_passthrough  # ABS_X/ABS_Y are not a stick
+
+
+def test_touchpad_buttons_below_the_surface_pass_through():
+    caps = DeviceCapabilities(
+        keys=RAIJU_TOUCHPAD.keys | keys("BTN_RIGHT"), axes=RAIJU_TOUCHPAD.axes
+    )
+    p = plan(caps, EMULATED)
+    assert p.passthrough_keys == keys("BTN_RIGHT")
+
+
+def test_touchpad_needs_an_emulated_gamepad():
+    message = refusal(RAIJU_TOUCHPAD, BOTH_OUTPUTS + "map KEY_A { hold BTN_FACE_DOWN }")
+    assert 'emulate = "dualsense-edge"' in message and "`to = own`" in message
+
+
+def test_touchpad_without_multitouch_slots_is_refused():
+    message = refusal(TOUCHPAD, EMULATED)
+    assert "multi-touch slots" in message
+
+
+def test_touchpad_with_to_own_keeps_its_own_device():
+    config = compile_text(
+        'version 1\ninput dev { name = "D"; to = own }\n' + EMULATED + "map BTN_LEFT { tap KEY_A }",
+        "t.inpmap",
+    ).config
+    p = plan_route(config.inputs["dev"], config, RAIJU_TOUCHPAD)
+    assert p.own and p.touch is None
+
+
+class TouchSink(Sink):
+    def set_touch(self, device, points):
+        self.events.append((device, "touch", points))
+
+
+def touch_router():
+    config = compile_text('version 1\ninput dev { name = "D" }\n' + EMULATED, "t.inpmap").config
+    sink = TouchSink()
+    engine = MappingEngine(config, sink, clock=lambda: 0.0)
+    router = Router(engine)
+    router.attach("dev", plan_route(config.inputs["dev"], config, RAIJU_TOUCHPAD))
+    return engine, router, sink
+
+
+def fingers(*contacts):
+    return TouchEvent("dev", tuple(TouchContact(slot, x, y) for slot, x, y in contacts))
+
+
+def test_fingers_take_the_points_in_order_and_a_third_waits():
+    _, router, sink = touch_router()
+    router.touch(fingers((0, 0.1, 0.2)))
+    router.touch(fingers((0, 0.1, 0.2), (1, 0.5, 0.5)))
+    router.touch(fingers((0, 0.1, 0.2), (1, 0.5, 0.5), (2, 0.9, 0.9)))  # no point free
+    router.touch(fingers((1, 0.6, 0.5), (2, 0.9, 0.9)))  # first lifts: third takes point 0
+    router.touch(fingers())
+    assert [points for _, _, points in sink.events] == [
+        (TouchPoint(0, 0.1, 0.2), None),
+        (TouchPoint(0, 0.1, 0.2), TouchPoint(1, 0.5, 0.5)),
+        (TouchPoint(0, 0.1, 0.2), TouchPoint(1, 0.5, 0.5)),
+        (TouchPoint(2, 0.9, 0.9), TouchPoint(1, 0.6, 0.5)),
+        (None, None),
+    ]
+
+
+def test_contact_numbers_wrap_at_seven_bits():
+    _, router, sink = touch_router()
+    for _ in range(129):
+        router.touch(fingers((0, 0.5, 0.5)))
+        router.touch(fingers())
+    assert sink.events[-2][2][0].id == 0  # touch 129 is number 128 % 128
+
+
+def test_click_goes_to_the_emulated_controller():
+    engine, router, sink = touch_router()
+    left = c("BTN_LEFT")
+    feed(engine, router, "dev", left, PRESS)
+    feed(engine, router, "dev", left, RELEASE)
+    assert sink.events == [("gamepad", left, 1), ("gamepad", left, 0)]
+
+
+def test_detach_lifts_the_fingers_and_releases_the_click():
+    engine, router, sink = touch_router()
+    left = c("BTN_LEFT")
+    router.touch(fingers((0, 0.5, 0.5)))
+    feed(engine, router, "dev", left, PRESS)
+    sink.events.clear()
+    router.detach("dev")
+    assert sink.events == [("gamepad", left, 0), ("gamepad", "touch", ())]
+
+
+def test_detach_without_fingers_writes_nothing_for_the_touchpad():
+    _, router, sink = touch_router()
+    router.touch(fingers((0, 0.5, 0.5)))
+    router.touch(fingers())
+    sink.events.clear()
+    router.detach("dev")
     assert sink.events == []

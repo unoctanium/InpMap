@@ -93,6 +93,10 @@ GAMEPAD_OUTPUT_BUTTONS: frozenset[int] = frozenset(
 DUALSENSE_EDGE_BUTTONS: frozenset[int] = GAMEPAD_OUTPUT_BUTTONS | frozenset(
     CODES[name] for name in ("BTN_GRIPL", "BTN_GRIPR", "BTN_GRIPL2", "BTN_GRIPR2")
 )
+# The click of a physical touchpad, which becomes the click of the emulated
+# controller's touchpad (§3.5). Not in DUALSENSE_EDGE_BUTTONS: mappings
+# cannot send it.
+TOUCHPAD_CLICK = CODES["BTN_LEFT"]
 
 
 @dataclass(frozen=True)

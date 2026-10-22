@@ -25,13 +25,13 @@ with max_effects=0, which leaves EV_FF disabled.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from evdev import AbsInfo, UInput, ecodes
 from evdev.uinput import UInputError
 
 from ..macros import OUTPUT_AXIS_KINDS, AxisKind, Led
-from ..models import EMULATE_DUALSENSE_EDGE, OutputDeviceSpec, OutputKind
+from ..models import EMULATE_DUALSENSE_EDGE, OutputDeviceSpec, OutputKind, TouchPoint
 from ..output import OutputDevice, OutputError, output_capabilities
 from .linux_uhid import open_uhid
 
@@ -116,6 +116,9 @@ class LinuxOutputDevice:
             self._uinput.syn()
         except OSError as exc:
             raise OutputError(f"writing to '{self.spec.name}' failed: {exc}") from exc
+
+    def set_touch(self, points: Sequence[TouchPoint | None]) -> None:
+        raise OutputError(f"'{self.spec.name}' has no touchpad")
 
     def fileno(self) -> int | None:
         return self._uinput.fd if self.spec.kind is OutputKind.KEYBOARD else None

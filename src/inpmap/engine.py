@@ -33,7 +33,7 @@ import logging
 import random
 import time
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -41,7 +41,15 @@ from . import codes
 from .axes import AxisStacks
 from .macro_runtime import MacroRun
 from .macros import HoldAxis, KeyRef, LayerAction, Led, Macro, OnRetrigger
-from .models import Config, InputEvent, KeyAction, MappingRule, OutputAction, OutputMode
+from .models import (
+    Config,
+    InputEvent,
+    KeyAction,
+    MappingRule,
+    OutputAction,
+    OutputMode,
+    TouchPoint,
+)
 from .modifiers import ModifierState, choose
 from .output import OutputError
 from .state import OutputKey, OutputRefCounts
@@ -65,6 +73,8 @@ class OutputSink(Protocol):
     def release(self, device_id: str, code: int) -> None: ...
 
     def set_axis(self, device_id: str, code: int, value: float) -> None: ...
+
+    def set_touch(self, device_id: str, points: Sequence[TouchPoint | None]) -> None: ...
 
 
 class InputControl(Protocol):
@@ -324,6 +334,10 @@ class MappingEngine:
 
     def release_key(self, key: KeyRef) -> None:
         self._release_keys([(key.device, key.code)], "release")
+
+    def set_touch(self, device_id: str, points: Sequence[TouchPoint | None]) -> None:
+        """Fingers on an output's touchpad; only routed touchpads set them (§3.5)."""
+        self._sink.set_touch(device_id, points)
 
     def led_on(self, input_device: str, led: Led) -> bool:
         return led in self._leds(input_device)

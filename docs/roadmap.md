@@ -134,7 +134,12 @@ Not scheduled; candidates for future versions:
   not grabbed) while InpMap runs: some devices (e.g. Razer Raiju V3 Pro)
   stall completely when one of their interfaces, such as a touchpad
   switched off in the desktop, is read by no program;
-- a system-wide service (without a logged-in user).
+- a system-wide service (without a logged-in user);
+- a touchpad option `touchpad = fit` for the emulated DualSense Edge:
+  keep the physical touchpad's proportions instead of stretching it
+  (configuration.md §3.5), so movement has the same speed in every
+  direction, at the cost of never reaching the emulated pad's top and
+  bottom edges.
 
 Not planned: grabbing all keyboards automatically, and typing text by
 character through the keyboard layout (InpMap works with key codes).

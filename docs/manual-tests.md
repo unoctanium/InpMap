@@ -96,6 +96,16 @@ buttons mapped to `BTN_GRIPL`, `BTN_GRIPR`, `BTN_GRIPL2`, `BTN_GRIPR2`),
    [wow-dualsense.md](wow-dualsense.md) is in place (otherwise `PADSOCIAL`).
 4. Stop InpMap. **Expected:** the four devices disappear, nothing stays
    pressed in the game.
+5. Touchpad: add the pad's touchpad as an input (`inpmap input-config
+   PROFILE`, kind "touchpad"), run again. **Expected:** the desktop
+   pointer no longer follows the physical touchpad directly; `evtest` on
+   "InpMap gamepad Touchpad" shows `ABS_MT_POSITION_X/Y` (0–1919, 0–1079)
+   following the finger over the whole surface (corners reach the
+   extremes), a second finger in slot 1, a third ignored, `BTN_LEFT` on
+   the click; lifting ends every contact. In Steam (Steam Input on), the
+   controller test shows the touchpad; "Left/Right Trackpad" react to
+   the halves, a radial menu on one half opens and selects. Stop InpMap
+   while touching: the contact ends.
 
 ## 3. Emergency stop
 

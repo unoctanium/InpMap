@@ -349,7 +349,7 @@ Behaviour while running:
   keeps a device of its own with the original's name, vendor and product
   ID.
 - **A device that does not fit** (keys but no keyboard output, a
-  flight stick, a touchpad) is never grabbed: InpMap stops with a message
+  flight stick, a touchpad without an emulated controller) is never grabbed: InpMap stops with a message
   naming the fix, or, for a device that appears later, leaves it alone and
   logs why.
 - **Force feedback** (rumble) is not supported.
@@ -471,8 +471,9 @@ where to put it.
   [configuration.md §3.5](configuration.md#35-emulating-a-dualsense-edge-emulate)):
   a HID device with Sony's IDs `054C:0DF2`, created through `/dev/uhid`.
   Linux adds four devices for it — the gamepad plus "… Motion Sensors",
-  "… Touchpad" and "… Headset Jack", which stay idle. `inpmap devices`
-  marks them as InpMap's own; InpMap never reads them.
+  "… Touchpad" and "… Headset Jack". The touchpad moves when a physical
+  touchpad is configured as an input; the others stay idle. `inpmap
+  devices` marks them as InpMap's own; InpMap never reads them.
 
 ## 5. Troubleshooting
 

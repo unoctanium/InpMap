@@ -5,7 +5,7 @@ the project stands, what was decided and why, and what comes next. A new
 session continues from this file plus the repository. Goals and milestones:
 [roadmap.md](roadmap.md).
 
-Last updated: 2026-10-20
+Last updated: 2026-10-22
 
 ## Current position
 
@@ -202,15 +202,44 @@ fits exactly one rule: KDE's page updates "Paddle Button 2" only on M4's
 display bug of KDE's controller page (or its SDL), not InpMap. Noted in
 usage.md §5; nothing to fix in InpMap.
 
+### Touchpad on the emulated Edge (2026-10-22, unreleased)
+
+Goal: the Raiju's touchpad (own device, if05, 3 MT slots, 2629 × 1333,
+one click `BTN_LEFT`, clickpad) drives the emulated DualSense touchpad
+(2 touch points, 1920 × 1080, one click), so that Steam Input's trackpad
+settings work (Center Trackpad = whole pad, Left/Right Trackpad = halves;
+mouse, radial menu, touch menu …). Research: Steam knows at most 2
+trackpads per controller (PS pad split into halves; Steam Controller/Deck
+have 2); no 3-pad option; InputPlumber's Steam Deck target does not split
+either. Maintainer's decisions: simple version (whole pad through, Steam
+splits); no `to` needed with one gamepad output; stretch, not crop/fit
+(`touchpad = fit` noted in the roadmap backlog for later); other inputs
+cannot send the touchpad click (not now).
+Spec: configuration.md §3.5 "The touchpad", §3.4 rule 2 (approved).
+Implemented: `routing._plan_touch` (gamepad target must emulate, MT slots
+required, BTN_LEFT → click, ABS_X/Y and touch buttons dropped),
+`Router.touch` (first two fingers take points 0/1, a third waits, 7-bit
+contact numbers, detach lifts), `backends/linux_touch.TouchDecoder`
+(protocol B → `TouchEvent` per frame; SYN_DROPPED lifts all), evdev source
+decodes only when routed, `OutputManager.set_touch` (lifted on
+release_all), uhid report bytes 33–40 and click bit (byte 10, 0x02),
+`codes.TOUCHPAD_CLICK` kept out of the validator's set. Docs: §3.5,
+usage.md §4/limits, manual-tests.md §2b step 5, CHANGELOG (Unreleased),
+roadmap backlog. ⏳ Hardware test by the maintainer (manual-tests §2b
+step 5) with the dev tree (`.venv/bin/inpmap run` on a copy of the gaming
+profile plus the touchpad input; the installed 0.4.3 does not have it).
+
 ## Next steps
 
-1. Step d2 (demo recording by the maintainer), then d3, d4 — or whatever
+1. Hardware test of the touchpad (above), then release 0.5.0 on the
+   maintainer's "go".
+2. Step d2 (demo recording by the maintainer), then d3, d4 — or whatever
    the maintainer chooses.
-2. AUR upload when registration reopens.
-3. Optional, not scheduled: capitalised default device names ("InpMap
+3. AUR upload when registration reopens.
+4. Optional, not scheduled: capitalised default device names ("InpMap
    Gamepad") — offered, maintainer has not decided; routed axis events
    framed per SYN_REPORT (skipped, no problem observed).
-4. Backlog items added 2026-10-14/15 (roadmap): udev device notifications
+5. Backlog items added 2026-10-14/15 (roadmap): udev device notifications
    instead of 1 s polling; guided device permissions; keeping the other
    interfaces of configured devices open (Raiju stalls when one is unread).
 
@@ -275,9 +304,10 @@ the hardware tests now use product IDs 0x7E01/0x7E02 (`tests/hardware.py`).
 
 ## Verification
 
-- Unit tests: 684 passed (`.venv/bin/python -m pytest`); ruff clean.
+- Unit tests: 727 passed on 2026-10-22 (`.venv/bin/python -m pytest`);
+  ruff clean.
 - Hardware tests (synthetic uinput devices, `-m hardware`): 19, all passed
-  on 2026-10-20 (incl. routing: keyboard + pad into the outputs, mouse
+  on 2026-10-22 (incl. routing: keyboard + pad into the outputs, mouse
   part on a pass-through device, LEDs to the physical keyboard, refused
   device never grabbed). They do not cover the emulated controller (needs
   /dev/uhid); that was tested by hand in WoW (above).
@@ -335,3 +365,10 @@ the hardware tests now use product IDs 0x7E01/0x7E02 (`tests/hardware.py`).
 - **2026-10-19** — Session start: state consistent, 627 unit tests passed,
   ruff clean. AUR registration page no longer 503 (bot check). Step d3
   "call for testers" text drafted for the maintainer's review.
+- **2026-10-20** — 0.4.0–0.4.3 (emulated DualSense Edge, face buttons by
+  position, X/Y fix, Steam paddle layout, WoW guide); KDE paddle display
+  bug analysed.
+- **2026-10-22** — Removed a stray generated udev rules file from the
+  repository root (identical to the installed one). Researched Steam
+  Input's trackpads; touchpad of the emulated Edge specified, implemented
+  and unit-tested; hardware test pending.
