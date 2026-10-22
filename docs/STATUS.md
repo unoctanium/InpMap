@@ -12,8 +12,10 @@ Last updated: 2026-10-22
 - V1, V1.1, the configuration language, the systemd user service and
   **routing by kind** (0.3.0) are done and verified on real hardware.
 - **InpMap 0.5.0** (2026-10-22): touchpad of the emulated DualSense Edge;
-  README with the emulator chapter. Release in progress (see "Release
-  0.5.0" below). Before: 0.4.3 (2026-10-20; 0.4.0–0.4.2 the same day,
+  README with the emulator chapter. Released 2026-10-22 (PyPI; CI and
+  release workflow green); `packaging/aur` is 0.5.0 (pkgrel 1),
+  test-built with `makepkg -f` (check() passed); installing it is the
+  maintainer's step. Before: 0.4.3 (2026-10-20; 0.4.0–0.4.2 the same day,
   0.3.0 on 2026-10-15): emulated DualSense Edge (`emulate`), face buttons
   `BTN_FACE_*`. The maintainer's
   login service runs a personal profile (`inpmap@gaming`: small keyboard
@@ -248,12 +250,20 @@ several outputs, DualSense emulator; a marketing chapter on the emulator
 and the Raiju setup as motivation), docs, STATUS, commit, push, PyPI
 release, working alone. Done: README, configuration.md §3.5 (Steam Input
 on/off, KDE touchpads, Steam mouse tuning), usage.md §5, wow-dualsense.md
-intro, CHANGELOG, version 0.5.0.
+intro, CHANGELOG, version 0.5.0. Commit 6190e50 pushed with tag
+v0.5.0; CI and "Release v0.5.0" workflows succeeded; PyPI lists 0.5.0
+(sdist sha256 15e65170…). The sdist's own tests passed before the push
+(723 passed, 3 skipped). AUR files updated and test-built.
+⏳ Maintainer: install the package (`makepkg -si` in packaging/aur),
+add the `touch` input to `~/.config/inpmap/gaming.inpmap` (as in
+`gaming-touch`), `systemctl --user restart inpmap@gaming`; afterwards
+`gaming-touch.inpmap` can go. Switch the Raiju's touchpad on again in KDE
+whenever InpMap does not run (stall quirk).
 
 ## Next steps
 
-1. Finish release 0.5.0 (above), AUR files 0.5.0; maintainer: install
-   the package, add the touchpad input to `gaming`, restart the service.
+1. Maintainer: install the 0.5.0 package, add the touchpad input to
+   `gaming`, restart the service (see "Release 0.5.0").
 2. Step d2 (demo recording by the maintainer), then d3, d4 — or whatever
    the maintainer chooses.
 3. AUR upload when registration reopens.
